@@ -121,7 +121,8 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         listener.onEndShutterSound()
     }
 
-    // カメラとマイクの権限が付与されているか確認する。
+    // カメラの権限が付与されているか確認する。
+    // 音声権限はオプションとして扱う。
     @JavascriptInterface
     fun hasMediaPermissions(): Boolean {
         val currentActivity = activity ?: return false
@@ -130,12 +131,8 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 currentActivity,
                 android.Manifest.permission.CAMERA
             )
-        val hasAudioPermission = android.content.pm.PackageManager.PERMISSION_GRANTED ==
-            androidx.core.content.ContextCompat.checkSelfPermission(
-                currentActivity,
-                android.Manifest.permission.RECORD_AUDIO
-            )
-        return hasCameraPermission && hasAudioPermission
+        // カメラ権限のみを必須とする（音声権限はオプション）
+        return hasCameraPermission
     }
 
     // 現在の言語をセットする。

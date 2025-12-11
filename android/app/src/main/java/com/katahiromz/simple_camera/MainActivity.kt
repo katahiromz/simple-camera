@@ -356,9 +356,35 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
                 }
             },
             onDenied = {
-                // 権限が拒否された場合、WebView の PermissionRequest を deny
+                // 一部の権限が拒否された場合でも、許可された権限のリソースは付与する
                 runOnUiThread {
-                    request.deny()
+                    val grantedResources = mutableListOf<String>()
+                    
+                    for (resource in request.resources) {
+                        val permission = when (resource) {
+                            PermissionRequest.RESOURCE_VIDEO_CAPTURE -> Manifest.permission.CAMERA
+                            PermissionRequest.RESOURCE_AUDIO_CAPTURE -> Manifest.permission.RECORD_AUDIO
+                            else -> null
+                        }
+                        
+                        if (permission != null) {
+                            val isGranted = ContextCompat.checkSelfPermission(
+                                this,
+                                permission
+                            ) == PackageManager.PERMISSION_GRANTED
+                            
+                            if (isGranted) {
+                                grantedResources.add(resource)
+                            }
+                        }
+                    }
+                    
+                    // カメラ権限が付与されていれば、少なくともカメラアクセスは許可
+                    if (grantedResources.isNotEmpty()) {
+                        request.grant(grantedResources.toTypedArray())
+                    } else {
+                        request.deny()
+                    }
                 }
             }
         )
