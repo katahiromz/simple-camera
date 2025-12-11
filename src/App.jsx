@@ -115,16 +115,13 @@ function App() {
 
   // ズーム適用関数
   const applyZoom = useCallback((newZoom) => {
-    // stream のチェックは不要だが、残しておく
-    if (!stream) return newZoom;
-
-    // 最新のcapabilities(ここではステートではなくローカルで定義した最大値)を使ってクランプ処理を行う
+    // newZoom が数値でない場合は安全側に倒す
+    const n = Number(newZoom);
+    if (Number.isNaN(n)) return capabilities.min;
     const { min, max } = capabilities;
-    let clampedZoom = Math.max(min, Math.min(newZoom, max));
-
-    // ステート更新は呼び出し元で行う
-    return clampedZoom; // 実際に適用されたズーム値を返す
-  }, [stream, capabilities]);
+    const clampedZoom = Math.max(min, Math.min(n, max));
+    return clampedZoom;
+  }, [capabilities]);
 
   // ホイール操作 (Ctrl + ホイール)
   const handleWheel = useCallback((e) => {
