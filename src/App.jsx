@@ -116,10 +116,10 @@ function App() {
   // ズーム適用関数
   const applyZoom = useCallback((newZoom) => {
     // newZoom が数値でない場合は安全側に倒す
-    const n = Number(newZoom);
-    if (Number.isNaN(n)) return capabilities.min;
+    const numericZoom = Number(newZoom);
+    if (Number.isNaN(numericZoom)) return capabilities.min;
     const { min, max } = capabilities;
-    const clampedZoom = Math.max(min, Math.min(n, max));
+    const clampedZoom = Math.max(min, Math.min(numericZoom, max));
     return clampedZoom;
   }, [capabilities]);
 
