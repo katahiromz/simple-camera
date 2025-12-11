@@ -314,7 +314,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
      */
     fun handlePermissionRequest(request: PermissionRequest) {
         // request.resources に基づいて必要な Android パーミッション配列を作成
-        val androidPermissions = mutableListOf<String>()
+        val androidPermissions = mutableSetOf<String>()
         var needsCamera = false
         var needsAudio = false
 
