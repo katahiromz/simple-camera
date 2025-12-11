@@ -418,35 +418,22 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
 
         // パーミッション関連。
 
-        if (USE_CAMERA) { // カメラを使うか？
-            // カメラの権限を取得する。
-            triggerCameraFeature({
-                if (USE_AUDIO) { // 音声を使うか？
-                    // 録音の権限を取得する。
-                    triggerAudioFeature({
-                        if (USE_STORAGE) { // ストレージを使うか？
-                            triggerStorageFeature(null, null);
-                        }
-                    }, {
-                        if (USE_STORAGE) { // ストレージを使うか？
-                            triggerStorageFeature(null, null);
-                        }
-                    })
+        // 必要なパーミッションを一度にリクエストする。
+        val startupPerms = mutableListOf<String>()
+        if (USE_CAMERA) startupPerms.add(Manifest.permission.CAMERA)
+        if (USE_AUDIO) startupPerms.add(Manifest.permission.RECORD_AUDIO)
+        if (USE_STORAGE) startupPerms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        if (startupPerms.isNotEmpty()) {
+            checkAndRequestPermissions(
+                R.string.needs_camera,
+                startupPerms.toTypedArray(),
+                onGranted = {
+                    // permissions granted: nothing further required at startup
+                },
+                onDenied = {
+                    // permissions denied: keep current behavior (no-op)
                 }
-            }, {
-                if (USE_AUDIO) { // 音声を使うか？
-                    // 録音の権限を取得する。
-                    triggerAudioFeature({
-                        if (USE_STORAGE) { // ストレージを使うか？
-                            triggerStorageFeature(null, null);
-                        }
-                    }, {
-                        if (USE_STORAGE) { // ストレージを使うか？
-                            triggerStorageFeature(null, null);
-                        }
-                    })
-                }
-            })
+            )
         }
 
         // 音声合成を使うか？
