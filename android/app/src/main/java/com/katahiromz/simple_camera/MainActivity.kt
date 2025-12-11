@@ -369,7 +369,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
                         
                         if (permission != null) {
                             val isGranted = ContextCompat.checkSelfPermission(
-                                this,
+                                this@MainActivity,
                                 permission
                             ) == PackageManager.PERMISSION_GRANTED
                             
@@ -379,7 +379,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
                         }
                     }
                     
-                    // カメラ権限が付与されていれば、少なくともカメラアクセスは許可
+                    // 付与された権限があれば、その分だけ WebView アクセスを許可
                     if (grantedResources.isNotEmpty()) {
                         request.grant(grantedResources.toTypedArray())
                     } else {
