@@ -452,8 +452,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             if (USE_STORAGE) startupPerms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
             if (startupPerms.isNotEmpty()) {
+                Timber.i("checkAndRequestPermissions")
                 checkAndRequestPermissions(
-                    R.string.needs_camera, // 表示メッセージは camera を優先（既存挙動に合わせる）
+                    R.string.needs_permissions, // 表示メッセージ
                     startupPerms.toTypedArray(),
                     onGranted = {
                         // 権限が付与された直後の初期化処理をここに書く
