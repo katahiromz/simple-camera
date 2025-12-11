@@ -184,10 +184,10 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     /////////////////////////////////////////////////////////////////////
     // region パーミッション関連
 
-    // 許可されたときに実行する処理を保持する変数 (null許容)
-    private var actionOnPermissionsGranted: (() -> Unit)? = null
-    // 拒否されたときに実行する処理を保持する変数 (null許容)
-    private var actionOnPermissionsDenied: (() -> Unit)? = null
+    // 許可されたときに実行する処理を保持するリスト
+    private val actionsOnPermissionsGranted = mutableListOf<() -> Unit>()
+    // 拒否されたときに実行する処理を保持するリスト
+    private val actionsOnPermissionsDenied = mutableListOf<() -> Unit>()
 
     // 複数のパーミッションをリクエストするActivity Result Launcher。
     private val requestMultiplePermissionsLauncher =
@@ -198,11 +198,15 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             val allGranted = permissions.entries.all { it.value }
 
             if (allGranted) {
-                // 保持しておいたラムダを実行
-                actionOnPermissionsGranted?.invoke()
+                // 保持しておいた全てのラムダを実行
+                actionsOnPermissionsGranted.forEach { it.invoke() }
+                actionsOnPermissionsGranted.clear()
+                actionsOnPermissionsDenied.clear()
             } else {
                 // 一部または全てのパーミッションが拒否された場合の処理
-                actionOnPermissionsDenied?.invoke()
+                actionsOnPermissionsDenied.forEach { it.invoke() }
+                actionsOnPermissionsGranted.clear()
+                actionsOnPermissionsDenied.clear()
             }
         }
 
@@ -219,10 +223,6 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         onGranted: () -> Unit,
         onDenied: () -> Unit,
     ) {
-        // 許可されたときに実行するラムダを保持
-        actionOnPermissionsGranted = onGranted
-        actionOnPermissionsDenied = onDenied
-
         val permissionsNeeded = requiredPermissions.filter {
             // 'this' は Activity または Fragment
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
@@ -233,6 +233,10 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             onGranted()
             return
         }
+
+        // 許可されたときに実行するラムダをリストに追加
+        actionsOnPermissionsGranted.add(onGranted)
+        actionsOnPermissionsDenied.add(onDenied)
 
         // Rationaleを表示する必要があるか確認
         val shouldShowRationale = permissionsNeeded.any {
