@@ -135,6 +135,124 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         return hasCameraPermission
     }
 
+    // 画像をギャラリーに保存する
+    @JavascriptInterface
+    fun saveImageToGallery(base64Data: String, filename: String): Boolean {
+        val currentActivity = activity ?: return false
+        
+        return try {
+            val imageBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                // Android 10以降: MediaStore APIを使用
+                val contentValues = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, filename)
+                    put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+                    put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, 
+                        android.os.Environment.DIRECTORY_PICTURES + "/SimpleCamera")
+                }
+                
+                val uri = currentActivity.contentResolver.insert(
+                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    contentValues
+                )
+                
+                uri?.let {
+                    currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
+                        outputStream.write(imageBytes)
+                    }
+                    true
+                } ?: false
+            } else {
+                // Android 9以前: 従来の方法
+                val picturesDir = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_PICTURES
+                )
+                val appDir = java.io.File(picturesDir, "SimpleCamera")
+                if (!appDir.exists()) {
+                    appDir.mkdirs()
+                }
+                
+                val file = java.io.File(appDir, filename)
+                java.io.FileOutputStream(file).use { outputStream ->
+                    outputStream.write(imageBytes)
+                }
+                
+                // MediaScannerConnectionを使ってギャラリーに通知
+                android.media.MediaScannerConnection.scanFile(
+                    currentActivity,
+                    arrayOf(file.absolutePath),
+                    arrayOf("image/png"),
+                    null
+                )
+                
+                true
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to save image")
+            false
+        }
+    }
+
+    // 動画をギャラリーに保存する
+    @JavascriptInterface
+    fun saveVideoToGallery(base64Data: String, filename: String): Boolean {
+        val currentActivity = activity ?: return false
+        
+        return try {
+            val videoBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                // Android 10以降: MediaStore APIを使用
+                val contentValues = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, filename)
+                    put(android.provider.MediaStore.Video.Media.MIME_TYPE, "video/webm")
+                    put(android.provider.MediaStore.Video.Media.RELATIVE_PATH, 
+                        android.os.Environment.DIRECTORY_MOVIES + "/SimpleCamera")
+                }
+                
+                val uri = currentActivity.contentResolver.insert(
+                    android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                    contentValues
+                )
+                
+                uri?.let {
+                    currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
+                        outputStream.write(videoBytes)
+                    }
+                    true
+                } ?: false
+            } else {
+                // Android 9以前: 従来の方法
+                val moviesDir = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_MOVIES
+                )
+                val appDir = java.io.File(moviesDir, "SimpleCamera")
+                if (!appDir.exists()) {
+                    appDir.mkdirs()
+                }
+                
+                val file = java.io.File(appDir, filename)
+                java.io.FileOutputStream(file).use { outputStream ->
+                    outputStream.write(videoBytes)
+                }
+                
+                // MediaScannerConnectionを使ってギャラリーに通知
+                android.media.MediaScannerConnection.scanFile(
+                    currentActivity,
+                    arrayOf(file.absolutePath),
+                    arrayOf("video/webm"),
+                    null
+                )
+                
+                true
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to save video")
+            false
+        }
+    }
+
     // 現在の言語をセットする。
     @JavascriptInterface
     fun setLanguage(lang: String) {

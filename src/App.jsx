@@ -10,6 +10,9 @@ const BASE_URL = import.meta.env.BASE_URL;
 // カメラのシャッター音。
 const cameraShutterSoundUrl = `${BASE_URL}camera-shutter-sound.mp3`;
 
+// Androidアプリ内で実行されているか確認
+const isAndroidApp = typeof window.android !== 'undefined';
+
 function App() {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
@@ -54,7 +57,7 @@ function App() {
     // Android の権限が付与されるまで待機する
     const waitForAndroidPermissions = async () => {
       // Android アプリ内で実行されているか確認
-      if (typeof window.android !== 'undefined' && typeof window.android.hasMediaPermissions === 'function') {
+      if (isAndroidApp && typeof window.android.hasMediaPermissions === 'function') {
         // 権限チェック（最大30秒間、500msごとに確認）
         const PERMISSION_POLL_INTERVAL_MS = 500;
         const PERMISSION_TIMEOUT_MS = 30000;
@@ -80,7 +83,7 @@ function App() {
 
     // カメラを要求する(再帰関数)
     const requestCamera = async (facingMode, audio, retry = 0) => {
-      if (retry >= 4) return null; // 修正: 失敗時は null を返す
+      if (retry >= 4) return null;
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -341,6 +344,16 @@ function App() {
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   };
 
+  // フォールバック用のダウンロード関数
+  const downloadFallback = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   // 写真撮影
   const takePhoto = () => {
     if (!videoRef.current) return;
@@ -349,7 +362,7 @@ function App() {
     canvas.height = videoRef.current.videoHeight;
     const ctx = canvas.getContext('2d');
 
-    if (IS_JAPAN_OR_KOREA) { // 日本と韓国ではシャッタ―音を鳴らさなければならない。
+    if (IS_JAPAN_OR_KOREA) { // 日本と韓国ではシャッタ―音を鳴らさなければならない
       // シャッター音の前に音量の保存と調整
       try {
         android.onStartShutterSound();
@@ -366,10 +379,40 @@ function App() {
 
     ctx.drawImage(videoRef.current, 0, 0);
 
-    const link = document.createElement('a');
-    link.download = `photo_${Date.now()}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        console.error('画像のBlobの作成に失敗しました');
+        return;
+      }
+
+      // Androidアプリ内の場合
+      if (isAndroidApp) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64data = reader.result.split(',')[1];
+          const filename = `photo_${Date.now()}.png`;
+          
+          // AndroidネイティブのJavaScript Interfaceを呼び出してファイルを保存
+          if (typeof window.android.saveImageToGallery === 'function') {
+            try {
+              window.android.saveImageToGallery(base64data, filename);
+              console.log('画像を保存しました:', filename);
+            } catch (e) {
+              console.error('画像保存エラー:', e);
+              // フォールバック: ダウンロードリンクを使用
+              downloadFallback(blob, filename);
+            }
+          } else {
+            // メソッドが存在しない場合はフォールバック
+            downloadFallback(blob, filename);
+          }
+        };
+        reader.readAsDataURL(blob);
+      } else {
+        // ブラウザの場合は通常のダウンロード
+        downloadFallback(blob, `photo_${Date.now()}.png`);
+      }
+    }, 'image/png');
   };
 
   // 録画の開始／停止
@@ -402,12 +445,31 @@ function App() {
     // 録画を停止したときに、動画ファイルをダウンロード
     mediaRecorderRef.current.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `video_${Date.now()}.webm`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const filename = `video_${Date.now()}.webm`;
+
+      // Androidアプリ内の場合
+      if (isAndroidApp) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64data = reader.result.split(',')[1];
+          
+          if (typeof window.android.saveVideoToGallery === 'function') {
+            try {
+              window.android.saveVideoToGallery(base64data, filename);
+              console.log('動画を保存しました:', filename);
+            } catch (e) {
+              console.error('動画保存エラー:', e);
+              downloadFallback(blob, filename);
+            }
+          } else {
+            downloadFallback(blob, filename);
+          }
+        };
+        reader.readAsDataURL(blob);
+      } else {
+        // ブラウザの場合
+        downloadFallback(blob, filename);
+      }
     };
 
     // 録画開始
