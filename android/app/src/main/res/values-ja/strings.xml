@@ -8,6 +8,7 @@
     <string name="needs_microphone">このアプリがマイクにアクセスするには、権限が必要です。</string>
     <string name="needs_camera">このアプリがカメラにアクセスするには、権限が必要です。</string>
     <string name="needs_storage">このアプリが記憶媒体にアクセスするには、権限が必要です。</string>
+    <string name="needs_permissions">このアプリが正しく機能するには、権限が必要です。</string>
 
     <!-- main -->
     <string name="app_name">シンプル カメラ</string>
