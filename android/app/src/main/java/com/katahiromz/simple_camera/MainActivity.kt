@@ -12,6 +12,8 @@ import android.content.res.Configuration
 import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.StrictMode
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -269,8 +271,24 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton(getLocString(R.string.ok)) { dialog, which ->
-                launcher.launch(permissionsToRequest)
-            }.setCancelable(false)
+                try {
+                    // ダイアログを明示的に閉じる
+                    dialog?.dismiss()
+                } catch (e: Exception) {
+                    // 念のため例外は無視して続行
+                    Timber.w(e, "Failed to dismiss rationale dialog")
+                }
+
+                // ダイアログのウィンドウが完全に閉じるのを待ってから権限リクエストを投げる
+                Handler(Looper.getMainLooper()).post {
+                    try {
+                        launcher.launch(permissionsToRequest)
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to launch permission request from rationale dialog")
+                    }
+                }
+            }
+            .setCancelable(false)
             .show()
     }
 
