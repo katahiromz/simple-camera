@@ -51,6 +51,30 @@ function App() {
   useEffect(() => {
     let currentStream = null;
 
+    // Android の権限が付与されるまで待機する
+    const waitForAndroidPermissions = async () => {
+      // Android アプリ内で実行されているか確認
+      if (typeof window.android !== 'undefined' && typeof window.android.hasMediaPermissions === 'function') {
+        // 権限チェック（最大30秒間、500msごとに確認）
+        const maxAttempts = 60;
+        for (let i = 0; i < maxAttempts; i++) {
+          try {
+            if (window.android.hasMediaPermissions()) {
+              return true; // 権限が付与されている
+            }
+          } catch (e) {
+            console.warn('権限チェックエラー:', e);
+          }
+          // 500ms待機
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        console.warn('Android 権限の取得がタイムアウトしました');
+        return false;
+      }
+      // Android アプリ外（ブラウザ等）では即座に続行
+      return true;
+    };
+
     // カメラを要求する(再帰関数)
     const requestCamera = async (facingMode, audio, retry = 0) => {
       if (retry >= 4) return null; // 修正: 失敗時は null を返す
@@ -91,6 +115,13 @@ function App() {
       // ストリームを停止
       if (stream)
         stream.getTracks().forEach(track => track.stop());
+
+      // Android の権限が付与されるまで待機
+      const permissionsGranted = await waitForAndroidPermissions();
+      if (!permissionsGranted) {
+        console.error('Android の権限が付与されませんでした');
+        return;
+      }
 
       const mediaStream = await requestCamera(facingMode, true);
       if (!mediaStream) return; // カメラアクセス失敗時は終了
