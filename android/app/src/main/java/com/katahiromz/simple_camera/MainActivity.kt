@@ -427,22 +427,24 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         //supportActionBar?.hide()
 
         // パーミッション関連。
+        if (USE_CAMERA || USE_AUDIO || USE_STORAGE) {
+            val startupPerms = mutableListOf<String>()
+            if (USE_CAMERA) startupPerms.add(Manifest.permission.CAMERA)
+            if (USE_AUDIO) startupPerms.add(Manifest.permission.RECORD_AUDIO)
+            if (USE_STORAGE) startupPerms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
-        // 必要なパーミッションを一度にリクエストする。
-        val startupPerms = mutableListOf<String>()
-        if (USE_CAMERA) startupPerms.add(Manifest.permission.CAMERA)
-        if (USE_AUDIO) startupPerms.add(Manifest.permission.RECORD_AUDIO)
-        // WRITE_EXTERNAL_STORAGE は Android 10 (API 29) 以降では不要
-        if (USE_STORAGE && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            startupPerms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        }
-        if (startupPerms.isNotEmpty()) {
-            checkAndRequestPermissions(
-                R.string.needs_permissions,
-                startupPerms.toTypedArray(),
-                onGranted = {},
-                onDenied = {}
-            )
+            if (startupPerms.isNotEmpty()) {
+                checkAndRequestPermissions(
+                    R.string.needs_camera, // 表示メッセージは camera を優先（既存挙動に合わせる）
+                    startupPerms.toTypedArray(),
+                    onGranted = {
+                        // 必要なら権限が付与された直後の初期化処理をここに書く
+                    },
+                    onDenied = {
+                        // 拒否されたときの処理（現状維持で問題なければ空でも可）
+                    }
+                )
+            }
         }
 
         // 音声合成を使うか？
