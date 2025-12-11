@@ -47,13 +47,8 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
     /////////////////////////////////////////////////////////////////////
     // パーミッション関連。
     override fun onPermissionRequest(request: PermissionRequest) {
-        for (res in request.resources) {
-            if (res == PermissionRequest.RESOURCE_AUDIO_CAPTURE || res == PermissionRequest.RESOURCE_VIDEO_CAPTURE) {
-                request.grant(request.resources)
-                return
-            }
-        }
-        super.onPermissionRequest(request)
+        // MainActivity で Android のランタイム権限を確保してから grant/deny する
+        activity?.handlePermissionRequest(request)
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -124,6 +119,20 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
     @JavascriptInterface
     fun onEndShutterSound() {
         listener.onEndShutterSound()
+    }
+
+    // カメラの権限が付与されているか確認する。
+    // 音声権限はオプションとして扱う。
+    @JavascriptInterface
+    fun hasMediaPermissions(): Boolean {
+        val currentActivity = activity ?: return false
+        val hasCameraPermission = android.content.pm.PackageManager.PERMISSION_GRANTED ==
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                currentActivity,
+                android.Manifest.permission.CAMERA
+            )
+        // カメラ権限のみを必須とする（音声権限はオプション）
+        return hasCameraPermission
     }
 
     // 現在の言語をセットする。

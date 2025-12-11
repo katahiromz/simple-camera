@@ -19,6 +19,7 @@ import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
 import android.view.View
 import android.view.WindowManager
+import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -303,6 +304,89 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
             onGranted ?: {},
             onDenied ?: {}
+        )
+    }
+
+    /**
+     * WebView の PermissionRequest を処理する。
+     * Android のランタイム権限を確保してから WebView の権限を grant/deny する。
+     * @param request WebView の PermissionRequest
+     */
+    fun handlePermissionRequest(request: PermissionRequest) {
+        // request.resources に基づいて必要な Android パーミッション配列を作成
+        val androidPermissions = mutableSetOf<String>()
+        var needsCamera = false
+        var needsAudio = false
+
+        for (resource in request.resources) {
+            when (resource) {
+                PermissionRequest.RESOURCE_VIDEO_CAPTURE -> {
+                    androidPermissions.add(Manifest.permission.CAMERA)
+                    needsCamera = true
+                }
+                PermissionRequest.RESOURCE_AUDIO_CAPTURE -> {
+                    androidPermissions.add(Manifest.permission.RECORD_AUDIO)
+                    needsAudio = true
+                }
+            }
+        }
+
+        // 必要なパーミッションがない場合は何もしない
+        if (androidPermissions.isEmpty()) {
+            request.deny()
+            return
+        }
+
+        // メッセージ ID を決定（カメラとマイク両方が必要な場合は camera を優先）
+        val messageId = when {
+            needsCamera && needsAudio -> R.string.needs_camera
+            needsCamera -> R.string.needs_camera
+            needsAudio -> R.string.needs_microphone
+            else -> R.string.needs_camera
+        }
+
+        // checkAndRequestPermissions を使って必要なランタイム権限をリクエスト
+        checkAndRequestPermissions(
+            messageId,
+            androidPermissions.toTypedArray(),
+            onGranted = {
+                // 権限が許可された場合、WebView の PermissionRequest を grant
+                runOnUiThread {
+                    request.grant(request.resources)
+                }
+            },
+            onDenied = {
+                // 一部の権限が拒否された場合でも、許可された権限のリソースは付与する
+                runOnUiThread {
+                    val grantedResources = mutableListOf<String>()
+                    
+                    for (resource in request.resources) {
+                        val permission = when (resource) {
+                            PermissionRequest.RESOURCE_VIDEO_CAPTURE -> Manifest.permission.CAMERA
+                            PermissionRequest.RESOURCE_AUDIO_CAPTURE -> Manifest.permission.RECORD_AUDIO
+                            else -> null
+                        }
+                        
+                        if (permission != null) {
+                            val isGranted = ContextCompat.checkSelfPermission(
+                                this@MainActivity,
+                                permission
+                            ) == PackageManager.PERMISSION_GRANTED
+                            
+                            if (isGranted) {
+                                grantedResources.add(resource)
+                            }
+                        }
+                    }
+                    
+                    // 付与された権限があれば、その分だけ WebView アクセスを許可
+                    if (grantedResources.isNotEmpty()) {
+                        request.grant(grantedResources.toTypedArray())
+                    } else {
+                        request.deny()
+                    }
+                }
+            }
         )
     }
 
