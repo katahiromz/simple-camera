@@ -342,7 +342,12 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
 
         // 必要なパーミッションがない場合は何もしない
         if (androidPermissions.isEmpty()) {
-            request.deny()
+            // Safety: wrap deny in try/catch to avoid crashing if already handled
+            try {
+                request.deny()
+            } catch (e: IllegalStateException) {
+                Timber.w(e, "PermissionRequest already handled (initial deny).")
+            }
             return
         }
 
@@ -361,7 +366,12 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             onGranted = {
                 // 権限が許可された場合、WebView の PermissionRequest を grant
                 runOnUiThread {
-                    request.grant(request.resources)
+                    try {
+                        request.grant(request.resources)
+                    } catch (e: IllegalStateException) {
+                        // grant/deny may already have been called by another code path; avoid crashing.
+                        Timber.w(e, "PermissionRequest already handled (grant).")
+                    }
                 }
             },
             onDenied = {
@@ -390,9 +400,17 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
 
                     // 付与された権限があれば、その分だけ WebView アクセスを許可
                     if (grantedResources.isNotEmpty()) {
-                        request.grant(grantedResources.toTypedArray())
+                        try {
+                            request.grant(grantedResources.toTypedArray())
+                        } catch (e: IllegalStateException) {
+                            Timber.w(e, "PermissionRequest already handled (partial grant).")
+                        }
                     } else {
-                        request.deny()
+                        try {
+                            request.deny()
+                        } catch (e: IllegalStateException) {
+                            Timber.w(e, "PermissionRequest already handled (deny).")
+                        }
                     }
                 }
             }
@@ -438,10 +456,12 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
                     R.string.needs_camera, // 表示メッセージは camera を優先（既存挙動に合わせる）
                     startupPerms.toTypedArray(),
                     onGranted = {
-                        // 必要なら権限が付与された直後の初期化処理をここに書く
+                        // 権限が付与された直後の初期化処理をここに書く
+                        Timber.i("checkAndRequestPermissions.onGranted")
                     },
                     onDenied = {
-                        // 拒否されたときの処理（現状維持で問題なければ空でも可）
+                        // 拒否されたときの処理
+                        Timber.i("checkAndRequestPermissions.onDenied")
                     }
                 )
             }
