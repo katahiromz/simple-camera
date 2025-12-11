@@ -56,7 +56,10 @@ function App() {
       // Android アプリ内で実行されているか確認
       if (typeof window.android !== 'undefined' && typeof window.android.hasMediaPermissions === 'function') {
         // 権限チェック（最大30秒間、500msごとに確認）
-        const maxAttempts = 60;
+        const PERMISSION_POLL_INTERVAL_MS = 500;
+        const PERMISSION_TIMEOUT_MS = 30000;
+        const maxAttempts = PERMISSION_TIMEOUT_MS / PERMISSION_POLL_INTERVAL_MS;
+        
         for (let i = 0; i < maxAttempts; i++) {
           try {
             if (window.android.hasMediaPermissions()) {
@@ -65,8 +68,8 @@ function App() {
           } catch (e) {
             console.warn('権限チェックエラー:', e);
           }
-          // 500ms待機
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // 待機
+          await new Promise(resolve => setTimeout(resolve, PERMISSION_POLL_INTERVAL_MS));
         }
         console.warn('Android 権限の取得がタイムアウトしました');
         return false;
