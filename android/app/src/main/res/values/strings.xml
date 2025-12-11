@@ -1,0 +1,20 @@
+<!-- {{LANGUAGE_SPECIFIC}} -->
+<resources>
+    <!-- common -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="clear">Clear</string>
+    <string name="reset">Reset</string>
+    <string name="needs_microphone">This app needs permission to access the microphone.</string>
+    <string name="needs_camera">This app needs permission to access the camera.</string>
+    <string name="needs_storage">This app needs permission to access the storage.</string>
+
+    <!-- main -->
+    <string name="app_name">Simple Camera</string>
+    <string name="web_view">WebView</string>
+    <string name="progress_bar">ProgressBar</string>
+    <string name="now_starting">Loading camera...</string>
+
+    <!-- URLs -->
+    <string name="url">https://appassets.androidplatform.net/simple_camera/index.html</string>
+</resources>

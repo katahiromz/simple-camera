@@ -1,0 +1,156 @@
+/* リセットと全体設定 */
+body, html, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #000;
+  font-family: sans-serif;
+}
+
+.camera-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ビデオ表示エリア */
+.video-feed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 画面いっぱいに表示 */
+}
+
+/* ズーム表示とリセットボタン */
+.zoom-controls {
+  position: absolute;
+  top: calc(2vw + 2vh);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+}
+
+.zoom-display {
+  color: white;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: bold;
+}
+
+.reset-zoom-btn {
+  color: white;
+  border: 4px solid white;
+  font-size: calc(1.5vw + 1.5vh);
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 20px;
+  padding: calc(1.1vw + 1.1vh);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.reset-zoom-btn:active {
+  transform: scale(0.95);
+}
+
+/* 操作ボタンエリア */
+.controls {
+  position: absolute;
+  bottom: calc(1.5vw + 1.5vh);
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  z-index: 10;
+}
+
+.btn {
+  width: calc(3vw + 3vh);
+  height: calc(3vw + 3vh);
+  border-radius: 30px;
+  border: 4px solid white;
+  background-color: rgba(0,0,0,0.3);
+  color: white;
+  font-size: calc(2.8vw + 2.8vh);
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s;
+  backdrop-filter: blur(4px);
+}
+
+.btn:active {
+  transform: scale(0.9);
+}
+
+.photo-btn {
+  padding: calc(2.5vw + 2.5vh);
+}
+.video-btn {
+  padding: calc(2.5vw + 2.5vh);
+}
+
+/* 写真ボタン固有スタイル */
+.photo-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 動画ボタン固有スタイル */
+.video-btn.recording {
+  background-color: red;
+  border-color: red;
+  animation: pulse 1.5s infinite;
+}
+
+.video-btn.recording:hover {
+  background-color: darkred;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* 自撮り時にプレビューを反転（鏡のように見せる） */
+.video-feed.mirrored {
+  transform: scaleX(-1);
+}
+
+/* カメラ切り替えボタン */
+.switch-camera-btn {
+  position: absolute;
+  top: calc(2vw + 2vh);
+  right: calc(2vw + 2vh);
+  padding: calc(2.5vw + 2.5vh);
+  color: white;
+  cursor: pointer;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(4px);
+  transition: transform 0.3s;
+}
+
+.switch-camera-btn:active {
+  transform: rotate(180deg) scale(0.9);
+}
+
+.switch-camera-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
