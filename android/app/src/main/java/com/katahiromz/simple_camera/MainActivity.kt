@@ -427,12 +427,8 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             checkAndRequestPermissions(
                 R.string.needs_permissions,
                 startupPerms.toTypedArray(),
-                onGranted = {
-                    // permissions granted: nothing further required at startup
-                },
-                onDenied = {
-                    // permissions denied: keep current behavior (no-op)
-                }
+                onGranted = {},
+                onDenied = {}
             )
         }
 
