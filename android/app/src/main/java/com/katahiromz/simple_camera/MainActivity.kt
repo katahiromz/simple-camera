@@ -425,7 +425,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         if (USE_STORAGE) startupPerms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         if (startupPerms.isNotEmpty()) {
             checkAndRequestPermissions(
-                R.string.needs_camera,
+                R.string.needs_permissions,
                 startupPerms.toTypedArray(),
                 onGranted = {
                     // permissions granted: nothing further required at startup
