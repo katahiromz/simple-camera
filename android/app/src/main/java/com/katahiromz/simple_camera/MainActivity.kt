@@ -299,12 +299,18 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
 
     // ストレージが必要な処理を行う。ストレージのパーミッションがなければ事前に要求する。
     fun triggerStorageFeature(onGranted: (() -> Unit)?, onDenied: (() -> Unit)?) {
-        checkAndRequestPermissions(
-            R.string.needs_storage,
-            arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-            onGranted ?: {},
-            onDenied ?: {}
-        )
+        // WRITE_EXTERNAL_STORAGE は Android 10 (API 29) 以降では不要
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            checkAndRequestPermissions(
+                R.string.needs_storage,
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                onGranted ?: {},
+                onDenied ?: {}
+            )
+        } else {
+            // Android 10+ では権限不要なので即座に成功コールバックを実行
+            onGranted?.invoke()
+        }
     }
 
     /**
@@ -422,7 +428,10 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         val startupPerms = mutableListOf<String>()
         if (USE_CAMERA) startupPerms.add(Manifest.permission.CAMERA)
         if (USE_AUDIO) startupPerms.add(Manifest.permission.RECORD_AUDIO)
-        if (USE_STORAGE) startupPerms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        // WRITE_EXTERNAL_STORAGE は Android 10 (API 29) 以降では不要
+        if (USE_STORAGE && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            startupPerms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
         if (startupPerms.isNotEmpty()) {
             checkAndRequestPermissions(
                 R.string.needs_permissions,
