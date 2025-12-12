@@ -422,6 +422,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     /////////////////////////////////////////////////////////////////////
     // region イベントハンドラ関連
 
+    private var webViewReady = false
+    private var pendingLoadAfterInit = false
+
     // アクティビティの作成時。
     override fun onCreate(savedInstanceState: Bundle?) {
         Timber.i("onCreate")
@@ -444,6 +447,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         // Theme.MaterialComponents.DayNight.NoActionBarで指定できるので省略。
         //supportActionBar?.hide()
 
+        // WebViewを初期化。
+        initWebView(savedInstanceState)
+
         // パーミッション関連。
         if (USE_CAMERA || USE_AUDIO || USE_STORAGE) {
             val startupPerms = mutableListOf<String>()
@@ -459,6 +465,15 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
                     onGranted = {
                         // 権限が付与された直後の初期化処理をここに書く
                         Timber.i("checkAndRequestPermissions.onGranted")
+                        // 権限がある／確保できたらページを読み込む（Chromium の getUserMedia が権限有りで動く）
+                        runOnUiThread {
+                            // webView が準備済みならすぐロード、まだなら保留フラグを立てる
+                            if (webViewReady && webView != null) {
+                                webView?.loadUrl(getLocString(R.string.url))
+                            } else {
+                                pendingLoadAfterInit = true
+                            }
+                        }
                     },
                     onDenied = {
                         // 拒否されたときの処理
@@ -473,9 +488,6 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             // TextToSpeechを初期化。
             initTextToSpeech()
         }
-
-        // WebViewを初期化。
-        initWebView(savedInstanceState)
 
         // ロケールをセットする。
         setCurLocale(Locale.getDefault())
@@ -699,10 +711,13 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         // JavaScript側からメソッドを呼び出せるインターフェイスを提供する。
         chromeClient?.let { currentWebView.addJavascriptInterface(it, "android") }
 
-        // URLを指定してウェブページを読み込む。
-        val url = getLocString(R.string.url)
-        Timber.i("Loading URL: %s", url)
-        currentWebView.loadUrl(url)
+        webViewReady = true
+        if (pendingLoadAfterInit) {
+            val url = getLocString(R.string.url)
+            Timber.i("url: " + url)
+            currentWebView.loadUrl(url)
+            pendingLoadAfterInit = false
+        }
     }
 
     // ウェブ設定を初期化する。
