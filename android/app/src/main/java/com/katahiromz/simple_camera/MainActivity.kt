@@ -20,6 +20,7 @@ import android.speech.tts.TextToSpeech
 import android.view.View
 import android.view.WindowManager
 import android.webkit.PermissionRequest
+import android.webkit.ServiceWorkerController
 import android.webkit.ValueCallback
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -32,7 +33,6 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
