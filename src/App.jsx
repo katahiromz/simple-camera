@@ -9,11 +9,15 @@ const BASE_URL = import.meta.env.BASE_URL;
 
 // カメラのシャッター音。
 const cameraShutterSoundUrl = `${BASE_URL}camera-shutter-sound.mp3`;
+// ビデオ録画開始の音。
+const videoStartedSoundUrl = `${BASE_URL}recording-started.mp3`;
+// ビデオ録画完了の音。
+const videoCompletedSoundUrl = `${BASE_URL}recording-completed.mp3`;
 
 // Androidアプリ内で実行されているか確認
 const isAndroidApp = typeof window.android !== 'undefined';
 
-const MAX_RECORDING_SECONDS = 3600; // 最大録画時間（1時間 = 3600秒）
+const MAX_RECORDING_SECONDS = 2 * 60 * 60; // 最大録画時間（2時間）
 
 function App() {
   const videoRef = useRef(null);
@@ -44,12 +48,16 @@ function App() {
   const isAudioEnabled = useRef(false); // 音声が利用可能か？
 
   const cameraShutterSoundRef = useRef(null); // シャッター音参照
+  const videoStartedSoundRef = useRef(null); // 録画開始の音
+  const videoCompletedSoundRef = useRef(null); // 録画完了の音
 
   useEffect(() => {
     zoomRef.current = zoom;
     panOffsetRef.current = panOffset;
     if (IS_JAPAN_OR_KOREA) { // 日本と韓国ではシャッタ―音を鳴らさなければならない。
       cameraShutterSoundRef.current = new Audio(cameraShutterSoundUrl);
+      videoStartedSoundRef.current = new Audio(videoStartedSoundUrl);
+      videoCompletedSoundRef.current = new Audio(videoCompletedSoundUrl);
     }
   }, [zoom, panOffset]);
 
@@ -348,7 +356,7 @@ function App() {
     const ctx = canvas.getContext('2d');
 
     if (IS_JAPAN_OR_KOREA) { // 日本と韓国ではシャッタ―音を鳴らさなければならない
-      // シャッター音の前に音量の保存と調整
+      // 音の前に音量の保存と調整
       try {
         window.android.onStartShutterSound();
       } catch (e) {}
@@ -356,7 +364,7 @@ function App() {
       // シャッター音の再生
       cameraShutterSoundRef.current?.play().catch(e => console.error("シャッター音再生エラー:", e));
 
-      // シャッター音の後に音量の調整
+      // 音の後に音量の復元
       try {
         window.android.onEndShutterSound();
       } catch (e) {}
@@ -403,8 +411,10 @@ function App() {
   // 録画の開始／停止
   const toggleRecording = () => {
     if (isRecording) {
+      // 停止
       stopRecording();
     } else {
+      // 開始
       startRecording();
     }
   };
@@ -429,7 +439,7 @@ function App() {
       // 経過時間が上限に達したら自動的に停止
       if (elapsedTime >= MAX_RECORDING_SECONDS) {
         stopRecording();
-        alert('録画時間が上限に達したため、自動的に停止しました。');
+        alert(`録画時間が上限 (${formatTime(MAX_RECORDING_SECONDS)}) に達したため、自動的に停止しました。`);
       }
     }, 1000); // 1秒ごとに更新
 
@@ -479,6 +489,22 @@ function App() {
     // 録画開始
     mediaRecorderRef.current.start();
     setIsRecording(true);
+
+    // 録画開始時に音を鳴らす
+    if (IS_JAPAN_OR_KOREA) {
+      // 音の前に音量の保存と調整
+      try {
+        window.android.onStartShutterSound();
+      } catch (e) {}
+
+      // 録画完了音の再生
+      videoStartedSoundRef.current?.play().catch(e => console.error("ビデオ録画開始音再生エラー:", e));
+
+      // 音の後に音量の復元
+      try {
+        window.android.onEndShutterSound();
+      } catch (e) {}
+    }
   };
 
   // 録画停止
@@ -493,6 +519,22 @@ function App() {
         timerIntervalRef.current = null;
     }
     setRecordingTime(0); // 録画時間をリセット
+
+    // 録画完了時に音を鳴らす
+    if (IS_JAPAN_OR_KOREA) {
+      // 音の前に音量の保存と調整
+      try {
+        window.android.onStartShutterSound();
+      } catch (e) {}
+
+      // 録画完了音の再生
+      videoCompletedSoundRef.current?.play().catch(e => console.error("ビデオ録画完了音再生エラー:", e));
+
+      // 音の後に音量の復元
+      try {
+        window.android.onEndShutterSound();
+      } catch (e) {}
+    }
   };
 
   // 録画時間を "MM:SS" 形式にフォーマットする関数
