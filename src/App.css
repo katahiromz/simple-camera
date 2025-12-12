@@ -11,7 +11,9 @@ body, html, #root {
 
 .camera-container {
   position: relative;
-  width: 100%;
+  width: 100vw;
+  width: 100dvw;
+  height: 100dvh;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -30,6 +32,7 @@ body, html, #root {
 .zoom-controls {
   position: absolute;
   top: calc(2vw + 2vh);
+  top: calc(2dvw + 2dvh);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -51,9 +54,11 @@ body, html, #root {
   color: white;
   border: 4px solid white;
   font-size: calc(1.5vw + 1.5vh);
+  font-size: calc(1.5dvw + 1.5dvh);
   background: rgba(0, 0, 0, 0.5);
   border-radius: 20px;
   padding: calc(1.1vw + 1.1vh);
+  padding: calc(1.1dvw + 1.1dvh);
   border-radius: 20px;
   cursor: pointer;
   transition: 0.2s;
@@ -67,6 +72,7 @@ body, html, #root {
 .controls {
   position: absolute;
   bottom: calc(1.5vw + 1.5vh);
+  bottom: calc(1.5dvw + 1.5dvh);
   width: 100%;
   display: flex;
   justify-content: center;
@@ -76,12 +82,15 @@ body, html, #root {
 
 .btn {
   width: calc(3vw + 3vh);
+  width: calc(3dvw + 3dvh);
   height: calc(3vw + 3vh);
+  height: calc(3dvw + 3dvh);
   border-radius: 30px;
   border: 4px solid white;
   background-color: rgba(0,0,0,0.3);
   color: white;
   font-size: calc(2.8vw + 2.8vh);
+  font-size: calc(2.8dvw + 2.8dvh);
   font-weight: bold;
   cursor: pointer;
   display: flex;
@@ -98,9 +107,11 @@ body, html, #root {
 
 .photo-btn {
   padding: calc(2.5vw + 2.5vh);
+  padding: calc(2.5dvw + 2.5dvh);
 }
 .video-btn {
   padding: calc(2.5vw + 2.5vh);
+  padding: calc(2.5dvw + 2.5dvh);
 }
 
 /* 写真ボタン固有スタイル */
@@ -134,8 +145,11 @@ body, html, #root {
 .switch-camera-btn {
   position: absolute;
   top: calc(2vw + 2vh);
+  top: calc(2dvw + 2dvh);
   right: calc(2vw + 2vh);
+  right: calc(2dvw + 2dvh);
   padding: calc(2.5vw + 2.5vh);
+  padding: calc(2.5dvw + 2.5dvh);
   color: white;
   cursor: pointer;
   z-index: 20;
@@ -159,13 +173,16 @@ body, html, #root {
 .recording-time-display {
   position: absolute;
   bottom: calc(1.5vw + 1.5vh + (3vw + 3vh) + (3vw + 3vh)); /* controlsエリア + ボタンの高さ + マージン */
+  bottom: calc(1.5dvw + 1.5dvh + (3dvw + 3dvh) + (3dvw + 3dvh)); /* controlsエリア + ボタンの高さ + マージン */
   left: 50%;
   transform: translateX(-50%);
   color: white;
   background-color: rgba(192, 0, 0, 0.7); /* 赤色の背景 */
   padding: calc(0.5vw + 0.5vh);
+  padding: calc(0.5dvw + 0.5dvh);
   border-radius: 8px;
   font-size: calc(1.2vw + 1.2vh);
+  font-size: calc(1.2dvw + 1.2dvh);
   font-weight: bold;
   z-index: 10;
   white-space: nowrap; /* 折り返しを防ぐ */
