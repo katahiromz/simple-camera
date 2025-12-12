@@ -19,6 +19,8 @@ const isAndroidApp = typeof window.android !== 'undefined';
 
 const MAX_RECORDING_SECONDS = 2 * 60 * 60; // 最大録画時間（2時間）
 
+const VOLUME = 0.5; // 音量
+
 function App() {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
@@ -366,8 +368,11 @@ function App() {
     if (IS_JAPAN_OR_KOREA) { // 日本と韓国ではシャッタ―音を鳴らさなければならない
       // 音の前に音量の保存と調整
       try {
-        window.android.onStartShutterSound();
-      } catch (e) {}
+        window.android.onStartShutterSound(VOLUME);
+      } catch (e) {
+        if (cameraShutterSoundRef.current)
+          cameraShutterSoundRef.current.volume = VOLUME;
+      }
 
       // シャッター音の再生
       cameraShutterSoundRef.current?.play().catch(e => console.error("シャッター音再生エラー:", e));
@@ -502,8 +507,11 @@ function App() {
     if (IS_JAPAN_OR_KOREA) {
       // 音の前に音量の保存と調整
       try {
-        window.android.onStartShutterSound();
-      } catch (e) {}
+        window.android.onStartShutterSound(VOLUME);
+      } catch (e) {
+        if (videoStartedSoundRef.current)
+          videoStartedSoundRef.current.volume = VOLUME;
+      }
 
       // 録画完了音の再生
       videoStartedSoundRef.current?.play().catch(e => console.error("ビデオ録画開始音再生エラー:", e));
@@ -532,8 +540,11 @@ function App() {
     if (IS_JAPAN_OR_KOREA) {
       // 音の前に音量の保存と調整
       try {
-        window.android.onStartShutterSound();
-      } catch (e) {}
+        window.android.onStartShutterSound(VOLUME);
+      } catch (e) {
+        if (videoCompletedSoundRef.current)
+          videoCompletedSoundRef.current.volume = VOLUME;
+      }
 
       // 録画完了音の再生
       videoCompletedSoundRef.current?.play().catch(e => console.error("ビデオ録画完了音再生エラー:", e));

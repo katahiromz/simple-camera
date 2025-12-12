@@ -749,8 +749,8 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
                 stopVibrator()
             }
 
-            override fun onStartShutterSound() {
-                startShutterSound()
+            override fun onStartShutterSound(volume: Double) {
+                startShutterSound(volume)
             }
 
             override fun onEndShutterSound() {
@@ -905,16 +905,14 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     // region 音量の設定
 
     // 音量を変更
-    private var oldVolume: Int = -1
-    fun startShutterSound() {
+    private var oldVolume: Double = -1.0
+    fun startShutterSound(volume: Double) {
         Timber.i("onStartShutterSound")
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        if (oldVolume == -1)
+        if (oldVolume == -1.0)
             oldVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
         var musicVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        // 最大値の 3/4 の音量
-        musicVolume *= 3;
-        musicVolume /= 4;
+        musicVolume *= volume;
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, musicVolume, 0)
     }
 
@@ -922,9 +920,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     fun endShutterSound() {
         Timber.i("onEndShutterSound")
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        if (oldVolume != -1) {
+        if (oldVolume != -1.0) {
             audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, oldVolume, 0)
-            oldVolume = -1;
+            oldVolume = -1.0;
         }
     }
 

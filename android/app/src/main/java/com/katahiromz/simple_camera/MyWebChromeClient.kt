@@ -30,7 +30,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         fun onFinishApp()
         fun onStartVibrator(length: Int)
         fun onStopVibrator()
-        fun onStartShutterSound()
+        fun onStartShutterSound(volume: Double)
         fun onEndShutterSound()
     }
 
@@ -111,8 +111,8 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
 
     // シャッター音を開始する前に音量を調整する。
     @JavascriptInterface
-    fun onStartShutterSound() {
-        listener.onStartShutterSound()
+    fun onStartShutterSound(volume: Double) {
+        listener.onStartShutterSound(volume)
     }
 
     // シャッター音を終了した後に音量を調整する。
