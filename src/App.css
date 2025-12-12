@@ -208,19 +208,13 @@ body, html, #root {
 }
 
 .mic-btn.enabled {
-  background-color: rgba(0, 70, 0, 0.4);
-  border-color: rgba(0, 255, 0, 0.8);
+  background-color: rgba(0, 100, 0, 0.5);
+  border-color: rgba(0, 255, 0, 0.9);
 }
 
 .mic-btn.denied {
-  background-color: rgba(70, 0, 0, 0.4);
-  border-color: rgba(255, 0, 0, 0.8);
-}
-
-.mic-btn.prompt {
-  background-color: rgba(70, 70, 0, 0.4);
-  border-color: rgba(255, 200, 0, 0.8);
-  animation: prompt-pulse 2s infinite;
+  background-color: rgba(100, 0, 0, 0.5);
+  border-color: rgba(255, 0, 0, 0.9);
 }
 
 .mic-btn:active {
@@ -228,18 +222,6 @@ body, html, #root {
 }
 
 .mic-btn:disabled {
-  cursor: default;
-}
-
-.mic-btn.prompt:disabled {
-  cursor: pointer;
-}
-
-.mic-btn.hidden {
-  display: none;
-}
-
-@keyframes prompt-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  opacity: 0.2;
+  cursor: not-allowed;
 }
