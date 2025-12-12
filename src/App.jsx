@@ -592,18 +592,11 @@ function App() {
       <div className="zoom-controls">
         <span className="zoom-display">{(zoom * 100).toFixed(0) + '%'}</span>
         {zoom !== 1 && (
-          <button className="reset-zoom-btn" onClick={resetZoomAndPan}>
+          <button className="btn reset-zoom-btn" onClick={resetZoomAndPan}>
             1:1
           </button>
         )}
       </div>
-
-      {/* ★ 録画時間表示エリアの追加 */}
-      {isRecording && (
-        <div className="recording-time-display">
-          {formatTime(recordingTime)}
-        </div>
-      )}
 
       {/* カメラ切り替えボタン (右上) */}
       <button
@@ -626,6 +619,13 @@ function App() {
         >
           {isRecording ? '⏹' : '🎥'}
         </button>
+
+        {/* ★ 録画時間表示エリアの追加 */}
+        {isRecording && (
+          <div className="recording-time-display">
+            {formatTime(recordingTime)}
+          </div>
+        )}
       </div>
     </div>
   );

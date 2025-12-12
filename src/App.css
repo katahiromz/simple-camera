@@ -21,76 +21,20 @@ body, html, #root {
   align-items: center;
 }
 
-/* ビデオ表示エリア */
-.video-feed {
-  width: 100%;
-  height: 100%;
-  object-fit: cover; /* 画面いっぱいに表示 */
-}
-
-/* ズーム表示とリセットボタン */
-.zoom-controls {
-  position: absolute;
-  top: calc(2vw + 2vh);
-  top: calc(2dvw + 2dvh);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  z-index: 10;
-}
-
-.zoom-display {
-  color: white;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-weight: bold;
-}
-
-.reset-zoom-btn {
-  color: white;
-  border: 4px solid white;
-  font-size: calc(1.5vw + 1.5vh);
-  font-size: calc(1.5dvw + 1.5dvh);
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 20px;
-  padding: calc(1.1vw + 1.1vh);
-  padding: calc(1.1dvw + 1.1dvh);
-  border-radius: 20px;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.reset-zoom-btn:active {
-  transform: scale(0.95);
-}
-
-/* 操作ボタンエリア */
-.controls {
-  position: absolute;
-  bottom: calc(1.5vw + 1.5vh);
-  bottom: calc(1.5dvw + 1.5dvh);
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  gap: 40px;
-  z-index: 10;
-}
-
 .btn {
-  width: calc(3vw + 3vh);
-  width: calc(3dvw + 3dvh);
-  height: calc(3vw + 3vh);
-  height: calc(3dvw + 3dvh);
+  width: calc(3vw);
+  width: calc(3dvw);
+  height: calc(3vh);
+  height: calc(3dvh);
   border-radius: 30px;
-  border: 4px solid white;
+  border: calc(0.15vw + 0.15vh) solid white;
+  border: calc(0.15dvw + 0.15dvh) solid white;
   background-color: rgba(0,0,0,0.3);
   color: white;
-  font-size: calc(2.8vw + 2.8vh);
-  font-size: calc(2.8dvw + 2.8dvh);
+  font-size: calc(max(5vh, 1.5cm));
+  font-size: calc(max(5dvh, 1.5cm));
+  padding: calc(min(max(5vh, 1cm), 1.5cm)) calc(max(5vw, 1.2cm));
+  padding: calc(min(max(5dvh, 1cm), 1.5cm)) calc(max(5dvw, 1.2cm));
   font-weight: bold;
   cursor: pointer;
   display: flex;
@@ -105,13 +49,68 @@ body, html, #root {
   transform: scale(0.9);
 }
 
+/* ビデオ表示エリア */
+.video-feed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 画面いっぱいに表示 */
+}
+
+/* ズーム表示とリセットボタン */
+.zoom-controls {
+  position: absolute;
+  top: calc(0.5vh);
+  top: calc(0.5dvh);
+  left: 50vw;
+  left: 50dvw;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5vh;
+  gap: 0.5dvh;
+  z-index: 10;
+}
+
+.zoom-display {
+  color: white;
+  background: rgba(0, 0, 0, 0.5);
+  padding: calc(1.5vh) calc(1.5vw);
+  padding: calc(1.5dvh) calc(1.5dvw);
+  font-size: calc(3vh);
+  font-size: calc(3dvh);
+  font-weight: bold;
+}
+
+.reset-zoom-btn {
+  color: white;
+  font-size: calc(0.7cm);
+  background: rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.reset-zoom-btn:active {
+  transform: scale(0.95);
+}
+
+/* 操作ボタンエリア */
+.controls {
+  position: absolute;
+  bottom: calc(1.5vh);
+  bottom: calc(1.5dvh);
+  width: 100vw;
+  width: 100dvw;
+  display: flex;
+  justify-content: center;
+  gap: calc(2vw);
+  gap: calc(2dvw);
+  z-index: 10;
+}
+
 .photo-btn {
-  padding: calc(2.5vw + 2.5vh);
-  padding: calc(2.5dvw + 2.5dvh);
 }
 .video-btn {
-  padding: calc(2.5vw + 2.5vh);
-  padding: calc(2.5dvw + 2.5dvh);
 }
 
 /* 写真ボタン固有スタイル */
@@ -144,12 +143,11 @@ body, html, #root {
 /* カメラ切り替えボタン */
 .switch-camera-btn {
   position: absolute;
-  top: calc(2vw + 2vh);
-  top: calc(2dvw + 2dvh);
-  right: calc(2vw + 2vh);
-  right: calc(2dvw + 2dvh);
-  padding: calc(2.5vw + 2.5vh);
-  padding: calc(2.5dvw + 2.5dvh);
+  top: calc(2vh);
+  top: calc(2dvh);
+  right: calc(2vw);
+  right: calc(2dvw);
+  font-size: calc(1.1cm);
   color: white;
   cursor: pointer;
   z-index: 20;
@@ -171,19 +169,17 @@ body, html, #root {
 
 /* 録画時間表示 */
 .recording-time-display {
-  position: absolute;
-  bottom: calc(1.5vw + 1.5vh + (3vw + 3vh) + (3vw + 3vh)); /* controlsエリア + ボタンの高さ + マージン */
-  bottom: calc(1.5dvw + 1.5dvh + (3dvw + 3dvh) + (3dvw + 3dvh)); /* controlsエリア + ボタンの高さ + マージン */
-  left: 50%;
-  transform: translateX(-50%);
+  display: inline-block;
   color: white;
-  background-color: rgba(192, 0, 0, 0.7); /* 赤色の背景 */
-  padding: calc(0.5vw + 0.5vh);
-  padding: calc(0.5dvw + 0.5dvh);
+  background-color: rgba(192, 0, 0, 0.5); /* 赤色の背景 */
+  padding: calc(0.5vh) calc(0.5vw);
+  padding: calc(0.5dvh) calc(0.5dvw);
   border-radius: 8px;
-  font-size: calc(1.2vw + 1.2vh);
-  font-size: calc(1.2dvw + 1.2dvh);
+  font-size: calc(max(4vh, 0.9cm));
+  font-size: calc(max(4dvh, 0.9cm));
+  margin: auto 0;
   font-weight: bold;
+  vertical-align: middle;
   z-index: 10;
   white-space: nowrap; /* 折り返しを防ぐ */
   /* 点滅アニメーション */
@@ -191,6 +187,6 @@ body, html, #root {
 }
 
 @keyframes flash {
-  0% { opacity: 1; }
-  100% { opacity: 0.6; }
+  0% { opacity: 0.75; }
+  100% { opacity: 0.4; }
 }
