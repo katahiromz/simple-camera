@@ -10,9 +10,9 @@ const BASE_URL = import.meta.env.BASE_URL;
 // カメラのシャッター音。
 const cameraShutterSoundUrl = `${BASE_URL}camera-shutter-sound.mp3`;
 // ビデオ録画開始の音。
-const videoStartedSoundUrl = `${BASE_URL}recording-started.mp3`;
+const videoStartedSoundUrl = `${BASE_URL}video-started.mp3`;
 // ビデオ録画完了の音。
-const videoCompletedSoundUrl = `${BASE_URL}recording-completed.mp3`;
+const videoCompletedSoundUrl = `${BASE_URL}video-completed.mp3`;
 
 // Androidアプリ内で実行されているか確認
 const isAndroidApp = typeof window.android !== 'undefined';
