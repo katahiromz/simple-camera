@@ -20,6 +20,7 @@ import android.speech.tts.TextToSpeech
 import android.view.View
 import android.view.WindowManager
 import android.webkit.PermissionRequest
+import android.webkit.ServiceWorkerClient
 import android.webkit.ServiceWorkerController
 import android.webkit.ValueCallback
 import android.webkit.WebResourceError
@@ -44,6 +45,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import java.util.Locale
 import timber.log.Timber
+import java.io.ByteArrayInputStream
 
 // 複数の翻訳版を有効にするために、任意の翻訳版のコンテキストを作成できるようにする。
 // https://qiita.com/tarumzu/items/b076c4635b38366cddee
