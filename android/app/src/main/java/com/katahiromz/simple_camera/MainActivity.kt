@@ -605,6 +605,20 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             return
         }
 
+        try {
+            val swController = ServiceWorkerController.getInstance()
+            swController.setServiceWorkerClient(object : ServiceWorkerClient() {
+                override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? {
+                    // ServiceWorker のスクリプト取得を空レスポンスで阻止する（text/javascript を返す）
+                    val empty = ByteArrayInputStream(ByteArray(0))
+                    return WebResourceResponse("text/javascript", "UTF-8", empty)
+                }
+            })
+            Timber.i("ServiceWorker disabled via ServiceWorkerController")
+        } catch (e: Throwable) {
+            Timber.w(e, "Failed to disable ServiceWorker via ServiceWorkerController")
+        }
+
         // ウェブビューのビューを取得する。
         webView = findViewById(R.id.web_view)
 
