@@ -378,7 +378,6 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
 
         // メッセージ ID を決定（カメラとマイク両方が必要な場合は camera を優先）
         val messageId = when {
-            needsCamera && needsAudio -> R.string.needs_camera
             needsCamera -> R.string.needs_camera
             needsAudio -> R.string.needs_microphone
             else -> R.string.needs_camera
