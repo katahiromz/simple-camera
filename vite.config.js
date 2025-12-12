@@ -5,8 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vitejs.dev/config/
 export default defineConfig({
   // 【重要】本番環境でのデプロイ先サブディレクトリを指定
-  // 例: アプリケーションが example.com/simple_camera/ にデプロイされる場合
-  base: '/simple_camera/',
+  // 例: アプリケーションが example.com/camera/ にデプロイされる場合
+  base: '/camera/',
 
   plugins: [
     react(),
