@@ -341,7 +341,7 @@ function App() {
   const getFileNameWithDateTime = (prefix = "photo_", extension = ".png", date = new Date()) => {
     const dateTimeString = new Date().toLocaleString();
     // ファイル名に好ましくない文字は置き換える
-    const fileName = `${prefix}${dateTimeString.replace(/[:. ]/g, '-')}${extension}`;
+    const fileName = `${prefix}${dateTimeString.replace(/[\\\/:. ]/g, '-')}${extension}`;
     return fileName;
   };
 
