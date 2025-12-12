@@ -190,3 +190,56 @@ body, html, #root {
   0% { opacity: 0.75; }
   100% { opacity: 0.4; }
 }
+
+/* マイクボタン */
+.mic-btn {
+  font-size: calc(1.1cm);
+  color: white;
+  cursor: pointer;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(4px);
+  transition: all 0.3s;
+  font-size: calc(max(3vh, 1.0cm));
+  font-size: calc(max(3dvh, 1.0cm));
+  white-space: nowrap; /* 折り返しを防ぐ */
+}
+
+.mic-btn.enabled {
+  background-color: rgba(0, 70, 0, 0.4);
+  border-color: rgba(0, 255, 0, 0.8);
+}
+
+.mic-btn.denied {
+  background-color: rgba(70, 0, 0, 0.4);
+  border-color: rgba(255, 0, 0, 0.8);
+}
+
+.mic-btn.prompt {
+  background-color: rgba(70, 70, 0, 0.4);
+  border-color: rgba(255, 200, 0, 0.8);
+  animation: prompt-pulse 2s infinite;
+}
+
+.mic-btn:active {
+  transform: scale(0.9);
+}
+
+.mic-btn:disabled {
+  cursor: default;
+}
+
+.mic-btn.prompt:disabled {
+  cursor: pointer;
+}
+
+.mic-btn.hidden {
+  display: none;
+}
+
+@keyframes prompt-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}

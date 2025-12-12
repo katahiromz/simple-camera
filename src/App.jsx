@@ -38,6 +38,9 @@ function App() {
   const panStartRef = useRef({ x: 0, y: 0 }); // パン開始時の座標
   const panOffsetRef = useRef(panOffset); // 最新の panOffset を保持
 
+  // オーディオ権限の状態を管理。状態: 'granted', 'denied', 'prompt'
+  const [audioPermissionStatus, setAudioPermissionStatus] = useState('prompt'); 
+
   // カメラの向き ('environment': 背面, 'user': 前面)
   const [facingMode, setFacingMode] = useState('environment');
 
@@ -80,70 +83,170 @@ function App() {
 
   // --- カメラアクセスロジック ---
 
+  // 音声の権限をチェックする
+  const checkAudioPermission = useCallback(async () => {
+    if (!navigator.permissions || isAndroidApp) {
+      // Android WebViewではネイティブ側で処理されるためスキップ
+      // または navigator.permissions が未対応の場合
+      setAudioPermissionStatus('granted'); // 安全側に倒して許可済みと仮定
+      return 'granted';
+    }
+
+    try {
+      const result = await navigator.permissions.query({ name: 'microphone' });
+      
+      // 検出したステータスをそのままステートに保存
+      setAudioPermissionStatus(result.state);
+
+      result.onchange = () => {
+        modifyAudioSettingsOfVideo();
+      };
+
+      return result.state;
+    } catch (error) {
+      console.error('マイク権限のチェック中にエラーが発生しました:', error);
+      // エラー時は許可済み（ユーザー操作を促すため）または拒否済みとして処理を続ける
+      setAudioPermissionStatus('denied'); 
+      return 'denied';
+    }
+  }, [isAndroidApp]);
+
+  // カメラを要求する
+  const requestCameraAndAudio = async (targetFacingMode, forcedAudio = null, retry = 0) => {
+    if (retry >= 2) {
+      throw new Error('すべてのカメラで接続に失敗しました');
+    }
+
+    try {
+      // 音声権限を確認
+      const audioPermission = await checkAudioPermission();
+      let enableAudio;
+      if (forcedAudio !== null)
+        enableAudio = forcedAudio !== 'denied';
+      else
+        enableAudio = audioPermission === 'granted';
+
+      console.log('音声権限:', audioPermission, '有効化:', enableAudio);
+
+      // メディアストリームを取得
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: targetFacingMode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
+        audio: enableAudio
+      });
+
+      // 音声トラックの有無を確認
+      isAudioEnabled.current = enableAudio && mediaStream.getAudioTracks().length > 0;
+
+      return { mediaStream, actualFacingMode: targetFacingMode };
+    } catch (err) {
+      console.error(`カメラアクセスエラー (${targetFacingMode}):`, err);
+
+      // NotFoundError の場合は別のカメラを試す
+      if (retry === 0 && err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
+        const nextFacingMode = targetFacingMode === 'environment' ? 'user' : 'environment';
+        console.log(`${targetFacingMode}カメラが見つかりません。${nextFacingMode}を試します...`);
+        return requestCameraAndAudio(nextFacingMode, forcedAudio, retry + 1);
+      }
+
+      if (retry > 0 && err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
+        return requestCameraAndAudio(nextFacingMode, 'denied', retry + 1);
+      }
+
+      // その他のエラーは再スロー
+      throw err;
+    }
+  };
+
+  // 動画撮影のマイク設定を変更
+  const modifyAudioSettingsOfVideo = async (forcedAudio = null) => {
+    // 現在のストリームを停止
+    if (stream) {
+      console.log('既存のストリームを停止');
+      stream.getTracks().forEach(track => track.stop());
+    }
+
+    const { mediaStream, actualFacingMode } = await requestCameraAndAudio(
+      facingMode, 
+      forcedAudio
+    );
+
+    setStream(mediaStream);
+    setFacingMode(actualFacingMode);
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = mediaStream;
+    }
+
+    // 権限を再チェックして更新
+    await checkAudioPermission();
+    console.log('マイク設定が更新されました。新しい状態:', isAudioEnabled.current);
+    return true;
+  };
+
   useEffect(() => {
     let currentStream = null;
-
-    // カメラを要求する(再帰関数)
-    const requestCamera = async (facingMode, audio, retry = 0) => {
-      if (retry >= 4) return null;
-      try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: facingMode,
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          },
-          audio: audio
-        });
-        isAudioEnabled.current = audio;
-        return mediaStream;
-      } catch (err) {
-        if (err.name === 'NotFoundError') { // 見つからなかった
-          if (audio)
-            return requestCamera(facingMode, false, retry + 1);
-          switch (facingMode) {
-          case 'user':
-            return requestCamera('environment', true, retry + 1);
-          case 'environment':
-            break;
-          default:
-            console.warn(`未知のfacingMode: ${facingMode}`);
-          }
-          return requestCamera('user', true, retry + 1);
-        }
-        // NotFoundError以外のエラー(PermissionDeniedErrorなど)
-        console.error("カメラへのアクセスに失敗しました:", err);
-        alert(`カメラへのアクセスに失敗しました: ${err.name}`);
-      }
-      return null;
-    };
+    let isMounted = true;
 
     // カメラをセットアップ
     const setupCamera = async () => {
-      // ストリームを停止
-      if (stream)
-        stream.getTracks().forEach(track => track.stop());
+      try {
+        // 既存のストリームを停止
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
 
-      const mediaStream = await requestCamera(facingMode, true);
-      if (!mediaStream) return; // カメラアクセス失敗時は終了
+        // カメラとマイクを要求
+        const { mediaStream, actualFacingMode } = await requestCameraAndAudio(facingMode);
 
-      currentStream = mediaStream;
-      setStream(mediaStream);
+        // コンポーネントがアンマウントされていないか確認
+        if (!isMounted) {
+          mediaStream.getTracks().forEach(track => track.stop());
+          return;
+        }
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+        // ストリームを設定
+        currentStream = mediaStream;
+        setStream(mediaStream);
+        setFacingMode(actualFacingMode);
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+        }
+
+        setZoom(1);
+        setPanOffset({ x: 0, y: 0 });
+      } catch (err) {
+        console.error("カメラのセットアップに失敗しました:", err);
+
+        if (isMounted) {
+          let errorMessage = 'カメラへのアクセスに失敗しました';
+          
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            errorMessage = 'カメラの使用が許可されていません。ブラウザの設定を確認してください。';
+          } else if (err.name === 'NotFoundError') {
+            errorMessage = '利用可能なカメラが見つかりませんでした。';
+          } else if (err.name === 'NotReadableError') {
+            errorMessage = 'カメラは他のアプリケーションで使用中です。';
+          }
+          
+          alert(`${errorMessage}\n\nエラー詳細: ${err.name}`);
+        }
       }
-
-      setZoom(1);
     };
+
     setupCamera();
 
     return () => {
+      isMounted = false;
       if (currentStream) {
         currentStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [facingMode]);
+  }, [facingMode, checkAudioPermission]);
 
   // ズーム適用関数
   const applyZoom = useCallback((newZoom) => {
@@ -609,10 +712,55 @@ function App() {
 
       {/* コントロール */}
       <div className="controls">
+        {/* マイクボタン */}
+        <button
+          className={`btn mic-btn ${isRecording ? 'hidden' : ''} ${audioPermissionStatus === 'granted' ? 'enabled' : audioPermissionStatus === 'denied' ? 'denied' : 'prompt'}`}
+          onClick={async () => {
+            console.log('マイクボタンがクリックされました');
+            if (isRecording) {
+              console.log('録画中のためスキップ');
+              return;
+            }
+
+            // 現在の音声トラックの状態を確認
+            const currentlyHasAudio = isAudioEnabled.current;
+            console.log('現在の音声状態:', currentlyHasAudio);
+
+            // 音声を反転してストリームを再取得
+            const targetAudioState = currentlyHasAudio ? 'denied' : 'granted';
+            console.log('目標の音声状態:', targetAudioState);
+
+            try {
+              modifyAudioSettingsOfVideo(targetAudioState);
+
+              console.log('マイク設定が更新されました。新しい状態:', isAudioEnabled.current);
+            } catch (err) {
+              console.error('マイク権限の更新に失敗:', err);
+              alert('マイクの設定を変更できませんでした。ブラウザの設定を確認してください。');
+
+              try {
+                modifyAudioSettingsOfVideo('denied');
+              } catch(err2) {
+                console.error('マイク権限の更新に失敗 (2回目):', err2);
+              }
+            }
+          }}
+          disabled={isRecording}
+          title={
+            isAudioEnabled.current
+              ? 'マイクが有効です（クリックで無効化）' 
+              : 'マイクが無効です（クリックで有効化）'
+          }
+        >
+          {isAudioEnabled.current ? '🎤' : '🎤🚫'}
+        </button>
+
+        {/* 写真ボタン */}
         <button className="btn photo-btn" onClick={takePhoto} disabled={isRecording}>
           📷
         </button>
 
+        {/* 録画ボタン */}
         <button
           className={`btn video-btn ${isRecording ? 'recording' : ''}`}
           onClick={toggleRecording}
