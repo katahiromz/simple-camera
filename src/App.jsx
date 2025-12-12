@@ -13,6 +13,8 @@ const cameraShutterSoundUrl = `${BASE_URL}camera-shutter-sound.mp3`;
 // Androidアプリ内で実行されているか確認
 const isAndroidApp = typeof window.android !== 'undefined';
 
+const MAX_RECORDING_SECONDS = 3600; // 最大録画時間（1時間 = 3600秒）
+
 function App() {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
@@ -423,6 +425,12 @@ function App() {
     timerIntervalRef.current = setInterval(() => {
         const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
         setRecordingTime(elapsedTime);
+
+      // 経過時間が上限に達したら自動的に停止
+      if (elapsedTime >= MAX_RECORDING_SECONDS) {
+        stopRecording();
+        alert('録画時間が上限に達したため、自動的に停止しました。');
+      }
     }, 1000); // 1秒ごとに更新
 
     // メディアレコーダーを作成
@@ -489,10 +497,19 @@ function App() {
 
   // 録画時間を "MM:SS" 形式にフォーマットする関数
   const formatTime = (totalSeconds) => {
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
+    const hours = Math.floor(totalSeconds / 3600); // 時間を計算
+    const remainingSeconds = totalSeconds % 3600;
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
     const pad = (num) => num.toString().padStart(2, '0');
-    return `${pad(minutes)}:${pad(seconds)}`;
+
+    if (hours > 0) {
+      // 1時間以上の場合: H:MM:SS (例: 1:05:30)
+      return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+    } else {
+      // 1時間未満の場合: MM:SS (例: 05:30)
+      return `${pad(minutes)}:${pad(seconds)}`;
+    }
   };
 
   return (
