@@ -337,6 +337,14 @@ function App() {
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   };
 
+  // 日時付きのファイル名を取得する
+  const getFileNameWithDateTime = (prefix = "photo_", extension = ".png", date = new Date()) => {
+    const dateTimeString = new Date().toLocaleString();
+    // ファイル名に好ましくない文字は置き換える
+    const fileName = `${prefix}${dateTimeString.replace(/[:. ]/g, '-')}${extension}`;
+    return fileName;
+  };
+
   // フォールバック用のダウンロード関数
   const downloadFallback = (blob, filename) => {
     const url = URL.createObjectURL(blob);
@@ -378,32 +386,32 @@ function App() {
         return;
       }
 
-      // Androidアプリ内の場合
-      if (isAndroidApp) {
+      // 写真のファイル名
+      const fileName = getFileNameWithDateTime("photo_", ".png");
+
+      if (isAndroidApp) { // Androidアプリ内の場合
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64data = reader.result.split(',')[1];
-          const filename = `photo_${Date.now()}.png`;
-          
           // AndroidネイティブのJavaScript Interfaceを呼び出してファイルを保存
           if (typeof window.android.saveImageToGallery === 'function') {
             try {
-              window.android.saveImageToGallery(base64data, filename);
-              console.log('画像を保存しました:', filename);
+              window.android.saveImageToGallery(base64data, fileName);
+              console.log('画像を保存しました:', fileName);
             } catch (e) {
               console.error('画像保存エラー:', e);
               // フォールバック: ダウンロードリンクを使用
-              downloadFallback(blob, filename);
+              downloadFallback(blob, fileName);
             }
           } else {
             // メソッドが存在しない場合はフォールバック
-            downloadFallback(blob, filename);
+            downloadFallback(blob, fileName);
           }
         };
         reader.readAsDataURL(blob);
       } else {
         // ブラウザの場合は通常のダウンロード
-        downloadFallback(blob, `photo_${Date.now()}.png`);
+        downloadFallback(blob, fileName);
       }
     }, 'image/png');
   };
@@ -417,6 +425,24 @@ function App() {
       // 開始
       startRecording();
     }
+  };
+
+  // ビデオをギャラリーに保存(Android専用)
+  const saveVideoToGallery = (blob, fileName) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // Base64エンコードされた文字列（データURI）を取得
+      const base64Data = reader.result.split(',')[1];
+      // Kotlin側の関数を呼び出す
+      try {
+        window.android.saveVideoToGallery(base64Data, fileName);
+        alert(`動画をギャラリーに保存しました: ${fileName}`);
+      } catch (error) {
+        console.error('AndroidInterface 呼び出しエラー:', error);
+        alert('動画の保存に失敗しました: ${error}');
+      }
+    };
+    reader.readAsDataURL(blob); // BlobをBase64に変換
   };
 
   // 録画開始
@@ -458,31 +484,13 @@ function App() {
 
     // 録画を停止したときに、動画ファイルをダウンロード
     mediaRecorderRef.current.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-      const filename = `video_${Date.now()}.webm`;
-
-      // Androidアプリ内の場合
-      if (isAndroidApp) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64data = reader.result.split(',')[1];
-          
-          if (typeof window.android.saveVideoToGallery === 'function') {
-            try {
-              window.android.saveVideoToGallery(base64data, filename);
-              console.log('動画を保存しました:', filename);
-            } catch (e) {
-              console.error('動画保存エラー:', e);
-              downloadFallback(blob, filename);
-            }
-          } else {
-            downloadFallback(blob, filename);
-          }
-        };
-        reader.readAsDataURL(blob);
-      } else {
-        // ブラウザの場合
-        downloadFallback(blob, filename);
+      const blob = new Blob(chunksRef.current, { type: 'video/mp4' });
+      // 写真のファイル名
+      const fileName = getFileNameWithDateTime("video_", ".mp4");
+      if (isAndroidApp) { // Androidアプリ内の場合?
+        saveVideoToGallery(blob, fileName);
+      } else { // ブラウザの場合
+        downloadFallback(blob, fileName);
       }
     };
 
