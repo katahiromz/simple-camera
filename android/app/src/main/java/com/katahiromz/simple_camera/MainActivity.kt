@@ -188,11 +188,19 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     private val actionsOnPermissionsGranted = mutableListOf<() -> Unit>()
     // 拒否されたときに実行する処理を保持するリスト
     private val actionsOnPermissionsDenied = mutableListOf<() -> Unit>()
+    
+    // パーミッションリクエストが進行中かどうかのフラグ
+    private var permissionRequestInProgress: Boolean = false
+    // 保留中のWebView PermissionRequestのキュー
+    private val pendingWebPermissionRequests = mutableListOf<PermissionRequest>()
 
     // 複数のパーミッションをリクエストするActivity Result Launcher。
     private val requestMultiplePermissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             // 戻り値: Map<String, Boolean> (パーミッション名, 許可されたか)
+
+            // パーミッションリクエストが完了したのでフラグをリセット
+            permissionRequestInProgress = false
 
             // 全て許可されたかを確認する例
             val allGranted = permissions.entries.all { it.value }
@@ -207,6 +215,14 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
                 actionsOnPermissionsDenied.forEach { it.invoke() }
                 actionsOnPermissionsGranted.clear()
                 actionsOnPermissionsDenied.clear()
+            }
+
+            // 保留中のWebView PermissionRequestがあれば次を処理
+            if (pendingWebPermissionRequests.isNotEmpty()) {
+                val nextRequest = pendingWebPermissionRequests.removeAt(0)
+                runOnUiThread {
+                    handlePermissionRequest(nextRequest)
+                }
             }
         }
 
@@ -252,6 +268,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         } else {
             // Rationaleが不要な場合は、即座にリクエストを実行
             // 許可されていないものだけをリクエスト
+            permissionRequestInProgress = true
             requestMultiplePermissionsLauncher.launch(permissionsNeeded)
         }
     }
@@ -273,6 +290,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton(getLocString(R.string.ok)) { dialog, which ->
+                permissionRequestInProgress = true
                 launcher.launch(permissionsToRequest)
             }.setCancelable(false)
             .show()
@@ -351,6 +369,13 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             return
         }
 
+        // パーミッションリクエストが進行中の場合は、キューに追加して後で処理
+        if (permissionRequestInProgress) {
+            Timber.i("Permission request in progress, queuing WebView PermissionRequest")
+            pendingWebPermissionRequests.add(request)
+            return
+        }
+
         // メッセージ ID を決定（カメラとマイク両方が必要な場合は camera を優先）
         val messageId = when {
             needsCamera && needsAudio -> R.string.needs_camera
@@ -423,7 +448,6 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     // region イベントハンドラ関連
 
     private var webViewReady = false
-    private var pendingLoadAfterInit = false
 
     // アクティビティの作成時。
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -449,39 +473,6 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
 
         // WebViewを初期化。
         initWebView(savedInstanceState)
-
-        // パーミッション関連。
-        if (USE_CAMERA || USE_AUDIO || USE_STORAGE) {
-            val startupPerms = mutableListOf<String>()
-            if (USE_CAMERA) startupPerms.add(Manifest.permission.CAMERA)
-            if (USE_AUDIO) startupPerms.add(Manifest.permission.RECORD_AUDIO)
-            if (USE_STORAGE) startupPerms.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-
-            if (startupPerms.isNotEmpty()) {
-                Timber.i("checkAndRequestPermissions")
-                checkAndRequestPermissions(
-                    R.string.needs_permissions, // 表示メッセージ
-                    startupPerms.toTypedArray(),
-                    onGranted = {
-                        // 権限が付与された直後の初期化処理をここに書く
-                        Timber.i("checkAndRequestPermissions.onGranted")
-                        // 権限がある／確保できたらページを読み込む（Chromium の getUserMedia が権限有りで動く）
-                        runOnUiThread {
-                            // webView が準備済みならすぐロード、まだなら保留フラグを立てる
-                            if (webViewReady && webView != null) {
-                                webView?.loadUrl(getLocString(R.string.url))
-                            } else {
-                                pendingLoadAfterInit = true
-                            }
-                        }
-                    },
-                    onDenied = {
-                        // 拒否されたときの処理
-                        Timber.i("checkAndRequestPermissions.onDenied")
-                    }
-                )
-            }
-        }
 
         // 音声合成を使うか？
         if (USE_TEXTTOSPEECH) {
@@ -711,13 +702,11 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         // JavaScript側からメソッドを呼び出せるインターフェイスを提供する。
         chromeClient?.let { currentWebView.addJavascriptInterface(it, "android") }
 
+        // WebView初期化完了後、URLをロードする
         webViewReady = true
-        if (pendingLoadAfterInit) {
-            val url = getLocString(R.string.url)
-            Timber.i("url: " + url)
-            currentWebView.loadUrl(url)
-            pendingLoadAfterInit = false
-        }
+        val url = getLocString(R.string.url)
+        Timber.i("url: " + url)
+        currentWebView.loadUrl(url)
     }
 
     // ウェブ設定を初期化する。
