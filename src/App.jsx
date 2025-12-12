@@ -24,7 +24,8 @@ function App() {
   const [isRecording, setIsRecording] = useState(false); // 録画中か？
   const [zoom, setZoom] = useState(1); // ズーム倍率
   const [capabilities] = useState({ min: 1, max: 8 }); // ズーム倍率などのカメラの能力
-
+  const [recordingTime, setRecordingTime] = useState(0); // 録画時間 (秒)
+  const timerIntervalRef = useRef(null); // タイマーID
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 }); // X, Yオフセット (CSS適用用)
   const panStartRef = useRef({ x: 0, y: 0 }); // パン開始時の座標
   const panOffsetRef = useRef(panOffset); // 最新の panOffset を保持
@@ -411,6 +412,19 @@ function App() {
     if (!stream) return;
     chunksRef.current = []; // 録画用データをクリア
 
+    // 既存のタイマーがあればクリア
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+    }
+    setRecordingTime(0); // 録画時間をリセット
+
+    // タイマーを開始
+    const startTime = Date.now();
+    timerIntervalRef.current = setInterval(() => {
+        const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+        setRecordingTime(elapsedTime);
+    }, 1000); // 1秒ごとに更新
+
     // メディアレコーダーを作成
     const options = { mimeType: 'video/webm; codecs=vp9' };
     try {
@@ -465,6 +479,20 @@ function App() {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
+    // タイマーを停止
+    if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+    }
+    setRecordingTime(0); // 録画時間をリセット
+  };
+
+  // 録画時間を "MM:SS" 形式にフォーマットする関数
+  const formatTime = (totalSeconds) => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const pad = (num) => num.toString().padStart(2, '0');
+    return `${pad(minutes)}:${pad(seconds)}`;
   };
 
   return (
@@ -491,6 +519,13 @@ function App() {
           </button>
         )}
       </div>
+
+      {/* ★ 録画時間表示エリアの追加 */}
+      {isRecording && (
+        <div className="recording-time-display">
+          {formatTime(recordingTime)}
+        </div>
+      )}
 
       {/* カメラ切り替えボタン (右上) */}
       <button

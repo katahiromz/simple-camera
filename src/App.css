@@ -154,3 +154,26 @@ body, html, #root {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* 録画時間表示 */
+.recording-time-display {
+  position: absolute;
+  bottom: calc(1.5vw + 1.5vh + (3vw + 3vh) + (3vw + 3vh)); /* controlsエリア + ボタンの高さ + マージン */
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  background-color: rgba(192, 0, 0, 0.7); /* 赤色の背景 */
+  padding: calc(0.5vw + 0.5vh);
+  border-radius: 8px;
+  font-size: calc(1.2vw + 1.2vh);
+  font-weight: bold;
+  z-index: 10;
+  white-space: nowrap; /* 折り返しを防ぐ */
+  /* 点滅アニメーション */
+  animation: flash 1s infinite alternate; 
+}
+
+@keyframes flash {
+  0% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
