@@ -50,36 +50,25 @@ function App() {
     }
   }, [zoom, panOffset]);
 
+  // 初回のみストレージ権限を要求
+  useEffect(() => {
+    const requestStoragePermission = async () => {
+      if (isAndroidApp && typeof window.android.requestStoragePermission === 'function') {
+        try {
+          await window.android.requestStoragePermission();
+          console.log('ストレージ権限の要求が完了しました');
+        } catch (e) {
+          console.warn('ストレージ権限の要求に失敗:', e);
+        }
+      }
+    };
+    requestStoragePermission();
+  }, []); // 初回マウント時のみ実行
+
   // --- カメラアクセスロジック ---
+
   useEffect(() => {
     let currentStream = null;
-
-    // Android の権限が付与されるまで待機する
-    const waitForAndroidPermissions = async () => {
-      // Android アプリ内で実行されているか確認
-      if (isAndroidApp && typeof window.android.hasMediaPermissions === 'function') {
-        // 権限チェック（最大30秒間、500msごとに確認）
-        const PERMISSION_POLL_INTERVAL_MS = 500;
-        const PERMISSION_TIMEOUT_MS = 30000;
-        const maxAttempts = PERMISSION_TIMEOUT_MS / PERMISSION_POLL_INTERVAL_MS;
-        
-        for (let i = 0; i < maxAttempts; i++) {
-          try {
-            if (window.android.hasMediaPermissions()) {
-              return true; // 権限が付与されている
-            }
-          } catch (e) {
-            console.warn('権限チェックエラー:', e);
-          }
-          // 待機
-          await new Promise(resolve => setTimeout(resolve, PERMISSION_POLL_INTERVAL_MS));
-        }
-        console.warn('Android 権限の取得がタイムアウトしました');
-        return false;
-      }
-      // Android アプリ外（ブラウザ等）では即座に続行
-      return true;
-    };
 
     // カメラを要求する(再帰関数)
     const requestCamera = async (facingMode, audio, retry = 0) => {
@@ -121,13 +110,6 @@ function App() {
       // ストリームを停止
       if (stream)
         stream.getTracks().forEach(track => track.stop());
-
-      // Android の権限が付与されるまで待機
-      const permissionsGranted = await waitForAndroidPermissions();
-      if (!permissionsGranted) {
-        console.error('Android の権限が付与されませんでした');
-        return;
-      }
 
       const mediaStream = await requestCamera(facingMode, true);
       if (!mediaStream) return; // カメラアクセス失敗時は終了
@@ -365,7 +347,7 @@ function App() {
     if (IS_JAPAN_OR_KOREA) { // 日本と韓国ではシャッタ―音を鳴らさなければならない
       // シャッター音の前に音量の保存と調整
       try {
-        android.onStartShutterSound();
+        window.android.onStartShutterSound();
       } catch (e) {}
 
       // シャッター音の再生
@@ -373,7 +355,7 @@ function App() {
 
       // シャッター音の後に音量の調整
       try {
-        android.onEndShutterSound();
+        window.android.onEndShutterSound();
       } catch (e) {}
     }
 

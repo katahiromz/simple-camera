@@ -121,6 +121,19 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         listener.onEndShutterSound()
     }
 
+    // ストレージ権限を要求するメソッド
+    @JavascriptInterface
+    fun requestStoragePermission() {
+        activity?.triggerStorageFeature(
+            onGranted = {
+                Timber.i("Storage permission granted")
+            },
+            onDenied = {
+                Timber.w("Storage permission denied")
+            }
+        )
+    }
+
     // カメラの権限が付与されているか確認する。
     // 音声権限はオプションとして扱う。
     @JavascriptInterface

@@ -9,6 +9,7 @@
     <string name="needs_camera">This app needs permission to access the camera.</string>
     <string name="needs_storage">This app needs permission to access the storage.</string>
     <string name="needs_permissions">This app needs permissions to function properly.</string>
+    <string name="needs_camera_and_storage">This app requires camera, microphone, and storage permissions.</string>
 
     <!-- main -->
     <string name="app_name">Simple Camera</string>

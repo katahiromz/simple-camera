@@ -443,6 +443,48 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         )
     }
 
+    /**
+     * アプリ起動時に必要な権限を一括で要求する
+     */
+    private fun requestInitialPermissions() {
+        val permissions = mutableListOf<String>()
+        
+        // カメラ権限（必須）
+        if (USE_CAMERA && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
+            != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.CAMERA)
+        }
+        
+        // 録音権限（オプション）
+        if (USE_AUDIO && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) 
+            != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.RECORD_AUDIO)
+        }
+        
+        // ストレージ権限（Android 9以前のみ）
+        if (USE_STORAGE && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
+                != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
+        }
+        
+        // 権限が必要な場合のみ要求
+        if (permissions.isNotEmpty()) {
+            checkAndRequestPermissions(
+                R.string.needs_camera_and_storage,
+                permissions.toTypedArray(),
+                onGranted = {
+                    Timber.i("Initial permissions granted")
+                },
+                onDenied = {
+                    Timber.w("Some initial permissions denied")
+                    // 録音権限が拒否されても続行可能
+                }
+            )
+        }
+    }
+
     // endregion
 
     /////////////////////////////////////////////////////////////////////
@@ -474,6 +516,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
 
         // WebViewを初期化。
         initWebView(savedInstanceState)
+
+        // アプリ起動時に必要な権限を一括で要求
+        requestInitialPermissions()
 
         // 音声合成を使うか？
         if (USE_TEXTTOSPEECH) {
