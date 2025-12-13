@@ -39,7 +39,7 @@ function App() {
   const panOffsetRef = useRef(panOffset); // 最新の panOffset を保持
 
   // オーディオ権限の状態を管理。状態: 'granted', 'denied', 'prompt'
-  const [audioPermissionStatus, setAudioPermissionStatus] = useState('prompt'); 
+  const [audioPermissionStatus, setAudioPermissionStatus] = useState('prompt');
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   const [forcedAudioMode, setForcedAudioMode] = useState(null); // null, true, false
 
@@ -155,7 +155,7 @@ function App() {
     const setupPermissionListener = async () => {
       try {
         permissionStatus = await navigator.permissions.query({ name: 'microphone' });
-        
+
         permissionStatus.onchange = async () => {
           console.log('マイク権限が変更されました:', permissionStatus.state);
           console.log('カメラを再起動します');
@@ -224,16 +224,23 @@ function App() {
       console.error(`カメラアクセスエラー (${targetFacingMode}):`, err);
 
       // 音声関連のエラーで、まだ音声なしで試していない場合
-      const enableAudio = forcedAudio !== null ? forcedAudio !== 'denied' : 
-                          forcedAudioMode === true ? true : 
-                          forcedAudioMode === false ? false : true;
+      const wasRequestingAudio = forcedAudio !== null ? forcedAudio !== 'denied' :
+                                 forcedAudioMode === true ? true :
+                                 forcedAudioMode === false ? false : true;
 
-      if (!fallbackToNoAudio && (
-        err.name === 'NotAllowedError' || 
-        err.name === 'PermissionDeniedError'))
+      if (!fallbackToNoAudio &&
+          wasRequestingAudio &&
+          (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'))
       {
-        console.log('音声なしでカメラアクセスを再試行します...');
-        return requestCameraAndAudio(targetFacingMode, 'denied', retry, true);
+        console.log('権限エラー: 音声なしでカメラアクセスを再試行します...');
+        // エラーの種類を判別するためのマーカーを付与
+        try {
+          return await requestCameraAndAudio(targetFacingMode, 'denied', retry, true);
+        } catch (retryErr) {
+          // 再試行でもエラーの場合、カメラ権限の問題として扱う
+          retryErr.isCameraPermissionError = true;
+          throw retryErr;
+        }
       }
 
       // NotFoundError の場合は別のカメラを試す
@@ -263,7 +270,7 @@ function App() {
       }
 
       const { mediaStream, actualFacingMode } = await requestCameraAndAudio(
-        facingMode, 
+        facingMode,
         forcedAudio
       );
 
@@ -332,19 +339,25 @@ function App() {
 
         if (isMounted) {
           let errorMessage = 'カメラへのアクセスに失敗しました';
+
           if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            errorMessage = 'カメラの使用が許可されていません。ブラウザの設定を確認してください。';
-            setCameraPermissionDenied(true);
+            // isCameraPermissionError フラグで判定
+            if (err.isCameraPermissionError) {
+              errorMessage = 'カメラの使用が許可されていません。ブラウザの設定を確認してください。';
+              setCameraPermissionDenied(true);
+            } else {
+              // マイク権限エラーの場合はカメラ権限エラーとして扱わない
+              console.log('マイク権限が拒否されましたが、カメラは使用可能です。');
+            }
           } else if (err.name === 'NotFoundError') {
             errorMessage = '利用可能なカメラが見つかりませんでした。';
           } else if (err.name === 'NotReadableError') {
             errorMessage = 'カメラは他のアプリケーションで使用中です。';
           }
-          
-         // カメラ権限エラーの場合はアラートを表示しない（画面に表示されるため）
-         if (err.name !== 'NotAllowedError' && err.name !== 'PermissionDeniedError') {
-           alert(`${errorMessage}\n\nエラー詳細: ${err.name}`);
-         }
+
+          if (err.name !== 'NotAllowedError' && err.name !== 'PermissionDeniedError') {
+            alert(`${errorMessage}\n\nエラー詳細: ${err.name}`);
+          }
         }
       }
     };
@@ -885,7 +898,7 @@ function App() {
             // 音声を反転
             const targetAudioEnabled = !currentlyHasAudio;
             console.log('目標の音声状態:', targetAudioEnabled);
-            
+
             // forcedAudioModeを更新
             setForcedAudioMode(targetAudioEnabled);
             saveForcedAudioMode(targetAudioEnabled);
@@ -902,7 +915,7 @@ function App() {
             isRecording
               ? '録画中はマイク設定を変更できません'
               : isAudioEnabled
-                ? 'マイクが有効です（クリックで無効化）' 
+                ? 'マイクが有効です（クリックで無効化）'
                 : 'マイクが無効です（クリックで有効化）'
           }
         >
