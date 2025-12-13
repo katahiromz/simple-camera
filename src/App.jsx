@@ -897,6 +897,13 @@ function App() {
         ↕
       </button>
 
+      {/* ★ 録画時間表示エリアの追加 */}
+      {isRecording && (
+        <div className="recording-time-display">
+          {formatTime(recordingTime)}
+        </div>
+      )}
+
       {/* コントロール */}
       <div className="controls">
         {/* マイクボタン */}
@@ -952,13 +959,6 @@ function App() {
         >
           {isRecording ? '⏹' : '🎥'}
         </button>
-
-        {/* ★ 録画時間表示エリアの追加 */}
-        {isRecording && (
-          <div className="recording-time-display">
-            {formatTime(recordingTime)}
-          </div>
-        )}
       </div>
     </div>
   );

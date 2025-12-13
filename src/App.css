@@ -169,7 +169,11 @@ body, html, #root {
 
 /* 録画時間表示 */
 .recording-time-display {
-  display: inline-block;
+  position: absolute;
+  top: calc(2vh);
+  top: calc(2dvh);
+  left: calc(2vw);
+  left: calc(2dvw);
   color: white;
   background-color: rgba(192, 0, 0, 0.5); /* 赤色の背景 */
   padding: calc(0.5vh) calc(0.5vw);
