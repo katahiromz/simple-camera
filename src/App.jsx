@@ -727,12 +727,36 @@ function App() {
       }
     }, 1000); // 1秒ごとに更新
 
-    // メディアレコーダーを作成
-    const options = { mimeType: 'video/webm; codecs=vp9' };
+    // MIMEタイプ
+    const availableMimeTypes = [
+      'video/mp4',
+      'video/webm; codecs=vp9',
+      'video/webm; codecs=vp8',
+      'video/webm',
+    ];
+
+    let options = {}, extension = '.mp4';
+    let selectedMimeType = '';
+    for (const mimeType of availableMimeTypes) {
+      if (MediaRecorder.isTypeSupported(mimeType)) {
+        options = { mimeType: mimeType };
+        selectedMimeType = mimeType;
+        extension = (mimeType.indexOf('webm') == -1) ? '.mp4' : '.webm';
+        break;
+      }
+    }
+
+    // サポートされているMIMEタイプが見つからなかった場合は、デフォルトのコンストラクタを使用
     try {
-      mediaRecorderRef.current = new MediaRecorder(stream, options);
+      if (selectedMimeType) {
+        mediaRecorderRef.current = new MediaRecorder(stream, options);
+      } else {
+        mediaRecorderRef.current = new MediaRecorder(stream);
+      }
+      console.log('MediaRecorder MIME Type:', mediaRecorderRef.current.mimeType);
     } catch (e) {
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      console.error('MediaRecorderの作成に失敗しました:', e);
+      return; // レコーダーを作成できない場合は処理を中止
     }
 
     // 必要な時に録画データを追加する
@@ -742,9 +766,9 @@ function App() {
 
     // 録画を停止したときに、動画ファイルをダウンロード
     mediaRecorderRef.current.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'video/mp4' });
+      const blob = new Blob(chunksRef.current, { type: mediaRecorderRef.current.mimeType.split(';')[0] || 'video/mp4' });
       // 写真のファイル名
-      const fileName = getFileNameWithDateTime("video_", ".mp4");
+      const fileName = getFileNameWithDateTime("video_", extension);
       if (isAndroidApp) { // Androidアプリ内の場合?
         saveVideoToGallery(blob, fileName);
       } else { // ブラウザの場合
