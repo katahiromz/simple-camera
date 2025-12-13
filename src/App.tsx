@@ -347,63 +347,22 @@ function App() {
 
     // より包括的な候補リストを作成
     const candidates = [
-      // 0. facingModeのみ指定(解像度は自動 - 最も広角になりやすい)
+      // 0. facingModeのみ(最優先 - 最も広角)
       {
-        video: {
-          facingMode: targetFacingMode
-        },
+        video: { facingMode: targetFacingMode },
         audio: enableAudio
       },
-      // 1. 理想的な解像度 + 指定したfacingMode (exact指定なし)
+      // 1. 反対のfacingModeのみ
       {
-        video: {
-          facingMode: targetFacingMode,
-          width: { ideal: idealWidth },
-          height: { ideal: idealHeight }
-        },
+        video: { facingMode: oppositeFacingMode },
         audio: enableAudio
       },
-      // 2. 理想的な解像度 + 反対のfacingMode
+      // 2. facingModeをidealとして指定(より柔軟)
       {
-        video: {
-          facingMode: oppositeFacingMode,
-          width: { ideal: idealWidth },
-          height: { ideal: idealHeight }
-        },
+        video: { facingMode: { ideal: targetFacingMode } },
         audio: enableAudio
       },
-      // 3. facingModeのみ指定（解像度は自動）
-      {
-        video: {
-          facingMode: targetFacingMode
-        },
-        audio: enableAudio
-      },
-      // 4. 反対のfacingModeのみ指定
-      {
-        video: {
-          facingMode: oppositeFacingMode
-        },
-        audio: enableAudio
-      },
-      // 5. facingModeを理想値として指定（より柔軟）
-      {
-        video: {
-          facingMode: { ideal: targetFacingMode },
-          width: { ideal: idealWidth },
-          height: { ideal: idealHeight }
-        },
-        audio: enableAudio
-      },
-      // 6. 任意のカメラ + 理想的な解像度
-      {
-        video: {
-          width: { ideal: idealWidth },
-          height: { ideal: idealHeight }
-        },
-        audio: enableAudio
-      },
-      // 7. 完全に制約なし（最後の手段）
+      // 3. 完全に制約なし
       {
         video: true,
         audio: enableAudio
@@ -413,40 +372,22 @@ function App() {
     // audio なしの候補も追加（マイク権限が原因の場合のフォールバック）
     if (enableAudio) {
       candidates.push(
+        // 0. facingModeのみ(最優先 - 最も広角)
         {
-          video: {
-            facingMode: targetFacingMode,
-          },
+          video: { facingMode: targetFacingMode },
           audio: false
         },
+        // 1. 反対のfacingModeのみ
         {
-          video: {
-            facingMode: oppositeFacingMode,
-          },
+          video: { facingMode: oppositeFacingMode },
           audio: false
         },
+        // 2. facingModeをidealとして指定(より柔軟)
         {
-          video: {
-            facingMode: targetFacingMode,
-            width: { ideal: idealWidth },
-            height: { ideal: idealHeight }
-          },
+          video: { facingMode: { ideal: targetFacingMode } },
           audio: false
         },
-        {
-          video: {
-            facingMode: oppositeFacingMode,
-            width: { ideal: idealWidth },
-            height: { ideal: idealHeight }
-          },
-          audio: false
-        },
-        {
-          video: {
-            facingMode: targetFacingMode
-          },
-          audio: false
-        },
+        // 3. 完全に制約なし
         {
           video: true,
           audio: false
