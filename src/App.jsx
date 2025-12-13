@@ -217,24 +217,51 @@ function App() {
         enableAudio = false;
       }
 
+      // スクリーンサイズを取得（デバイスピクセル比を考慮）
+      const pixelRatio = window.devicePixelRatio || 1;
+      const screenWidth = window.screen.width * pixelRatio;
+      const screenHeight = window.screen.height * pixelRatio;
+
+      // 現在の画面の向き（縦長か横長か）
+      const isPortrait = window.innerHeight > window.innerWidth;
+
+      // カメラに要求する解像度
+      // 背面カメラの場合は画面サイズ、前面カメラの場合は向きを考慮
+      let idealWidth, idealHeight;
+      
+      if (isPortrait) {
+        // 縦向き: 幅 < 高さ
+        idealWidth = Math.min(screenWidth, screenHeight);
+        idealHeight = Math.max(screenWidth, screenHeight);
+      } else {
+        // 横向き: 幅 > 高さ
+        idealWidth = Math.max(screenWidth, screenHeight);
+        idealHeight = Math.min(screenWidth, screenHeight);
+      }
+
+      console.log('要求する解像度:', idealWidth, 'x', idealHeight, 
+                '(画面:', isPortrait ? '縦' : '横', ')');
+
       // メディアストリームを取得
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: targetFacingMode,
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          width: { ideal: idealWidth },
+          height: { ideal: idealHeight }
         },
         audio: enableAudio
       });
 
+      // 実際に取得できた解像度をログ出力
+      const videoTrack = mediaStream.getVideoTracks()[0];
+      if (videoTrack) {
+        const settings = videoTrack.getSettings();
+        console.log('取得した解像度:', settings.width, 'x', settings.height);
+      }
+
       // 音声トラックの有無を確認
       const hasAudioTrack = enableAudio && mediaStream.getAudioTracks().length > 0;
       setIsAudioEnabled(hasAudioTrack);
-
-      // 初回起動時以外でログを出力
-      if (retry === 0 && forcedAudio !== null) {
-        console.log('マイク設定が更新されました。新しい状態:', hasAudioTrack);
-      }
 
       return { mediaStream, actualFacingMode: targetFacingMode };
     } catch (err) {
