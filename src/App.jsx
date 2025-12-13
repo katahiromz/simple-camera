@@ -46,6 +46,9 @@ function App() {
   // カメラの権限の状態
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
 
+  // マイク権限変更を検知し、メインのuseEffectをトリガーするためのキー
+  const [micPermissionChangedKey, setMicPermissionChangedKey] = useState(0);
+
   // カメラの向き ('environment': 背面, 'user': 前面)
   const [facingMode, setFacingMode] = useState('environment');
 
@@ -85,31 +88,6 @@ function App() {
         permissionStatus.onchange = async () => {
           console.log('カメラ権限が変更されました:', permissionStatus.state);
           setCameraPermissionDenied(permissionStatus.state === 'denied');
-
-          // 権限が付与された場合、カメラを再起動
-          if (permissionStatus.state === 'granted') {
-            console.log('カメラ権限が付与されました。カメラを再起動します...');
-            
-            // 既存のストリームを停止
-            if (stream) {
-              stream.getTracks().forEach(track => track.stop());
-            }
-            
-            try {
-              // カメラを再要求
-              const { mediaStream, actualFacingMode } = await requestCameraAndAudio(facingMode);
-              setStream(mediaStream);
-              setFacingMode(actualFacingMode);
-              
-              if (videoRef.current) {
-                videoRef.current.srcObject = mediaStream;
-              }
-              
-              console.log('カメラの再起動に成功しました');
-            } catch (err) {
-              console.error('カメラの再起動に失敗:', err);
-            }
-          }
         };
       } catch (error) {
         console.error('カメラ権限監視のセットアップに失敗:', error);
@@ -168,7 +146,7 @@ function App() {
     }
   }, [isAndroidApp, forcedAudioMode]);
 
-  // 権限変更を監視
+  // 権限変更を監視 (マイク)
   useEffect(() => {
     if (!navigator.permissions || isAndroidApp) return;
 
@@ -180,26 +158,9 @@ function App() {
         
         permissionStatus.onchange = async () => {
           console.log('マイク権限が変更されました:', permissionStatus.state);
-          
-          // forcedAudioModeがnullの場合のみ、権限変更に反応
-          if (forcedAudioMode === null) {
-            // カメラを再起動
-            if (stream) {
-              stream.getTracks().forEach(track => track.stop());
-            }
-            
-            try {
-              const { mediaStream, actualFacingMode } = await requestCameraAndAudio(facingMode);
-              setStream(mediaStream);
-              setFacingMode(actualFacingMode);
-              
-              if (videoRef.current) {
-                videoRef.current.srcObject = mediaStream;
-              }
-            } catch (err) {
-              console.error('カメラの再起動に失敗:', err);
-            }
-          }
+          console.log('カメラを再起動します');
+          // 直接再起動する代わりに、キーを更新してメインのuseEffectをトリガーする
+          setMicPermissionChangedKey(prev => prev + 1);
         };
       } catch (error) {
         console.error('権限監視のセットアップに失敗:', error);
@@ -213,7 +174,7 @@ function App() {
         permissionStatus.onchange = null;
       }
     };
-  }, [isAndroidApp, forcedAudioMode, facingMode, stream]);
+  }, [isAndroidApp]);
 
   // カメラを要求する
   const requestCameraAndAudio = async (targetFacingMode, forcedAudio = null, retry = 0, fallbackToNoAudio = false) => {
@@ -396,7 +357,7 @@ function App() {
         currentStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [facingMode, checkAudioPermission]);
+  }, [facingMode, checkAudioPermission, cameraPermissionDenied, micPermissionChangedKey]);
 
   // ズーム適用関数
   const applyZoom = useCallback((newZoom) => {
