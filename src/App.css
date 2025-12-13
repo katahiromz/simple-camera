@@ -10,15 +10,18 @@ body, html, #root {
 }
 
 .camera-container {
-  position: relative;
-  width: 100vw;
-  width: 100dvw;
-  height: 100dvh;
-  height: 100vh;
+  position: fixed; /* relative → fixed */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  overflow: hidden; /* 追加 */
 }
 
 .btn {
@@ -96,16 +99,19 @@ body, html, #root {
 
 /* 操作ボタンエリア */
 .controls {
-  position: absolute;
-  bottom: calc(1.5vh);
-  bottom: calc(1.5dvh);
-  width: 100vw;
-  width: 100dvw;
+  position: fixed; /* absolute → fixed に変更 */
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
   display: flex;
   justify-content: center;
   gap: calc(2vw);
   gap: calc(2dvw);
   z-index: 10;
+  padding-bottom: calc(max(2vh, env(safe-area-inset-bottom, 1rem)));
+  padding-top: calc(1vh);
+  background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, transparent 100%);
 }
 
 .photo-btn {
