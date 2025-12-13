@@ -209,115 +209,169 @@ function App() {
     };
   }, [isAndroidApp]);
 
-  // カメラを要求する
-  const requestCameraAndAudio = async (targetFacingMode, forcedAudio = null, retry = 0, fallbackToNoAudio = false) => {
-    if (retry >= 2) {
-      throw new Error('すべてのカメラで接続に失敗しました');
+  // メディア制約の候補を作成します
+  const getMediaConstraintCandidates = async (targetFacingMode, forcedAudio) => {
+    // スクリーンサイズを取得（デバイスピクセル比を考慮）
+    const pixelRatio = window.devicePixelRatio || 1;
+    const screenWidth = window.screen.width * pixelRatio;
+    const screenHeight = window.screen.height * pixelRatio;
+
+    // 現在の画面の向き（縦長か横長か）
+    const isPortrait = window.innerHeight > window.innerWidth;
+
+    // カメラに要求する解像度
+    // 背面カメラの場合は画面サイズ、前面カメラの場合は向きを考慮
+    let idealWidth, idealHeight;
+    if (isPortrait) {
+      // 縦向き: 幅 < 高さ
+      idealWidth = Math.min(screenWidth, screenHeight);
+      idealHeight = Math.max(screenWidth, screenHeight);
+    } else {
+      // 横向き: 幅 > 高さ
+      idealWidth = Math.max(screenWidth, screenHeight);
+      idealHeight = Math.min(screenWidth, screenHeight);
     }
 
-    try {
-      let enableAudio;
-      if (forcedAudio !== null) { // forcedAudioが指定されている場合は優先
-        enableAudio = forcedAudio !== 'denied';
-      } else if (forcedAudioMode === true) { // forcedAudioModeがtrueの場合は強制的に有効化を試みる
-        enableAudio = true;
-      } else if (forcedAudioMode === false) { // forcedAudioModeがfalseの場合は強制的に無効化
-        enableAudio = false;
-      } else { // それ以外は権限に従う
-        const audioPermission = await checkAudioPermission();
-        enableAudio = audioPermission === 'granted';
-      }
+    console.log('要求する解像度:', idealWidth, 'x', idealHeight, '(画面:', isPortrait ? '縦' : '横', ')');
 
-      // fallbackToNoAudioがtrueの場合は音声なしで試行
-      if (fallbackToNoAudio) {
-        enableAudio = false;
-      }
+    let audioPermission;
+    if (forcedAudio === null) {
+      audioPermission = await checkAudioPermission();
+    } else {
+      if (forcedAudio === true)
+        audioPermission = 'granted';
+      else if (forcedAudio === false)
+        audioPermission = 'denied';
+      else
+        console.assert(false);
+    }
 
-      // スクリーンサイズを取得（デバイスピクセル比を考慮）
-      const pixelRatio = window.devicePixelRatio || 1;
-      const screenWidth = window.screen.width * pixelRatio;
-      const screenHeight = window.screen.height * pixelRatio;
-
-      // 現在の画面の向き（縦長か横長か）
-      const isPortrait = window.innerHeight > window.innerWidth;
-
-      // カメラに要求する解像度
-      // 背面カメラの場合は画面サイズ、前面カメラの場合は向きを考慮
-      let idealWidth, idealHeight;
-      
-      if (isPortrait) {
-        // 縦向き: 幅 < 高さ
-        idealWidth = Math.min(screenWidth, screenHeight);
-        idealHeight = Math.max(screenWidth, screenHeight);
-      } else {
-        // 横向き: 幅 > 高さ
-        idealWidth = Math.max(screenWidth, screenHeight);
-        idealHeight = Math.min(screenWidth, screenHeight);
-      }
-
-      console.log('要求する解像度:', idealWidth, 'x', idealHeight, 
-                '(画面:', isPortrait ? '縦' : '横', ')');
-
-      // メディアストリームを取得
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: targetFacingMode,
-          width: { ideal: idealWidth },
-          height: { ideal: idealHeight }
-        },
-        audio: enableAudio
-      });
-
-      // 実際に取得できた解像度をログ出力
-      const videoTrack = mediaStream.getVideoTracks()[0];
-      if (videoTrack) {
-        const settings = videoTrack.getSettings();
-        console.log('取得した解像度:', settings.width, 'x', settings.height);
-      }
-
-      // 音声トラックの有無を確認
-      const hasAudioTrack = enableAudio && mediaStream.getAudioTracks().length > 0;
-      setIsAudioEnabled(hasAudioTrack);
-
-      return { mediaStream, actualFacingMode: targetFacingMode };
-    } catch (err) {
-      console.error(`カメラアクセスエラー (${targetFacingMode}):`, err);
-
-      // 音声関連のエラーで、まだ音声なしで試していない場合
-      const wasRequestingAudio = forcedAudio !== null ? forcedAudio !== 'denied' :
-                                 forcedAudioMode === true ? true :
-                                 forcedAudioMode === false ? false : true;
-
-      if (!fallbackToNoAudio &&
-          wasRequestingAudio &&
-          (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'))
-      {
-        console.log('権限エラー: 音声なしでカメラアクセスを再試行します...');
-        // エラーの種類を判別するためのマーカーを付与
-        try {
-          return await requestCameraAndAudio(targetFacingMode, 'denied', retry, true);
-        } catch (retryErr) {
-          // 再試行でもエラーの場合、カメラ権限の問題として扱う
-          retryErr.isCameraPermissionError = true;
-          throw retryErr;
+    if (audioPermission === 'granted' || audioPermission === 'denied') {
+      const enableAudio = audioPermission === 'granted';
+      return [
+        {
+          video: {
+            facingMode: targetFacingMode,
+            width: { ideal: idealWidth },
+            height: { ideal: idealHeight }
+          },
+          audio: enableAudio
+        }, {
+          video: {
+            facingMode: targetFacingMode == 'user' ? 'environment' : 'user',
+            width: { ideal: idealWidth },
+            height: { ideal: idealHeight }
+          },
+          audio: enableAudio
+        }, {
+          video: {
+            facingMode: targetFacingMode
+          },
+          audio: enableAudio
+        }, {
+          video: {
+            facingMode: targetFacingMode == 'user' ? 'environment' : 'user',
+          },
+          audio: enableAudio
+        }, {
+          video: true,
+          audio: enableAudio
         }
-      }
-
-      // NotFoundError の場合は別のカメラを試す
-      if (retry === 0 && err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
-        const nextFacingMode = targetFacingMode === 'environment' ? 'user' : 'environment';
-        console.log(`${targetFacingMode}カメラが見つかりません。${nextFacingMode}を試します...`);
-        return requestCameraAndAudio(nextFacingMode, forcedAudio, retry + 1, fallbackToNoAudio);
-      }
-
-      if (retry > 0 && err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
-        const nextFacingMode = targetFacingMode === 'environment' ? 'user' : 'environment';
-        return requestCameraAndAudio(nextFacingMode, 'denied', retry + 1, true);
-      }
-
-      // その他のエラーは再スロー
-      throw err;
+      ];
+    } else {
+      return [
+        {
+          video: {
+            facingMode: targetFacingMode,
+            width: { ideal: idealWidth },
+            height: { ideal: idealHeight }
+          },
+          audio: true
+        }, {
+          video: {
+            facingMode: targetFacingMode,
+            width: { ideal: idealWidth },
+            height: { ideal: idealHeight }
+          },
+          audio: false
+        }, {
+          video: {
+            facingMode: targetFacingMode == 'user' ? 'environment' : 'user',
+            width: { ideal: idealWidth },
+            height: { ideal: idealHeight }
+          },
+          audio: true
+        }, {
+          video: {
+            facingMode: targetFacingMode == 'user' ? 'environment' : 'user',
+            width: { ideal: idealWidth },
+            height: { ideal: idealHeight }
+          },
+          audio: false
+        }, {
+          video: {
+            facingMode: targetFacingMode,
+          },
+          audio: true
+        }, {
+          video: {
+            facingMode: targetFacingMode,
+          },
+          audio: false
+        }, {
+          video: {
+            facingMode: targetFacingMode == 'user' ? 'environment' : 'user',
+          },
+          audio: true
+        }, {
+          video: {
+            facingMode: targetFacingMode == 'user' ? 'environment' : 'user',
+          },
+          audio: false
+        }, {
+          video: true,
+          audio: true
+        }, {
+          video: true,
+          audio: false
+        }
+      ];
     }
+  };
+
+  // カメラを要求する
+  const requestCameraAndAudio = async (targetFacingMode, forcedAudio = null) => {
+    // メディア制約の候補を取得
+    const candidates = await getMediaConstraintCandidates(targetFacingMode, forcedAudioMode);
+
+    // それぞれの候補を試す
+    for (let i = 0; i < candidates.length; ++i) {
+      const candidate = candidates[i];
+      try {
+        // メディアストリームを取得
+        const mediaStream = await navigator.mediaDevices.getUserMedia(candidate);
+
+        // 実際に取得できた解像度をログ出力
+        const videoTrack = mediaStream.getVideoTracks()[0];
+        if (videoTrack) {
+          const settings = videoTrack.getSettings();
+          console.log('取得した解像度:', settings.width, 'x', settings.height);
+        }
+
+        // 音声トラックの有無を確認
+        const hasAudioTrack = candidate.audio && mediaStream.getAudioTracks().length > 0;
+        setIsAudioEnabled(hasAudioTrack);
+
+        console.log('candidate:', candidate);
+
+        return { mediaStream, actualFacingMode: targetFacingMode };
+      } catch (err) {
+        if (i == candidates.length - 1)
+          console.error(`カメラアクセスエラー (${targetFacingMode}):`, err);
+      }
+    }
+
+    return {};
   };
 
   // 動画撮影のマイク設定を変更
@@ -329,10 +383,7 @@ function App() {
         stream.getTracks().forEach(track => track.stop());
       }
 
-      const { mediaStream, actualFacingMode } = await requestCameraAndAudio(
-        facingMode,
-        forcedAudio
-      );
+      const { mediaStream, actualFacingMode } = await requestCameraAndAudio(facingMode, forcedAudio);
 
       setStream(mediaStream);
       setFacingMode(actualFacingMode);
