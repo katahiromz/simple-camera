@@ -38,6 +38,9 @@ function App() {
   const panStartRef = useRef({ x: 0, y: 0 }); // パン開始時の座標
   const panOffsetRef = useRef(panOffset); // 最新の panOffset を保持
 
+  // マイク権限変更を検知し、メインのuseEffectをトリガーするためのキー
+  const [micPermissionChangedKey, setMicPermissionChangedKey] = useState(0);
+
   // オーディオ権限の状態を管理。状態: 'granted', 'denied', 'prompt'
   const [audioPermissionStatus, setAudioPermissionStatus] = useState('prompt');
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
@@ -46,11 +49,11 @@ function App() {
   // カメラの権限の状態
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
 
-  // マイク権限変更を検知し、メインのuseEffectをトリガーするためのキー
-  const [micPermissionChangedKey, setMicPermissionChangedKey] = useState(0);
-
   // カメラの向き ('environment': 背面, 'user': 前面)
   const [facingMode, setFacingMode] = useState('environment');
+
+  // 画面サイズ変更を検知するための状態
+  const [screenSizeKey, setScreenSizeKey] = useState(0);
 
   const touchDistanceRef = useRef(null); // タッチ操作関連
   const zoomRef = useRef(zoom); // ズーム倍率参照
@@ -332,6 +335,45 @@ function App() {
     }
   };
 
+  // 画面サイズ変更の監視
+  useEffect(() => {
+    let resizeTimeout = null;
+    let lastOrientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
+
+    const handleResize = () => {
+      // 録画中は何もしない
+      if (isRecording) {
+        console.log('録画中のため画面サイズ変更を無視します');
+        return;
+      }
+
+      // debounce: 500ms待ってから実行
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+
+      resizeTimeout = setTimeout(() => {
+        const currentOrientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
+        
+        // 画面の向きが変わった場合のみカメラを再起動
+        if (currentOrientation !== lastOrientation) {
+          console.log('画面の向きが変更されました:', lastOrientation, '->', currentOrientation);
+          lastOrientation = currentOrientation;
+          setScreenSizeKey(prev => prev + 1);
+        }
+      }, 500);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+    };
+  }, [isRecording]);
+
   // forcedAudioModeをlocalStorageに保存
   const saveForcedAudioMode = useCallback((mode) => {
     try {
@@ -414,7 +456,7 @@ function App() {
         currentStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [facingMode, micPermissionChangedKey, forcedAudioMode]);
+  }, [facingMode, micPermissionChangedKey, forcedAudioMode, screenSizeKey]);
 
   // ズーム適用関数
   const applyZoom = useCallback((newZoom) => {
