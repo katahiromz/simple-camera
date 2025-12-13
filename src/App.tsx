@@ -48,6 +48,79 @@ const saveFacingMode = (mode) => {
   }
 };
 
+/**
+ * ビデオのレンダリングサイズとオフセットを計算
+ * object-fit: cover の動作を再現
+ */
+const calculateVideoRenderMetrics = (video, displayWidth, displayHeight) => {
+  const videoWidth = video.videoWidth;
+  const videoHeight = video.videoHeight;
+  const videoAspect = videoWidth / videoHeight;
+  const displayAspect = displayWidth / displayHeight;
+
+  let renderWidth, renderHeight;
+  let offsetX = 0, offsetY = 0;
+
+  if (videoAspect > displayAspect) {
+    // ビデオの方が横長 → 高さを基準にフィット
+    renderHeight = displayHeight;
+    renderWidth = displayHeight * videoAspect;
+    offsetX = (displayWidth - renderWidth) / 2;
+  } else {
+    // ビデオの方が縦長 → 幅を基準にフィット
+    renderWidth = displayWidth;
+    renderHeight = displayWidth / videoAspect;
+    offsetY = (displayHeight - renderHeight) / 2;
+  }
+
+  return { renderWidth, renderHeight, offsetX, offsetY };
+};
+
+/**
+ * Canvasにズームとパンを適用してビデオを描画
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {HTMLVideoElement} video - Video element
+ * @param {Object} options - 描画オプション
+ */
+const drawVideoWithZoomAndPan = (ctx, video, options) => {
+  const {
+    displayWidth,
+    displayHeight,
+    zoom,
+    pan,
+    isFrontCamera,
+  } = options;
+
+  // ビデオのレンダリングメトリクスを計算
+  const { renderWidth, renderHeight, offsetX, offsetY } = 
+    calculateVideoRenderMetrics(video, displayWidth, displayHeight);
+
+  // Canvasの状態を保存
+  ctx.save();
+
+  // 前面カメラの場合は反転
+  if (isFrontCamera) {
+    ctx.translate(displayWidth, 0);
+    ctx.scale(-1, 1);
+  }
+
+  // パンを適用(反転を考慮)
+  const effectivePanX = isFrontCamera ? -pan.x : pan.x;
+  ctx.translate(effectivePanX, pan.y);
+
+  // ズームの中心を画面中央に設定
+  ctx.translate(displayWidth / 2, displayHeight / 2);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-displayWidth / 2, -displayHeight / 2);
+
+  // ビデオを描画
+  ctx.drawImage(video, offsetX, offsetY, renderWidth, renderHeight);
+
+  // Canvasの状態を復元
+  ctx.restore();
+};
+
+// アプリ
 function App() {
   const { t } = useTranslation(); // 翻訳
   const videoRef = useRef(null);
@@ -239,25 +312,17 @@ function App() {
   }, [isAndroidApp]);
 
   // メディア制約の候補を作成します
-// メディア制約の候補を作成します
   const getMediaConstraintCandidates = async (targetFacingMode, forcedAudio) => {
-    // スクリーンサイズを取得(デバイスピクセル比を考慮)
     const pixelRatio = window.devicePixelRatio || 1;
     const screenWidth = window.screen.width * pixelRatio;
     const screenHeight = window.screen.height * pixelRatio;
-
-    // 現在の画面の向き(縦長か横長か)
     const isPortrait = window.innerHeight > window.innerWidth;
 
-    // カメラに要求する解像度
-    // 背面カメラの場合は画面サイズ、前面カメラの場合は向きを考慮
     let idealWidth, idealHeight;
     if (isPortrait) {
-      // 縦向き: 幅 < 高さ
       idealWidth = Math.min(screenWidth, screenHeight);
       idealHeight = Math.max(screenWidth, screenHeight);
     } else {
-      // 横向き: 幅 > 高さ
       idealWidth = Math.max(screenWidth, screenHeight);
       idealHeight = Math.min(screenWidth, screenHeight);
     }
@@ -276,70 +341,100 @@ function App() {
       audioPermission = await checkAudioPermission();
     }
 
-    if (audioPermission === 'granted' || audioPermission === 'denied') {
-      const enableAudio = audioPermission === 'granted';
-      return [
+    const enableAudio = audioPermission === 'granted' || audioPermission === 'prompt';
+    const oppositeFacingMode = targetFacingMode === 'user' ? 'environment' : 'user';
+
+    // より包括的な候補リストを作成
+    const candidates = [
+      // 1. 理想的な解像度 + 指定したfacingMode (exact指定なし)
+      {
+        video: {
+          facingMode: targetFacingMode,
+          width: { ideal: idealWidth },
+          height: { ideal: idealHeight }
+        },
+        audio: enableAudio
+      },
+      // 2. 理想的な解像度 + 反対のfacingMode
+      {
+        video: {
+          facingMode: oppositeFacingMode,
+          width: { ideal: idealWidth },
+          height: { ideal: idealHeight }
+        },
+        audio: enableAudio
+      },
+      // 3. facingModeのみ指定（解像度は自動）
+      {
+        video: {
+          facingMode: targetFacingMode
+        },
+        audio: enableAudio
+      },
+      // 4. 反対のfacingModeのみ指定
+      {
+        video: {
+          facingMode: oppositeFacingMode
+        },
+        audio: enableAudio
+      },
+      // 5. facingModeを理想値として指定（より柔軟）
+      {
+        video: {
+          facingMode: { ideal: targetFacingMode },
+          width: { ideal: idealWidth },
+          height: { ideal: idealHeight }
+        },
+        audio: enableAudio
+      },
+      // 6. 任意のカメラ + 理想的な解像度
+      {
+        video: {
+          width: { ideal: idealWidth },
+          height: { ideal: idealHeight }
+        },
+        audio: enableAudio
+      },
+      // 7. 完全に制約なし（最後の手段）
+      {
+        video: true,
+        audio: enableAudio
+      }
+    ];
+
+    // audio なしの候補も追加（マイク権限が原因の場合のフォールバック）
+    if (enableAudio) {
+      candidates.push(
         {
           video: {
             facingMode: targetFacingMode,
             width: { ideal: idealWidth },
             height: { ideal: idealHeight }
           },
-          audio: enableAudio
-        }, {
+          audio: false
+        },
+        {
           video: {
-            facingMode: targetFacingMode == 'user' ? 'environment' : 'user',
+            facingMode: oppositeFacingMode,
             width: { ideal: idealWidth },
             height: { ideal: idealHeight }
           },
-          audio: enableAudio
-        }, {
+          audio: false
+        },
+        {
           video: {
             facingMode: targetFacingMode
           },
-          audio: enableAudio
-        }, {
-          video: {
-            facingMode: targetFacingMode == 'user' ? 'environment' : 'user',
-          },
-          audio: enableAudio
-        }, {
-          video: true,
-          audio: enableAudio
-        }
-      ];
-    } else {
-      return [
+          audio: false
+        },
         {
-          video: {
-            facingMode: targetFacingMode,
-            width: { ideal: idealWidth },
-            height: { ideal: idealHeight }
-          },
-          audio: true
-        }, {
-          video: {
-            facingMode: targetFacingMode == 'user' ? 'environment' : 'user',
-            width: { ideal: idealWidth },
-            height: { ideal: idealHeight }
-          },
-          audio: true
-        }, {
-          video: {
-            facingMode: targetFacingMode,
-          },
-          audio: true
-        }, {
-          video: {
-            facingMode: targetFacingMode == 'user' ? 'environment' : 'user',
-          },
-          audio: true
-        }, {
           video: true,
-          audio: true
+          audio: false
         }
-      ];
+      );
     }
+
+    return candidates;
   };
 
   // カメラを要求する
@@ -353,6 +448,8 @@ function App() {
     for (let i = 0; i < candidates.length; ++i) {
       const candidate = candidates[i];
       try {
+        console.log(`候補 ${i + 1}/${candidates.length} を試行中:`, candidate);
+
         // メディアストリームを取得
         const mediaStream = await navigator.mediaDevices.getUserMedia(candidate);
 
@@ -360,7 +457,16 @@ function App() {
         const hasAudioTrack = candidate.audio && mediaStream.getAudioTracks().length > 0;
         setIsAudioEnabled(hasAudioTrack);
 
-        console.log('candidate:', candidate);
+        // 実際に取得できたカメラの向きを確認
+        const videoTrack = mediaStream.getVideoTracks()[0];
+        if (videoTrack) {
+          const settings = videoTrack.getSettings();
+          console.log('実際のカメラ設定:', settings);
+          
+          // facingModeが期待と異なる場合でも成功とみなす
+          const actualFacing = settings.facingMode || targetFacingMode;
+          return { mediaStream, actualFacingMode: actualFacing };
+        }
 
         return { mediaStream, actualFacingMode: targetFacingMode };
       } catch (error) {
@@ -383,30 +489,37 @@ function App() {
         const baseCandidate = candidates[i];
         const candidate = { ...baseCandidate, audio: false };
         try {
+          console.log(`音声なし候補 ${i + 1} を試行中:`, candidate);
+
           // メディアストリームを取得
           const mediaStream = await navigator.mediaDevices.getUserMedia(candidate);
 
-          // 音声トラックの有無を確認
-          const hasAudioTrack = candidate.audio && mediaStream.getAudioTracks().length > 0;
-          setIsAudioEnabled(hasAudioTrack);
+          setIsAudioEnabled(false);
 
-          console.log('candidate:', candidate);
+          const videoTrack = mediaStream.getVideoTracks()[0];
+          if (videoTrack) {
+            const settings = videoTrack.getSettings();
+            console.log('実際のカメラ設定(音声なし):', settings);
+            const actualFacing = settings.facingMode || targetFacingMode;
+            return { mediaStream, actualFacingMode: actualFacing };
+          }
 
           return { mediaStream, actualFacingMode: targetFacingMode };
         } catch (error) {
-          console.log(error);
+          console.warn(`音声なし候補 ${i + 1} 失敗:`, error.name, error.message);
           lastError = error;
         }
       }
     }
 
-    // --- ここに来たら本当に失敗 ---
+    // 全ての候補が失敗
     console.error(
       '全ての getUserMedia 候補が失敗しました',
       {
         facingMode: targetFacingMode,
         lastErrorName: lastError?.name,
         lastErrorMessage: lastError?.message,
+        totalCandidates: candidates.length,
       }
     );
     throw lastError ?? new Error('getUserMedia failed');
@@ -500,6 +613,21 @@ function App() {
           stream.getTracks().forEach(track => track.stop());
         }
 
+        try {
+          // 利用可能なデバイスを確認
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(device => device.kind === 'videoinput');
+          console.log('利用可能なカメラデバイス:', videoDevices);
+
+          if (videoDevices.length === 0) {
+            console.error('カメラデバイスが見つかりません');
+            return;
+          }
+        } catch (enumError) {
+          console.warn('デバイス列挙エラー:', enumError);
+          // enumerateDevices が失敗しても続行
+        }
+
         const { mediaStream, actualFacingMode } = await requestCameraAndAudio(facingMode);
 
         if (!isMounted) {
@@ -525,26 +653,33 @@ function App() {
 
         if (isMounted) {
           let errorMessage = t('alert_access_failed');
+          let shouldShowCameraDenied = false; // カメラ権限エラー表示のフラグ
 
+          // 実際の権限拒否エラー（カメラかマイク）
           if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            if (error.isCameraPermissionError) {
-              errorMessage = t('alert_camera_permission_needed');
-              setCameraPermissionDenied(true);
-            } else {
-              console.log('マイク権限が拒否されましたが、カメラは使用可能です。');
-              // マイク権限エラーの場合は、カメラ権限拒否状態をクリア
-              setCameraPermissionDenied(false);
-            }
+            errorMessage = t('alert_camera_permission_needed');
+            shouldShowCameraDenied = true;
           } else if (error.name === 'NotFoundError') {
+            // デバイスが見つからないエラー
             errorMessage = t('alert_camera_not_found');
-            setCameraPermissionDenied(true);
+            console.warn('カメラデバイスが見つかりません。後で再試行できます。');
           } else if (error.name === 'NotReadableError') {
+            // カメラが他のアプリで使用中のエラー
             errorMessage = t('alert_camera_in_use');
-            setCameraPermissionDenied(true);
+            console.warn('カメラが使用中です。他のアプリを閉じてから再試行してください。');
+          } else if (error.name === 'OverconstrainedError') {
+            console.warn('カメラの制約を満たせません:', error);
+            shouldShowCameraDenied = false;
+          } else {
+            console.error('予期しないエラー:', error);
+            shouldShowCameraDenied = false;
           }
 
-          if (error.name !== 'NotAllowedError' && error.name !== 'PermissionDeniedError') {
-            alert(t('alert_error_detail', { error_name: errorMessage }));
+          // 権限拒否エラーの場合のみ、永続的なエラー画面を表示する
+          setCameraPermissionDenied(shouldShowCameraDenied); 
+
+          if (!shouldShowCameraDenied && errorMessage !== t('alert_access_failed')) {
+            console.warn('エラーが発生しましたが、ユーザーは後で再試行できます');
           }
         }
       }
@@ -782,65 +917,76 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
-  // 写真撮影
+  // 写真撮影（ズーム・パン適用版）
   const takePhoto = () => {
     if (!videoRef.current) return;
+    
+    const video = videoRef.current;
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
+    
+    // キャンバスのサイズを画面表示領域のサイズに設定
+    const displayWidth = containerRef.current.clientWidth;
+    const displayHeight = containerRef.current.clientHeight;
+    
+    canvas.width = displayWidth;
+    canvas.height = displayHeight;
+    
     const ctx = canvas.getContext('2d');
-
-    if (getIsJapanOrKorea) { // 日本と韓国ではシャッタ―音を鳴らさなければならない
-      // 音の前に音量の保存と調整
+    
+    // 日本と韓国ではシャッター音を鳴らす
+    if (getIsJapanOrKorea()) {
       try {
         window.android.onStartShutterSound(VOLUME);
       } catch (e) {
         if (cameraShutterSoundRef.current)
           cameraShutterSoundRef.current.volume = VOLUME;
       }
-
-      // シャッター音の再生
-      cameraShutterSoundRef.current?.play().catch(error => console.error("シャッター音再生エラー:", error));
-
-      // 音の後に音量の復元
+      
+      cameraShutterSoundRef.current?.play().catch(error => 
+        console.error("シャッター音再生エラー:", error)
+      );
+      
       try {
         window.android.onEndShutterSound();
       } catch (e) {}
     }
-
-    ctx.drawImage(videoRef.current, 0, 0);
-
+    
+    // ヘルパー関数を使ってビデオを描画
+    drawVideoWithZoomAndPan(ctx, video, {
+      displayWidth,
+      displayHeight,
+      zoom: zoomRef.current,
+      pan: panOffsetRef.current,
+      isFrontCamera: facingMode === 'user',
+    });
+    
+    // Blobに変換して保存
     canvas.toBlob((blob) => {
       if (!blob) {
         console.error('画像のBlobの作成に失敗しました');
         return;
       }
-
-      // 写真のファイル名
+      
       const fileName = getFileNameWithDateTime(t('text_photo') + '_', ".png");
-
-      if (isAndroidApp) { // Androidアプリ内の場合
+      
+      if (isAndroidApp) {
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64data = reader.result.split(',')[1];
-          // AndroidネイティブのJavaScript Interfaceを呼び出してファイルを保存
           if (typeof window.android.saveImageToGallery === 'function') {
             try {
               window.android.saveImageToGallery(base64data, fileName);
               console.log('画像を保存しました:', fileName);
             } catch (e) {
               console.error('画像保存エラー:', e);
-              // フォールバック: ダウンロードリンクを使用
               downloadFallback(blob, fileName);
             }
           } else {
-            // メソッドが存在しない場合はフォールバック
             downloadFallback(blob, fileName);
           }
         };
         reader.readAsDataURL(blob);
       } else {
-        // ブラウザの場合は通常のダウンロード
         downloadFallback(blob, fileName);
       }
     }, 'image/png');
@@ -876,31 +1022,69 @@ function App() {
     reader.readAsDataURL(blob); // BlobをBase64に変換
   };
 
-  // 録画開始
+  // 録画開始(Canvas経由でズーム・パン適用)
   const startRecording = () => {
     if (!stream) return;
-    chunksRef.current = []; // 録画用データをクリア
+    chunksRef.current = [];
 
-    // 既存のタイマーがあればクリア
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
-    setRecordingTime(0); // 録画時間をリセット
+    setRecordingTime(0);
 
     // タイマーを開始
     const startTime = Date.now();
     timerIntervalRef.current = setInterval(() => {
-        const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
-        setRecordingTime(elapsedTime);
+      const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+      setRecordingTime(elapsedTime);
 
-      // 経過時間が上限に達したら自動的に停止
       if (elapsedTime >= MAX_RECORDING_SECONDS) {
         stopRecording();
         alert(t('alert_recording_max_time', { max_time: formatTime(MAX_RECORDING_SECONDS) }));
       }
-    }, 1000); // 1秒ごとに更新
+    }, 1000);
 
-    // MIMEタイプ
+    // Canvasを作成してビデオをリアルタイムで描画
+    const canvas = document.createElement('canvas');
+    const displayWidth = containerRef.current.clientWidth;
+    const displayHeight = containerRef.current.clientHeight;
+    
+    canvas.width = displayWidth;
+    canvas.height = displayHeight;
+    
+    const ctx = canvas.getContext('2d', { willReadFrequently: false });
+    const video = videoRef.current;
+
+    // フレーム描画関数(ヘルパー関数を使用)
+    const drawFrame = () => {
+      if (!video || video.paused || video.ended) return;
+
+      // ヘルパー関数を使ってビデオを描画
+      drawVideoWithZoomAndPan(ctx, video, {
+        displayWidth,
+        displayHeight,
+        zoom: zoomRef.current,
+        pan: panOffsetRef.current,
+        isFrontCamera: facingMode === 'user',
+      });
+
+      // 録画中は継続的に描画
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        requestAnimationFrame(drawFrame);
+      }
+    };
+
+    // Canvasから新しいストリームを取得
+    const fps = 30;
+    const canvasStream = canvas.captureStream(fps);
+    
+    // 元のストリームから音声トラックを追加
+    const audioTracks = stream.getAudioTracks();
+    audioTracks.forEach(track => {
+      canvasStream.addTrack(track);
+    });
+
+    // MIMEタイプの選択
     const availableMimeTypes = [
       'video/webm; codecs=vp9',
       'video/webm; codecs=vp8',
@@ -910,42 +1094,41 @@ function App() {
 
     let options = {}, extension = '.webm';
     let selectedMimeType = '';
+    
     for (const mimeType of availableMimeTypes) {
       if (MediaRecorder.isTypeSupported(mimeType)) {
         options = { mimeType: mimeType };
         selectedMimeType = mimeType;
-        // WebMなら拡張子は.webm、そうでなければ.mp4
         extension = (mimeType.indexOf('webm') !== -1) ? '.webm' : '.mp4';
         break;
       }
     }
 
-    // サポートされているMIMEタイプが見つからなかった場合は、デフォルトのコンストラクタを使用
     try {
       if (selectedMimeType) {
-        mediaRecorderRef.current = new MediaRecorder(stream, options);
+        mediaRecorderRef.current = new MediaRecorder(canvasStream, options);
       } else {
-        mediaRecorderRef.current = new MediaRecorder(stream);
+        mediaRecorderRef.current = new MediaRecorder(canvasStream);
       }
       console.log('MediaRecorder MIME Type:', mediaRecorderRef.current.mimeType);
     } catch (e) {
       console.error('MediaRecorderの作成に失敗しました:', e);
-      return; // レコーダーを作成できない場合は処理を中止
+      return;
     }
 
-    // 必要な時に録画データを追加する
     mediaRecorderRef.current.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
 
-    // 録画を停止したときに、動画ファイルをダウンロード
     mediaRecorderRef.current.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: mediaRecorderRef.current.mimeType.split(';')[0] || 'video/mp4' });
-      // 写真のファイル名
+      const blob = new Blob(chunksRef.current, { 
+        type: mediaRecorderRef.current.mimeType.split(';')[0] || 'video/mp4' 
+      });
       const fileName = getFileNameWithDateTime(t('text_video') + '_', extension);
-      if (isAndroidApp) { // Androidアプリ内の場合?
+      
+      if (isAndroidApp) {
         saveVideoToGallery(blob, fileName);
-      } else { // ブラウザの場合
+      } else {
         downloadFallback(blob, fileName);
       }
     };
@@ -954,9 +1137,11 @@ function App() {
     mediaRecorderRef.current.start();
     setIsRecording(true);
 
-    // 録画開始時に音を鳴らす
-    if (getIsJapanOrKorea) {
-      // 音の前に音量の保存と調整
+    // フレーム描画を開始
+    drawFrame();
+
+    // 録画開始音を鳴らす
+    if (getIsJapanOrKorea()) {
       try {
         window.android.onStartShutterSound(VOLUME);
       } catch (e) {
@@ -964,10 +1149,10 @@ function App() {
           videoStartedSoundRef.current.volume = VOLUME;
       }
 
-      // 録画完了音の再生
-      videoStartedSoundRef.current?.play().catch(e => console.error("ビデオ録画開始音再生エラー:", e));
+      videoStartedSoundRef.current?.play().catch(e => 
+        console.error("ビデオ録画開始音再生エラー:", e)
+      );
 
-      // 音の後に音量の復元
       try {
         window.android.onEndShutterSound();
       } catch (e) {}
