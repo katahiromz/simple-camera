@@ -24,6 +24,30 @@ const MAX_RECORDING_SECONDS = 2 * 60 * 60; // 最大録画時間（2時間）
 
 const VOLUME = 0.5; // 音量
 
+// localStorageから保存されたカメラの向きを読み込むヘルパー関数
+const loadFacingMode = () => {
+  try {
+    const savedMode = localStorage.getItem('cameraFacingMode');
+    // 'environment' または 'user' であればそれを返し、そうでなければデフォルトの 'environment' を返す
+    if (savedMode === 'environment' || savedMode === 'user') {
+      return savedMode;
+    }
+  } catch (e) {
+    console.error('カメラ向きの読み込みに失敗:', e);
+  }
+  return 'environment'; // デフォルトは背面カメラ
+};
+
+// localStorageにカメラの向きを保存するヘルパー関数
+const saveFacingMode = (mode) => {
+  try {
+    localStorage.setItem('cameraFacingMode', mode);
+    console.log('カメラ向きを保存しました:', mode);
+  } catch (e) {
+    console.warn('カメラ向きの保存に失敗:', e);
+  }
+};
+
 function App() {
   const { t } = useTranslation(); // 翻訳
   const videoRef = useRef(null);
@@ -63,7 +87,7 @@ function App() {
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
 
   // カメラの向き ('environment': 背面, 'user': 前面)
-  const [facingMode, setFacingMode] = useState('environment');
+  const [facingMode, setFacingMode] = useState(loadFacingMode());
 
   // 画面サイズ変更を検知するための状態
   const [screenSizeKey, setScreenSizeKey] = useState(0);
@@ -87,6 +111,11 @@ function App() {
       videoCompletedSoundRef.current = new Audio(videoCompletedSoundUrl);
     }
   }, [zoom, panOffset]);
+
+  // facingModeが変更されたらlocalStorageに保存する
+  useEffect(() => {
+    saveFacingMode(facingMode);
+  }, [facingMode]);
 
   // カメラ権限を監視
   useEffect(() => {
