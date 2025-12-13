@@ -314,23 +314,7 @@ function App() {
 
   // メディア制約の候補を作成します
   const getMediaConstraintCandidates = async (targetFacingMode, forcedAudio) => {
-    // devicePixelRatioを使わず、実際の画面サイズのみを使用
-    const screenWidth = window.screen.width;
-    const screenHeight = window.screen.height;
-    const isPortrait = window.innerHeight > window.innerWidth;
-
-    let idealWidth, idealHeight;
-    if (isPortrait) {
-      idealWidth = Math.min(screenWidth, screenHeight);
-      idealHeight = Math.max(screenWidth, screenHeight);
-    } else {
-      idealWidth = Math.max(screenWidth, screenHeight);
-      idealHeight = Math.min(screenWidth, screenHeight);
-    }
-
-    console.log('要求する解像度:', idealWidth, 'x', idealHeight, '(画面:', isPortrait ? '縦' : '横', ')');
-
-    let audioPermission;
+    let audioPermission; // マイク権限
     if (forcedAudio === null || forcedAudio === undefined) {
       audioPermission = await checkAudioPermission();
     } else if (forcedAudio === 'granted' || forcedAudio === true) {
@@ -402,7 +386,6 @@ function App() {
   const requestCameraAndAudio = async (targetFacingMode, forcedAudio = null) => {
     // メディア制約の候補を取得
     const candidates = await getMediaConstraintCandidates(targetFacingMode, forcedAudioMode);
-    let needRetryAudioFalse = false;
     let lastError = null;
 
     // それぞれの候補を試す
@@ -423,7 +406,7 @@ function App() {
         if (videoTrack) {
           const settings = videoTrack.getSettings();
           console.log('実際のカメラ設定:', settings);
-          
+
           // facingModeが期待と異なる場合でも成功とみなす
           const actualFacing = settings.facingMode || targetFacingMode;
           return { mediaStream, actualFacingMode: actualFacing };
@@ -433,43 +416,6 @@ function App() {
       } catch (error) {
         console.log(error);
         lastError = error;
-        if (
-          (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') &&
-          candidate.audio === true
-        ) {
-          needRetryAudioFalse = true;
-        }
-      }
-    }
-
-    // --- マイク拒否時の再試行 ---
-    if (needRetryAudioFalse) {
-      console.log('マイク拒否 → audio:false で再試行');
-
-      for (let i = 0; i < candidates.length; ++i) {
-        const baseCandidate = candidates[i];
-        const candidate = { ...baseCandidate, audio: false };
-        try {
-          console.log(`音声なし候補 ${i + 1} を試行中:`, candidate);
-
-          // メディアストリームを取得
-          const mediaStream = await navigator.mediaDevices.getUserMedia(candidate);
-
-          setIsAudioEnabled(false);
-
-          const videoTrack = mediaStream.getVideoTracks()[0];
-          if (videoTrack) {
-            const settings = videoTrack.getSettings();
-            console.log('実際のカメラ設定(音声なし):', settings);
-            const actualFacing = settings.facingMode || targetFacingMode;
-            return { mediaStream, actualFacingMode: actualFacing };
-          }
-
-          return { mediaStream, actualFacingMode: targetFacingMode };
-        } catch (error) {
-          console.warn(`音声なし候補 ${i + 1} 失敗:`, error.name, error.message);
-          lastError = error;
-        }
       }
     }
 
