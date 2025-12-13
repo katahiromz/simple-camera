@@ -346,7 +346,8 @@ function App() {
   const requestCameraAndAudio = async (targetFacingMode, forcedAudio = null) => {
     // メディア制約の候補を取得
     const candidates = await getMediaConstraintCandidates(targetFacingMode, forcedAudioMode);
-    let need_retry_audio_false = false;
+    let needRetryAudioFalse = false;
+    let lastError = null;
 
     // それぞれの候補を試す
     for (let i = 0; i < candidates.length; ++i) {
@@ -363,21 +364,24 @@ function App() {
 
         return { mediaStream, actualFacingMode: targetFacingMode };
       } catch (error) {
+        console.log(error);
+        lastError = error;
         if (
           (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') &&
           candidate.audio === true
         ) {
-          need_retry_audio_false = true;
+          needRetryAudioFalse = true;
         }
       }
     }
 
-    if (need_retry_audio_false) {
+    // --- マイク拒否時の再試行 ---
+    if (needRetryAudioFalse) {
       console.log('マイク拒否 → audio:false で再試行');
 
       for (let i = 0; i < candidates.length; ++i) {
-        const candidate = candidates[i];
-        candidate.audio = false;
+        const baseCandidate = candidates[i];
+        const candidate = { ...baseCandidate, audio: false };
         try {
           // メディアストリームを取得
           const mediaStream = await navigator.mediaDevices.getUserMedia(candidate);
@@ -390,15 +394,22 @@ function App() {
 
           return { mediaStream, actualFacingMode: targetFacingMode };
         } catch (error) {
-          if (i == candidates.length) {
-            throw error;
-          }
+          console.log(error);
+          lastError = error;
         }
       }
     }
 
-    console.error('おま環');
-    throw error;
+    // --- ここに来たら本当に失敗 ---
+    console.error(
+      '全ての getUserMedia 候補が失敗しました',
+      {
+        facingMode: targetFacingMode,
+        lastErrorName: lastError?.name,
+        lastErrorMessage: lastError?.message,
+      }
+    );
+    throw lastError ?? new Error('getUserMedia failed');
   };
 
   // 動画撮影のマイク設定を変更
@@ -713,6 +724,14 @@ function App() {
     setPanOffset({ x: 0, y: 0 });
   }, [applyZoom]);
 
+  // ボタンキーが押された
+  const handleVolumeButton = (event) => {
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      takePhoto(); // 写真の撮影
+    }
+  };
+
   // --- useEffect によるリスナー登録 ---
   useEffect(() => {
     const container = containerRef.current;
@@ -724,6 +743,7 @@ function App() {
     container.addEventListener('mousedown', handleMouseDown, { passive: false });
     container.addEventListener('mousemove', handleMouseMove, { passive: false });
     container.addEventListener('mouseup', handleMouseUp, { passive: false });
+    window.addEventListener('keydown', handleVolumeButton, { passive: false });
     // 必要な時にイベントリスナーを登録解除
     return () => {
       container.removeEventListener('wheel', handleWheel);
@@ -732,6 +752,7 @@ function App() {
       container.removeEventListener('mousedown', handleMouseDown);
       container.removeEventListener('mousemove', handleMouseMove);
       container.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('keydown', handleVolumeButton);
     };
   }, [handleWheel, handleTouchStart, handleTouchMove, handleMouseDown, handleMouseMove, handleMouseUp]);
 
