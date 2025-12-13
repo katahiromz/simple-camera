@@ -729,19 +729,20 @@ function App() {
 
     // MIMEタイプ
     const availableMimeTypes = [
-      'video/mp4',
       'video/webm; codecs=vp9',
       'video/webm; codecs=vp8',
       'video/webm',
+      'video/mp4',
     ];
 
-    let options = {}, extension = '.mp4';
+    let options = {}, extension = '.webm';
     let selectedMimeType = '';
     for (const mimeType of availableMimeTypes) {
       if (MediaRecorder.isTypeSupported(mimeType)) {
         options = { mimeType: mimeType };
         selectedMimeType = mimeType;
-        extension = (mimeType.indexOf('webm') == -1) ? '.mp4' : '.webm';
+        // WebMなら拡張子は.webm、そうでなければ.mp4
+        extension = (mimeType.indexOf('webm') !== -1) ? '.webm' : '.mp4';
         break;
       }
     }
