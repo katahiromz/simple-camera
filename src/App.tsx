@@ -326,57 +326,116 @@ function App() {
       audioPermission = await checkAudioPermission();
     }
 
-    const enableAudio = audioPermission === 'granted' || audioPermission === 'prompt';
+    let enableAudio = audioPermission === 'granted' || audioPermission === 'prompt';
     const oppositeFacingMode = targetFacingMode === 'user' ? 'environment' : 'user';
 
     // より包括的な候補リストを作成
-    const candidates = [
-      // 0. facingModeのみ(最優先 - 最も広角)
-      {
-        video: { facingMode: targetFacingMode },
-        audio: enableAudio
-      },
-      // 1. 反対のfacingModeのみ
-      {
-        video: { facingMode: oppositeFacingMode },
-        audio: enableAudio
-      },
-      // 2. facingModeをidealとして指定(より柔軟)
-      {
-        video: { facingMode: { ideal: targetFacingMode } },
-        audio: enableAudio
-      },
-      // 3. 完全に制約なし
-      {
-        video: true,
-        audio: enableAudio
-      }
-    ];
-
-    // audio なしの候補も追加（マイク権限が原因の場合のフォールバック）
-    if (enableAudio) {
+    let candidates = [];
+    let n = enableAudio ? 1 : 0;
+    for (let i = 0; i <= n; ++i) {
       candidates.push(
-        // 0. facingModeのみ(最優先 - 最も広角)
+        // アスペクト比16:9
+        {
+          video: {
+            facingMode: targetFacingMode,
+            width: 3264,
+            height: 1836
+          },
+          audio: enableAudio
+        },
+        {
+          video: {
+            facingMode: oppositeFacingMode,
+            width: 3264,
+            height: 1836
+          },
+          audio: enableAudio
+        },
+        // アスペクト比9:16
+        {
+          video: {
+            facingMode: targetFacingMode,
+            width: 1836,
+            height: 3264
+          },
+          audio: enableAudio
+        },
+        {
+          video: {
+            facingMode: oppositeFacingMode,
+            width: 1836,
+            height: 3264
+          },
+          audio: enableAudio
+        },
+        // アスペクト比4:3
+        {
+          video: {
+            facingMode: targetFacingMode,
+            width: 3264,
+            height: 2448
+          },
+          audio: enableAudio
+        },
+        {
+          video: {
+            facingMode: oppositeFacingMode,
+            width: 3264,
+            height: 2448
+          },
+          audio: enableAudio
+        },
+        // アスペクト比3:4
+        {
+          video: {
+            facingMode: targetFacingMode,
+            width: 2448,
+            height: 3264
+          },
+          audio: enableAudio
+        },
+        {
+          video: {
+            facingMode: oppositeFacingMode,
+            width: 2448,
+            height: 3264
+          },
+          audio: enableAudio
+        },
+        // アスペクト比1:1
+        {
+          video: {
+            facingMode: targetFacingMode,
+            width: 2448,
+            height: 2448
+          },
+          audio: enableAudio
+        },
+        {
+          video: {
+            facingMode: oppositeFacingMode,
+            width: 2448,
+            height: 2448
+          },
+          audio: enableAudio
+        },
+        // facingModeのみ
         {
           video: { facingMode: targetFacingMode },
-          audio: false
+          audio: enableAudio
         },
-        // 1. 反対のfacingModeのみ
+        // 反対のfacingModeのみ
         {
           video: { facingMode: oppositeFacingMode },
-          audio: false
+          audio: enableAudio
         },
-        // 2. facingModeをidealとして指定(より柔軟)
-        {
-          video: { facingMode: { ideal: targetFacingMode } },
-          audio: false
-        },
-        // 3. 完全に制約なし
+        // 完全に制約なし
         {
           video: true,
-          audio: false
+          audio: enableAudio
         }
       );
+      enableAudio = false;
     }
 
     return candidates;
@@ -392,7 +451,7 @@ function App() {
     for (let i = 0; i < candidates.length; ++i) {
       const candidate = candidates[i];
       try {
-        console.log(`候補 ${i + 1}/${candidates.length} を試行中:`, candidate);
+        //console.log(`候補 ${i + 1}/${candidates.length} を試行中:`, candidate);
 
         // メディアストリームを取得
         const mediaStream = await navigator.mediaDevices.getUserMedia(candidate);
@@ -414,7 +473,6 @@ function App() {
 
         return { mediaStream, actualFacingMode: targetFacingMode };
       } catch (error) {
-        console.log(error);
         lastError = error;
       }
     }
@@ -426,7 +484,7 @@ function App() {
         facingMode: targetFacingMode,
         lastErrorName: lastError?.name,
         lastErrorMessage: lastError?.message,
-        totalCandidates: candidates.length,
+        candidates: candidates,
       }
     );
     throw lastError ?? new Error('getUserMedia failed');
