@@ -87,10 +87,12 @@ body, html, #root {
 
 .reset-zoom-btn {
   color: white;
-  font-size: calc(0.7cm);
+  font-size: calc(2.5vh);
+  font-size: calc(2.5dvh);
   background: rgba(0, 0, 0, 0.5);
   cursor: pointer;
   transition: 0.2s;
+  white-space: nowrap; /* 折り返しを防ぐ */
 }
 
 .reset-zoom-btn:active {

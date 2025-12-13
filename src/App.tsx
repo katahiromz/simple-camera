@@ -92,7 +92,7 @@ const drawVideoWithZoomAndPan = (ctx, video, options) => {
   } = options;
 
   // ビデオのレンダリングメトリクスを計算
-  const { renderWidth, renderHeight, offsetX, offsetY } = 
+  const { renderWidth, renderHeight, offsetX, offsetY } =
     calculateVideoRenderMetrics(video, displayWidth, displayHeight);
 
   // Canvasの状態を保存
@@ -237,7 +237,7 @@ function App() {
       try {
         const savedAudioMode = localStorage.getItem('forcedAudioMode');
         console.log('localStorage から読み込んだ値:', savedAudioMode);
-        
+
         if (savedAudioMode !== null) {
           const parsedMode = savedAudioMode === 'true' ? true : savedAudioMode === 'false' ? false : null;
           setForcedAudioMode(parsedMode);
@@ -476,7 +476,7 @@ function App() {
 
       resizeTimeout = setTimeout(() => {
         const currentOrientation = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
-        
+
         // 画面の向きが変わった場合のみカメラを再起動
         if (currentOrientation !== lastOrientation) {
           console.log('画面の向きが変更されました:', lastOrientation, '->', currentOrientation);
@@ -583,7 +583,7 @@ function App() {
           }
 
           // 権限拒否エラーの場合のみ、永続的なエラー画面を表示する
-          setCameraPermissionDenied(shouldShowCameraDenied); 
+          setCameraPermissionDenied(shouldShowCameraDenied);
 
           if (!shouldShowCameraDenied && errorMessage !== t('alert_access_failed')) {
             console.warn('エラーが発生しましたが、ユーザーは後で再試行できます');
@@ -827,19 +827,19 @@ function App() {
   // 写真撮影（ズーム・パン適用版）
   const takePhoto = () => {
     if (!videoRef.current) return;
-    
+
     const video = videoRef.current;
     const canvas = document.createElement('canvas');
-    
+
     // キャンバスのサイズを画面表示領域のサイズに設定
     const displayWidth = containerRef.current.clientWidth;
     const displayHeight = containerRef.current.clientHeight;
-    
+
     canvas.width = displayWidth;
     canvas.height = displayHeight;
-    
+
     const ctx = canvas.getContext('2d');
-    
+
     // 日本と韓国ではシャッター音を鳴らす
     if (getIsJapanOrKorea()) {
       try {
@@ -848,16 +848,16 @@ function App() {
         if (cameraShutterSoundRef.current)
           cameraShutterSoundRef.current.volume = VOLUME;
       }
-      
-      cameraShutterSoundRef.current?.play().catch(error => 
+
+      cameraShutterSoundRef.current?.play().catch(error =>
         console.error("シャッター音再生エラー:", error)
       );
-      
+
       try {
         window.android.onEndShutterSound();
       } catch (e) {}
     }
-    
+
     // ヘルパー関数を使ってビデオを描画
     drawVideoWithZoomAndPan(ctx, video, {
       displayWidth,
@@ -866,16 +866,16 @@ function App() {
       pan: panOffsetRef.current,
       isFrontCamera: facingMode === 'user',
     });
-    
+
     // Blobに変換して保存
     canvas.toBlob((blob) => {
       if (!blob) {
         console.error('画像のBlobの作成に失敗しました');
         return;
       }
-      
+
       const fileName = getFileNameWithDateTime(t('text_photo') + '_', ".png");
-      
+
       if (isAndroidApp) {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -955,10 +955,10 @@ function App() {
     const canvas = document.createElement('canvas');
     const displayWidth = containerRef.current.clientWidth;
     const displayHeight = containerRef.current.clientHeight;
-    
+
     canvas.width = displayWidth;
     canvas.height = displayHeight;
-    
+
     const ctx = canvas.getContext('2d', { willReadFrequently: false });
     const video = videoRef.current;
 
@@ -984,7 +984,7 @@ function App() {
     // Canvasから新しいストリームを取得
     const fps = 30;
     const canvasStream = canvas.captureStream(fps);
-    
+
     // 元のストリームから音声トラックを追加
     const audioTracks = stream.getAudioTracks();
     audioTracks.forEach(track => {
@@ -1001,7 +1001,7 @@ function App() {
 
     let options = {}, extension = '.webm';
     let selectedMimeType = '';
-    
+
     for (const mimeType of availableMimeTypes) {
       if (MediaRecorder.isTypeSupported(mimeType)) {
         options = { mimeType: mimeType };
@@ -1028,11 +1028,11 @@ function App() {
     };
 
     mediaRecorderRef.current.onstop = () => {
-      const blob = new Blob(chunksRef.current, { 
-        type: mediaRecorderRef.current.mimeType.split(';')[0] || 'video/mp4' 
+      const blob = new Blob(chunksRef.current, {
+        type: mediaRecorderRef.current.mimeType.split(';')[0] || 'video/mp4'
       });
       const fileName = getFileNameWithDateTime(t('text_video') + '_', extension);
-      
+
       if (isAndroidApp) {
         saveVideoToGallery(blob, fileName);
       } else {
@@ -1056,7 +1056,7 @@ function App() {
           videoStartedSoundRef.current.volume = VOLUME;
       }
 
-      videoStartedSoundRef.current?.play().catch(e => 
+      videoStartedSoundRef.current?.play().catch(e =>
         console.error("ビデオ録画開始音再生エラー:", e)
       );
 
@@ -1155,7 +1155,7 @@ function App() {
 
       {/* ズーム倍率表示 */}
       <div className="zoom-controls">
-        <span className="zoom-display">{(zoom * 100).toFixed(0) + '%'}</span>
+        <span className="zoom-display">{zoom.toFixed(1) + 'x'}</span>
         {zoom !== 1 && (
           <button className="btn reset-zoom-btn" onClick={resetZoomAndPan}>
             {t('button_reset_zoom')}

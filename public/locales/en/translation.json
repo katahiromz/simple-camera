@@ -3,7 +3,7 @@
   "text_photo": "Photo",
   "permission_denied_title": "Camera permission denied",
   "permission_denied_message": "Please allow camera access in your application settings",
-  "button_reset_zoom": "1:1",
+  "button_reset_zoom": "Reset",
   "button_switch_camera": "↕",
   "button_mic_enabled_title": "Microphone enabled (click to disable)",
   "button_mic_denied_title": "Microphone disabled (click to enable)",

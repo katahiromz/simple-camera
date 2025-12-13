@@ -3,7 +3,7 @@
   "text_photo": "写真",
   "permission_denied_title": "カメラの権限がありません",
   "permission_denied_message": "アプリの設定でカメラへのアクセスを許可してください",
-  "button_reset_zoom": "1:1",
+  "button_reset_zoom": "リセット",
   "button_switch_camera": "↕",
   "button_mic_enabled_title": "マイクが有効です（クリックで無効化）",
   "button_mic_denied_title": "マイクが無効です（クリックで有効化）",
