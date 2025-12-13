@@ -225,3 +225,58 @@ body, html, #root {
   opacity: 0.2;
   cursor: not-allowed;
 }
+
+/* カメラ権限エラー表示 */
+.permission-error {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  width: 100dvw;
+  height: 100vh;
+  height: 100dvh;
+  background-color: rgba(0, 0, 0, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.permission-error-content {
+  text-align: center;
+  padding: calc(3vh) calc(3vw);
+  padding: calc(3dvh) calc(3dvw);
+  max-width: 80vw;
+  max-width: 80dvw;
+}
+
+.permission-error-icon {
+  font-size: calc(max(10vh, 3cm));
+  font-size: calc(max(10dvh, 3cm));
+  margin-bottom: calc(2vh);
+  margin-bottom: calc(2dvh);
+  animation: shake 2s infinite;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.permission-error-title {
+  color: white;
+  font-size: calc(max(3vh, 1.2cm));
+  font-size: calc(max(3dvh, 1.2cm));
+  font-weight: bold;
+  margin-bottom: calc(1.5vh);
+  margin-bottom: calc(1.5dvh);
+}
+
+.permission-error-message {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: calc(max(2vh, 0.8cm));
+  font-size: calc(max(2dvh, 0.8cm));
+  line-height: 1.5;
+}

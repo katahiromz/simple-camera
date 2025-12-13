@@ -43,6 +43,9 @@ function App() {
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   const [forcedAudioMode, setForcedAudioMode] = useState(null); // null, true, false
 
+  // カメラの権限の状態
+  const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
+
   // カメラの向き ('environment': 背面, 'user': 前面)
   const [facingMode, setFacingMode] = useState('environment');
 
@@ -65,6 +68,62 @@ function App() {
       videoCompletedSoundRef.current = new Audio(videoCompletedSoundUrl);
     }
   }, [zoom, panOffset]);
+
+  // カメラ権限を監視
+  useEffect(() => {
+    if (!navigator.permissions) return;
+
+    let permissionStatus = null;
+
+    const setupCameraPermissionListener = async () => {
+      try {
+        permissionStatus = await navigator.permissions.query({ name: 'camera' });
+
+        // 初期状態を設定
+        setCameraPermissionDenied(permissionStatus.state === 'denied');
+
+        permissionStatus.onchange = async () => {
+          console.log('カメラ権限が変更されました:', permissionStatus.state);
+          setCameraPermissionDenied(permissionStatus.state === 'denied');
+
+          // 権限が付与された場合、カメラを再起動
+          if (permissionStatus.state === 'granted') {
+            console.log('カメラ権限が付与されました。カメラを再起動します...');
+            
+            // 既存のストリームを停止
+            if (stream) {
+              stream.getTracks().forEach(track => track.stop());
+            }
+            
+            try {
+              // カメラを再要求
+              const { mediaStream, actualFacingMode } = await requestCameraAndAudio(facingMode);
+              setStream(mediaStream);
+              setFacingMode(actualFacingMode);
+              
+              if (videoRef.current) {
+                videoRef.current.srcObject = mediaStream;
+              }
+              
+              console.log('カメラの再起動に成功しました');
+            } catch (err) {
+              console.error('カメラの再起動に失敗:', err);
+            }
+          }
+        };
+      } catch (error) {
+        console.error('カメラ権限監視のセットアップに失敗:', error);
+      }
+    };
+
+    setupCameraPermissionListener();
+
+    return () => {
+      if (permissionStatus) {
+        permissionStatus.onchange = null;
+      }
+    };
+  }, []);
 
   // 初回のみストレージ権限を要求
   useEffect(() => {
@@ -314,13 +373,17 @@ function App() {
           let errorMessage = 'カメラへのアクセスに失敗しました';
           if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
             errorMessage = 'カメラの使用が許可されていません。ブラウザの設定を確認してください。';
+            setCameraPermissionDenied(true);
           } else if (err.name === 'NotFoundError') {
             errorMessage = '利用可能なカメラが見つかりませんでした。';
           } else if (err.name === 'NotReadableError') {
             errorMessage = 'カメラは他のアプリケーションで使用中です。';
           }
           
-          alert(`${errorMessage}\n\nエラー詳細: ${err.name}`);
+         // カメラ権限エラーの場合はアラートを表示しない（画面に表示されるため）
+         if (err.name !== 'NotAllowedError' && err.name !== 'PermissionDeniedError') {
+           alert(`${errorMessage}\n\nエラー詳細: ${err.name}`);
+         }
         }
       }
     };
@@ -777,6 +840,19 @@ function App() {
         className={`video-feed ${facingMode === 'user' ? 'mirrored' : ''}`}
         style={{ transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})` }}
       />
+
+      {/* カメラ権限エラー表示 */}
+      {cameraPermissionDenied && (
+        <div className="permission-error">
+          <div className="permission-error-content">
+            <div className="permission-error-icon">📷🚫</div>
+            <div className="permission-error-title">カメラの権限がありません</div>
+            <div className="permission-error-message">
+              ブラウザの設定でカメラへのアクセスを許可してください
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ズーム倍率表示 */}
       <div className="zoom-controls">
