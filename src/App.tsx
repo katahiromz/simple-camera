@@ -105,13 +105,14 @@ const drawVideoWithZoomAndPan = (ctx, video, options) => {
   }
 
   // パンを適用(反転を考慮)
-  const effectivePanX = isFrontCamera ? -pan.x : pan.x;
+  const panSign = isFrontCamera ? -1 : 1;
+  const effectivePanX = panSign * pan.x;
   ctx.translate(effectivePanX, pan.y);
 
   // ズームの中心を画面中央に設定
-  ctx.translate(displayWidth / 2, displayHeight / 2);
+  ctx.translate(panSign * displayWidth / 2, displayHeight / 2);
   ctx.scale(zoom, zoom);
-  ctx.translate(-displayWidth / 2, -displayHeight / 2);
+  ctx.translate(panSign * -displayWidth / 2, -displayHeight / 2);
 
   // ビデオを描画
   ctx.drawImage(video, offsetX, offsetY, renderWidth, renderHeight);
@@ -313,9 +314,9 @@ function App() {
 
   // メディア制約の候補を作成します
   const getMediaConstraintCandidates = async (targetFacingMode, forcedAudio) => {
-    const pixelRatio = window.devicePixelRatio || 1;
-    const screenWidth = window.screen.width * pixelRatio;
-    const screenHeight = window.screen.height * pixelRatio;
+    // devicePixelRatioを使わず、実際の画面サイズのみを使用
+    const screenWidth = window.screen.width;
+    const screenHeight = window.screen.height;
     const isPortrait = window.innerHeight > window.innerWidth;
 
     let idealWidth, idealHeight;
@@ -346,6 +347,13 @@ function App() {
 
     // より包括的な候補リストを作成
     const candidates = [
+      // 0. facingModeのみ指定(解像度は自動 - 最も広角になりやすい)
+      {
+        video: {
+          facingMode: targetFacingMode
+        },
+        audio: enableAudio
+      },
       // 1. 理想的な解像度 + 指定したfacingMode (exact指定なし)
       {
         video: {
@@ -405,6 +413,18 @@ function App() {
     // audio なしの候補も追加（マイク権限が原因の場合のフォールバック）
     if (enableAudio) {
       candidates.push(
+        {
+          video: {
+            facingMode: targetFacingMode,
+          },
+          audio: false
+        },
+        {
+          video: {
+            facingMode: oppositeFacingMode,
+          },
+          audio: false
+        },
         {
           video: {
             facingMode: targetFacingMode,
