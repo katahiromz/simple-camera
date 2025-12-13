@@ -1,8 +1,11 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import './App.css';
+import './i18n.ts';
+
+// 国際化(i18n)
+import { useTranslation } from 'react-i18next';
 
 const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
-const IS_JAPAN_OR_KOREA = true; // 日本か韓国か？ 判定が面倒臭いので常に仮定
 
 // アプリケーションのベースパスを取得
 const BASE_URL = import.meta.env.BASE_URL;
@@ -22,10 +25,20 @@ const MAX_RECORDING_SECONDS = 2 * 60 * 60; // 最大録画時間（2時間）
 const VOLUME = 0.5; // 音量
 
 function App() {
+  const { t } = useTranslation(); // 翻訳
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]); // 録画用チャンクデータ
+
+  // アプリケーションの開始時にロケールを判定するように修正
+  const getIsJapanOrKorea = () => {
+    if (typeof window !== 'undefined' && navigator.language) {
+      const lang = navigator.language.toLowerCase();
+      return lang.includes('ja') || lang.includes('ko');
+    }
+    return false;
+  };
 
   // 状態管理
   const [stream, setStream] = useState(null); // ストリーム
@@ -68,7 +81,7 @@ function App() {
   useEffect(() => {
     zoomRef.current = zoom;
     panOffsetRef.current = panOffset;
-    if (IS_JAPAN_OR_KOREA) { // 日本と韓国ではシャッタ―音を鳴らさなければならない。
+    if (getIsJapanOrKorea) { // 日本と韓国ではシャッタ―音を鳴らさなければならない。
       cameraShutterSoundRef.current = new Audio(cameraShutterSoundUrl);
       videoStartedSoundRef.current = new Audio(videoStartedSoundUrl);
       videoCompletedSoundRef.current = new Audio(videoCompletedSoundUrl);
@@ -422,11 +435,11 @@ function App() {
         console.error("カメラのセットアップに失敗しました:", err);
 
         if (isMounted) {
-          let errorMessage = 'カメラへのアクセスに失敗しました';
+          let errorMessage = t('alert_access_failed');
 
           if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
             if (err.isCameraPermissionError) {
-              errorMessage = 'カメラの使用が許可されていません。ブラウザの設定を確認してください。';
+              errorMessage = t('alert_camera_permission_needed');
               setCameraPermissionDenied(true);
             } else {
               console.log('マイク権限が拒否されましたが、カメラは使用可能です。');
@@ -434,15 +447,15 @@ function App() {
               setCameraPermissionDenied(false);
             }
           } else if (err.name === 'NotFoundError') {
-            errorMessage = '利用可能なカメラが見つかりませんでした。';
+            errorMessage = t('alert_camera_not_found');
             setCameraPermissionDenied(true);
           } else if (err.name === 'NotReadableError') {
-            errorMessage = 'カメラは他のアプリケーションで使用中です。';
+            errorMessage = t('alert_camera_in_use');
             setCameraPermissionDenied(true);
           }
 
           if (err.name !== 'NotAllowedError' && err.name !== 'PermissionDeniedError') {
-            alert(`${errorMessage}\n\nエラー詳細: ${err.name}`);
+            alert(t('alert_error_detail', { error_name: errorMessage }));
           }
         }
       }
@@ -653,7 +666,7 @@ function App() {
   };
 
   // 日時付きのファイル名を取得する
-  const getFileNameWithDateTime = (prefix = "photo_", extension = ".png", date = new Date()) => {
+  const getFileNameWithDateTime = (prefix = t('text_photo') + '_', extension = '.png', date = new Date()) => {
     const dateTimeString = new Date().toLocaleString();
     // ファイル名に好ましくない文字は置き換える
     const fileName = `${prefix}${dateTimeString.replace(/[\\\/:. ]/g, '-')}${extension}`;
@@ -678,7 +691,7 @@ function App() {
     canvas.height = videoRef.current.videoHeight;
     const ctx = canvas.getContext('2d');
 
-    if (IS_JAPAN_OR_KOREA) { // 日本と韓国ではシャッタ―音を鳴らさなければならない
+    if (getIsJapanOrKorea) { // 日本と韓国ではシャッタ―音を鳴らさなければならない
       // 音の前に音量の保存と調整
       try {
         window.android.onStartShutterSound(VOLUME);
@@ -705,7 +718,7 @@ function App() {
       }
 
       // 写真のファイル名
-      const fileName = getFileNameWithDateTime("photo_", ".png");
+      const fileName = getFileNameWithDateTime(t('text_photo') + '_', ".png");
 
       if (isAndroidApp) { // Androidアプリ内の場合
         const reader = new FileReader();
@@ -754,10 +767,11 @@ function App() {
       // Kotlin側の関数を呼び出す
       try {
         window.android.saveVideoToGallery(base64Data, fileName);
-        alert(`動画をギャラリーに保存しました: ${fileName}`);
+        console.error('保存完了:' + fileName);
+        alert(t('alert_video_saved'));
       } catch (error) {
         console.error('AndroidInterface 呼び出しエラー:', error);
-        alert('動画の保存に失敗しました: ${error}');
+        alert(t('alert_save_video_failed', { error: error }));
       }
     };
     reader.readAsDataURL(blob); // BlobをBase64に変換
@@ -783,7 +797,7 @@ function App() {
       // 経過時間が上限に達したら自動的に停止
       if (elapsedTime >= MAX_RECORDING_SECONDS) {
         stopRecording();
-        alert(`録画時間が上限 (${formatTime(MAX_RECORDING_SECONDS)}) に達したため、自動的に停止しました。`);
+        alert(t('alert_recording_max_time', { max_time: formatTime(MAX_RECORDING_SECONDS) }));
       }
     }, 1000); // 1秒ごとに更新
 
@@ -829,7 +843,7 @@ function App() {
     mediaRecorderRef.current.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: mediaRecorderRef.current.mimeType.split(';')[0] || 'video/mp4' });
       // 写真のファイル名
-      const fileName = getFileNameWithDateTime("video_", extension);
+      const fileName = getFileNameWithDateTime(t('text_video') + '_', extension);
       if (isAndroidApp) { // Androidアプリ内の場合?
         saveVideoToGallery(blob, fileName);
       } else { // ブラウザの場合
@@ -842,7 +856,7 @@ function App() {
     setIsRecording(true);
 
     // 録画開始時に音を鳴らす
-    if (IS_JAPAN_OR_KOREA) {
+    if (getIsJapanOrKorea) {
       // 音の前に音量の保存と調整
       try {
         window.android.onStartShutterSound(VOLUME);
@@ -875,7 +889,7 @@ function App() {
     setRecordingTime(0); // 録画時間をリセット
 
     // 録画完了時に音を鳴らす
-    if (IS_JAPAN_OR_KOREA) {
+    if (getIsJapanOrKorea) {
       // 音の前に音量の保存と調整
       try {
         window.android.onStartShutterSound(VOLUME);
@@ -911,6 +925,15 @@ function App() {
     }
   };
 
+  let micTitleKey;
+  if (isRecording) {
+    micTitleKey = 'button_mic_recording_title';
+  } else if (isAudioEnabled) {
+    micTitleKey = 'button_mic_enabled_title';
+  } else {
+    micTitleKey = 'button_mic_denied_title';
+  }
+
   return (
     <div
       ref={containerRef}
@@ -931,9 +954,9 @@ function App() {
         <div className="permission-error">
           <div className="permission-error-content">
             <div className="permission-error-icon">📷🚫</div>
-            <div className="permission-error-title">カメラの権限がありません</div>
+            <div className="permission-error-title">{t('permission_denied_title')}</div>
             <div className="permission-error-message">
-              ブラウザの設定でカメラへのアクセスを許可してください
+              {t('permission_denied_message')}
             </div>
           </div>
         </div>
@@ -944,7 +967,7 @@ function App() {
         <span className="zoom-display">{(zoom * 100).toFixed(0) + '%'}</span>
         {zoom !== 1 && (
           <button className="btn reset-zoom-btn" onClick={resetZoomAndPan}>
-            1:1
+            {t('button_reset_zoom')}
           </button>
         )}
       </div>
@@ -955,7 +978,7 @@ function App() {
         onClick={switchCamera}
         disabled={isRecording}
       >
-        ↕
+        {t('button_switch_camera')}
       </button>
 
       {/* ★ 録画時間表示エリアの追加 */}
@@ -1001,13 +1024,7 @@ function App() {
             }
           }}
           disabled={isRecording}
-          title={
-            isRecording
-              ? '録画中はマイク設定を変更できません'
-              : isAudioEnabled
-                ? 'マイクが有効です（クリックで無効化）'
-                : 'マイクが無効です（クリックで有効化）'
-          }
+          title={t(micTitleKey)}
         >
           {isAudioEnabled ? '🎤' : '🎤🚫'}
         </button>
