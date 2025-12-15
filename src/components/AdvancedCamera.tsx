@@ -1,0 +1,854 @@
+// AdvancedCamera.tsx
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { Camera, Mic, MicOff, Video, VideoOff, RefreshCw, SwitchCamera} from 'lucide-react'; // lucide-reactを使用
+import './AdvancedCamera.css';
+import {
+  calculateVideoRenderMetrics,
+  calculateMaxPanOffsets,
+  generateFileName,
+  formatTime,
+  RenderMetrics
+} from './utils';
+
+const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
+
+// アプリケーションのベースパスを取得
+const BASE_URL = import.meta.env.BASE_URL;
+
+// ステータス定義
+type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice' | 'switching';
+
+interface AdvancedCameraProps {
+  showControls?: boolean; // コントロールパネルを表示するか？
+}
+
+const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) => {
+  const ICON_SIZE = 32; // アイコンサイズ
+  const MIN_ZOOM = 1.0; // ズーム倍率の最小値
+  const MAX_ZOOM = 4.0; // ズーム倍率の最大値
+
+  // --- Refs ---
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const animeRequestRef = useRef<number>(); // アニメーションの要求
+  const shutterAudioRef = useRef<HTMLAudioElement | null>(null); // シャッター音の Audio オブジェクト
+  const videoStartAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画開始音の Audio オブジェクト
+  const videoCompleteAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画完了音の Audio オブジェクト
+
+  // --- State ---
+  // 状態管理
+  const [status, setStatus] = useState<CameraStatus>('initializing'); // カメラの状態
+  const [zoom, setZoomState] = useState(1.0); // ズーム倍率
+  const [pan, setPanState] = useState({ x: 0, y: 0 }); // パン（平行移動量）
+  const [isRecording, setIsRecording] = useState(false); // 録画中？
+  const [recordingTime, setRecordingTime] = useState(0); // 録画時間量
+  const [micEnabled, setMicEnabled] = useState(true); // マイク有効？
+  const [hasMic, setHasMic] = useState(false); // マイクがあるか？
+  const [renderMetrics, setRenderMetrics] = useState<RenderMetrics>({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 }); // 描画に使う寸法情報
+
+  // カメラの種類(背面／前面)
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>(() => {
+    try {
+      const saved = localStorage.getItem('AdvancedCamera_facingMode');
+      if (saved === 'user' || saved === 'environment') {
+        return saved;
+      }
+    } catch (e) {
+      console.warn('Failed to load facingMode from localStorage:', e);
+    }
+    return 'environment'; // デフォルト値
+  });
+  // facingModeが変更されたらlocalStorageに保存
+  useEffect(() => {
+    try {
+      localStorage.setItem('AdvancedCamera_facingMode', facingMode);
+    } catch (e) {
+      console.warn('Failed to save facingMode to localStorage:', e);
+    }
+  }, [facingMode]);
+
+  // renderMetricsのRefを追加（パフォーマンス最適化用）
+  const renderMetricsRef = useRef<RenderMetrics>(renderMetrics);
+  useEffect(() => {
+    renderMetricsRef.current = renderMetrics;
+  }, [renderMetrics]);
+
+  // マイク設定の読み込み
+  useEffect(() => {
+    const savedMic = localStorage.getItem('AdvancedCamera_micEnabled');
+    if (savedMic !== null) {
+      setMicEnabled(savedMic === 'true');
+    }
+  }, []);
+
+  // シャッター音などの初期化
+  useEffect(() => {
+    // Audioオブジェクトを作成し、Refに保持
+    try {
+        shutterAudioRef.current = new Audio(`${BASE_URL}camera-shutter-sound.mp3`);
+        shutterAudioRef.current.load(); 
+        videoStartAudioRef.current = new Audio(`${BASE_URL}video-started.mp3`);
+        videoStartAudioRef.current.load(); 
+        videoCompleteAudioRef.current = new Audio(`${BASE_URL}video-completed.mp3`);
+        videoCompleteAudioRef.current.load(); 
+    } catch (e) {
+        console.error('Failed to initialize shutter audio:', e);
+    }
+  }, []); // 依存配列が空なのでマウント時に一度だけ実行される
+
+  const VOLUME = 0.5; // 音量
+
+  // 音声を再生する
+  const playSound = (audio: HTMLAudioElement | null) => {
+    // 可能ならばシステム音量を変更する
+    try {
+      window.android.onStartShutterSound(VOLUME);
+    } catch (e) {}
+
+    try {
+      if (audio) {
+        // 再生位置をリセットしてから再生
+        audio.volume = VOLUME;
+        audio.currentTime = 0;
+        audio.play();
+      }
+    } catch (e) {
+      console.warn('sound playback failed:', e);
+    }
+
+    // 可能ならばシステム音量を元に戻す
+    try {
+      window.android.onEndShutterSound();
+    } catch (e) {}
+  }
+
+  // --- 描画メトリクスを計算・設定する関数を分離 ---
+  const updateRenderMetrics = useCallback((objectFit: 'cover' | 'contain') => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    const metrics = calculateVideoRenderMetrics(
+      video.videoWidth,
+      video.videoHeight,
+      canvas.width,
+      canvas.height,
+      'contain'
+    );
+    setRenderMetrics(metrics);
+  }, []);
+
+  // --- 初期化 & カメラ取得フロー ---
+  const initCamera = useCallback(async () => {
+    setStatus('initializing');
+
+    // 新しいストリームのロードに備え、描画メトリクスとパンをリセットする
+    setRenderMetrics({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 });
+    setPanState({ x: 0, y: 0 }); // パン位置もリセット
+    setZoomState(1.0); // ズームもリセット
+
+    // 制約候補の構築 (理想から順に)
+    const constraintsCandidates = [
+        { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { min: 10, max: 30 }, facingMode: { exact: facingMode } },
+        { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { min: 10, max: 30 }, facingMode: { exact: facingMode } },
+        { width: { min: 320 }, height: { min: 240 }, frameRate: { min: 10, max: 30 }, facingMode: { exact: facingMode } },
+        { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { min: 10, max: 30 } },
+        { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { min: 10, max: 30 } },
+        { width: { min: 320 }, height: { min: 240 }, frameRate: { min: 10, max: 30 } },
+    ];
+
+    let videoStream: MediaStream | null = null;
+
+    try {
+        // 制約候補でループ
+        for (const constraint of constraintsCandidates) {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({
+                    video: constraint,
+                    audio: false // まず映像のみ取得
+                });
+                if (videoStream) break;
+            } catch (e) {
+                console.warn('Constraint failed:', constraint);
+                continue;
+            }
+        }
+
+        if (!videoStream) {
+            throw new Error('No suitable camera device found');
+        }
+
+        if (videoRef.current) {
+            videoRef.current.srcObject = videoStream;
+            streamRef.current = videoStream;
+
+            // 実際に使用されているカメラのfacingModeを取得
+            try {
+                const videoTrack = videoStream.getVideoTracks()[0];
+                const settings = videoTrack.getSettings();
+                if (settings.facingMode) {
+                    // 実際のfacingModeで状態を更新
+                    const actualFacingMode = settings.facingMode as 'user' | 'environment';
+                    if (actualFacingMode !== facingMode) {
+                        console.log(`Actual camera facing mode: ${actualFacingMode}`);
+                        setFacingMode(actualFacingMode);
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to get camera facing mode:', e);
+            }
+
+            // readyへの遷移を onloadedmetadata に委ねる (Promiseで待機)
+            await new Promise<void>((resolve) => {
+                const video = videoRef.current;
+
+                // 既にメタデータがロード済みの場合 (非常に稀)
+                if (video.readyState >= 2) {
+                    updateRenderMetrics('contain');
+                    resolve();
+                    return;
+                }
+
+                // メタデータがロードされたら
+                video.onloadedmetadata = () => {
+                    updateRenderMetrics('contain'); // 描画メトリクスを更新
+                    video.onloadedmetadata = null; // ハンドラを解除 (二重発火防止)
+                    resolve();
+                };
+            });
+        }
+
+        // マイクの確認
+        try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            setHasMic(true);
+            // マイクストリームは録画時に結合するのでここでは保持せずトラックだけ確認して閉じる
+            audioStream.getTracks().forEach(t => t.stop());
+        } catch (e) {
+            setHasMic(false);
+        }
+
+        setStatus('ready');
+    } catch (error: any) {
+        console.error('Camera Init Error:', error);
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            setStatus('noPermission');
+        } else {
+            setStatus('noDevice');
+        }
+    }
+  }, [updateRenderMetrics, facingMode]);
+
+  // 「アプリの再起動」ボタン用
+  const handleRestart = () => {
+    initCamera();
+  };
+
+  // カメラ切り替え
+  const switchCamera = () => {
+    if (isRecording) return; // 録画中は切り替え不可
+    
+    setStatus('switching');
+    
+    // 現在のストリームを停止
+    if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+    }
+    
+    // facing mode を切り替え
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newFacingMode);
+    
+    // 新しいカメラで初期化（initCameraは facingMode の変更を検知して自動実行される）
+  };
+
+  // facingMode が変更されたら initCamera を実行する
+  useEffect(() => {
+      if (status === 'switching') {
+          initCamera();
+      }
+  }, [facingMode, initCamera]);
+
+  useEffect(() => {
+    initCamera();
+    // クリーンアップ
+    return () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+        }
+        if (animeRequestRef.current) {
+            cancelAnimationFrame(animeRequestRef.current);
+        }
+    };
+  }, [initCamera]);
+
+  // --- サイズ監視とレンダリング ---
+
+  // ResizeObserverとデバウンス
+  useEffect(() => {
+    if (!containerRef.current || !canvasRef.current) return;
+
+    let timeoutId: NodeJS.Timeout;
+    // キャンバスサイズ変更後にメトリクスを更新
+    const observer = new ResizeObserver((entries) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            if (!isRecording && canvasRef.current) {
+                const entry = entries[0];
+                const width = entry.contentRect.width;
+                const height = entry.contentRect.height;
+
+                // 描画メトリクスとパンをリセットする
+                setRenderMetrics({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 });
+                setPanState({ x: 0, y: 0 }); // パン位置もリセット
+                setZoomState(1.0); // ズームもリセット
+
+                // キャンバスの内部解像度をコンテナサイズに合わせる
+                if (canvasRef.current) {
+                    canvasRef.current.width = width;
+                    canvasRef.current.height = height;
+                }
+
+                updateRenderMetrics('contain'); // 内部サイズ変更後に描画メトリクスを再計算
+            }
+        }, 500);
+    });
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [isRecording, updateRenderMetrics]);
+
+  // requestAnimationFrameによる描画ループ
+  const draw = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || status !== 'ready') return;
+
+    // renderMetricsが初期値(0)の場合は描画をスキップする
+    // これにより、正しいメトリクスが計算されるまでの間、不正なフレームの描画を防ぐ
+    if (renderMetrics.renderWidth === 0) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // 毎フレームのメトリクス再計算を削除。状態の renderMetrics を直接使用
+    const { renderWidth, renderHeight, offsetX, offsetY } = renderMetrics;
+
+    // 画面クリア
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+
+    // ズームとパンの適用
+    // 中心を基準にスケーリングするために translate -> scale -> translate back
+    ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
+    // object-fit: cover 再現描画
+    try {
+        ctx.drawImage(
+            video,
+            offsetX,
+            offsetY,
+            renderWidth,
+            renderHeight
+        );
+    } catch (e) {
+        // drawImage失敗はconsole.warnのみ
+        console.warn('drawImage failed', e);
+    }
+
+    ctx.restore();
+
+    animeRequestRef.current = requestAnimationFrame(draw);
+  }, [status, zoom, pan, renderMetrics]);
+
+  useEffect(() => {
+    if (status === 'ready') {
+        animeRequestRef.current = requestAnimationFrame(draw);
+    }
+    return () => {
+        if (animeRequestRef.current) cancelAnimationFrame(animeRequestRef.current);
+    };
+  }, [status, draw]);
+
+
+  // --- ズーム・パンロジック ---
+  const MOUSE_WHEEL_DELTA = 0.004;
+
+  // パンの制限ロジック
+  const clampPan = (newPanX: number, newPanY: number, zoomRatio: number) => {
+    if (!canvasRef.current) return { x: 0, y: 0 };
+
+    const { maxPanX, maxPanY } = calculateMaxPanOffsets(
+        zoomRatio,
+        renderMetricsRef.current,
+        canvasRef.current.width,
+        canvasRef.current.height
+    );
+
+    return {
+        x: Math.max(-maxPanX, Math.min(maxPanX, newPanX)),
+        y: Math.max(-maxPanY, Math.min(maxPanY, newPanY))
+    };
+  };
+
+  // パンをずらす
+  const shiftPan = (dx, dy) => {
+      const clamped = clampPan(pan.x + dx, pan.y + dy, zoom);
+      setPanState(clamped);
+  };
+
+  // --- PC: マウスホイールでズーム ---
+  const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) { // Ctrl + ホイール
+          e.preventDefault();
+          // 現在の zoom state を取得するために setZoomState の関数形式を使用
+          setZoomState(prevZoom => {
+              const delta = -e.deltaY * MOUSE_WHEEL_DELTA;
+              const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + delta));
+              const clamped = clampPan(pan.x, pan.y, newZoom);
+              setPanState(clamped);
+              return newZoom;
+          });
+      }
+  };
+
+  // --- PC: マウスドラッグでパン ---
+  let isDragging = false;
+  let lastMouseX = 0, lastMouseY = 0;
+
+  const isDraggingRef = useRef(false);
+  const lastMousePosRef = useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = useCallback((e: MouseEvent) => {
+      console.log("mouse button down");
+      if (e.button === 1) { // 中央ボタン
+          e.preventDefault();
+          isDraggingRef.current = true;
+          lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+      }
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+      console.log("mouse dragging");
+      if (!isDraggingRef.current) return;
+      e.preventDefault();
+      
+      const dx = e.clientX - lastMousePosRef.current.x;
+      const dy = e.clientY - lastMousePosRef.current.y;
+      
+      setPanState(prevPan => 
+          clampPan(prevPan.x + dx, prevPan.y + dy, zoom)
+      );
+      
+      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+  }, [clampPan, zoom]);
+
+  const handleMouseUp = useCallback(() => {
+      console.log("mouse button up");
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+  }, []);
+
+  // --- Touch: ピンチズーム & パン ---
+  let lastTouchDistance = 0;
+  let lastTouchCenter = { x: 0, y: 0 };
+
+  const getDistance = (t1: Touch, t2: Touch) => {
+      return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+  };
+
+  const getCenter = (t1: Touch, t2: Touch) => {
+      return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
+  };
+
+  const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+          console.log("touch start");
+          e.preventDefault();
+          lastTouchDistance = getDistance(e.touches[0], e.touches[1]);
+          lastTouchCenter = getCenter(e.touches[0], e.touches[1]);
+      }
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) { // 2本指操作
+          console.log("touch move");
+          e.preventDefault();
+
+          setZoomState(prevZoom => {
+              const t1 = e.touches[0], t2 = e.touches[1];
+              const newDist = getDistance(t1, t2);
+              const zoomDelta = (newDist - lastTouchDistance) * 0.01;
+              const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + zoomDelta));
+
+              // パン処理 (ズーム後の新しい値を使用)
+              const newCenter = getCenter(t1, t2);
+              const dx = newCenter.x - lastTouchCenter.x;
+              const dy = newCenter.y - lastTouchCenter.y;
+              setPanState(prevPan => clampPan(prevPan.x + dx, prevPan.y + dy, newZoom));
+              return newZoom;
+          });
+
+          lastTouchDistance = newDist;
+          lastTouchCenter = newCenter;
+      }
+  };
+
+  // イベントリスナーの設定
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // リスナー登録 (passive: false)
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    canvas.addEventListener('mousedown', handleMouseDown, { passive: false });
+    window.addEventListener('mousemove', handleMouseMove, { passive: false });
+    window.addEventListener('mouseup', handleMouseUp, { passive: false });
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+        canvas.removeEventListener('wheel', handleWheel);
+        canvas.removeEventListener('mousedown', handleMouseDown);
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+        canvas.removeEventListener('touchstart', handleTouchStart);
+        canvas.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [handleMouseDown, handleMouseMove, handleMouseUp]);
+
+  // --- 写真撮影ロジック ---
+  const takePhoto = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // シャッター音再生
+    playSound(shutterAudioRef.current);
+
+    try {
+      // 描画されている現在のキャンバスの内容を Blob (JPEG) として取得
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          console.error('Failed to create photo blob');
+          alert('写真の生成に失敗しました');
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+
+        // utils.ts を使用してファイル名を生成
+        a.download = generateFileName('photo_', 'jpeg'); // JPEGを使用
+        a.click();
+        URL.revokeObjectURL(url);
+      }, 'image/jpeg', 0.95); // JPEG形式、品質95%
+    } catch (error) {
+      console.error('Photo capture failed', error);
+      alert('写真撮影に失敗しました');
+    }
+  };
+
+  // --- 録画・マイク制御 ---
+
+  // マイク切り替え
+  const toggleMic = () => {
+    const newState = !micEnabled;
+    setMicEnabled(newState);
+    // 設定保存
+    localStorage.setItem('AdvancedCamera_micEnabled', String(newState));
+  };
+
+  // 録画開始・停止
+  const toggleRecording = async () => {
+    if (isRecording) {
+        // 停止
+        mediaRecorderRef.current?.stop();
+        return;
+    }
+
+    // 開始処理
+    try {
+        if (!canvasRef.current) return;
+
+        // ビデオ録画開始音を再生
+        playSound(videoStartAudioRef.current);
+
+        // 映像ストリーム
+        const canvasStream = canvasRef.current.captureStream(30);
+        const tracks = [...canvasStream.getVideoTracks()];
+
+        // 音声ストリーム
+        if (hasMic && micEnabled) {
+            try {
+                const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                tracks.push(...audioStream.getAudioTracks());
+            } catch (e) {
+                console.warn('Mic access failed during record start', e);
+            }
+        }
+
+        // 結合
+        const combinedStream = new MediaStream(tracks);
+
+        // フォーマット確認
+        let mimeType = 'video/webm';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = 'video/mp4'; // fallback
+        }
+
+        const recorder = new MediaRecorder(combinedStream, { mimeType });
+        const chunks: BlobPart[] = [];
+
+        recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) chunks.push(e.data);
+        };
+
+        // 停止時・エラー時のダウンロード処理
+        const saveVideo = () => {
+            const blob = new Blob(chunks, { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            // ファイル名生成
+            a.download = generateFileName('video_', mimeType.includes('mp4') ? 'mp4' : 'webm');
+            a.click();
+            URL.revokeObjectURL(url);
+
+            // トラック停止
+            combinedStream.getTracks().forEach(t => t.stop());
+            setIsRecording(false);
+            setRecordingTime(0);
+
+            // ビデオ録画完了音を再生
+            playSound(videoCompleteAudioRef.current);
+        };
+
+        recorder.onstop = saveVideo;
+
+        // ストリーム切断検知
+        combinedStream.getVideoTracks()[0].onended = () => {
+            recorder.stop();
+            setStatus('noDevice');
+            alert('録画デバイスが切断されました');
+        };
+
+        recorder.onerror = (e) => {
+            console.error('MediaRecorder Error', e);
+            recorder.stop();
+            alert('録画を中断しました: ' + e.toString());
+        };
+
+        recorder.start(1000); // 1秒ごとにチャンク作成
+        mediaRecorderRef.current = recorder;
+        setIsRecording(true);
+
+    } catch (e) {
+        console.error('Recording start failed', e);
+        alert('録画を開始できませんでした');
+    }
+  };
+
+  // 録画タイマー
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isRecording) {
+        interval = setInterval(() => {
+            setRecordingTime(prev => prev + 1);
+        }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRecording]);
+
+
+  // --- アクセシビリティ (キーボード操作) ---
+  //
+  const KEYBOARD_PAN_DELTA = 20;
+  const KEYBOARD_ZOOM_DELTA = 0.1;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        // canvasにフォーカスがあるか、全体制御とするかは実装次第だが、
+        // 要件に従い、通常はコンテナへのフォーカスなどを確認する。
+        // ここでは簡略化のため、activeElementチェックを入れるか、グローバルにリッスンして制御する。
+
+        switch(e.key) {
+            case ' ': // Space: 写真撮影
+                if (e.ctrlKey && e.shiftKey) { // Ctrl+Shift+Space: 写真撮影
+                  e.preventDefault();
+                  takePhoto();
+                }
+                break;
+            case 'r': case 'R':
+                if (e.ctrlKey && e.shiftKey) { // Ctrl+Shift+R: 録画の開始／終了
+                  e.preventDefault();
+                  toggleRecording();
+                }
+                break;
+            case '+': // +: ズームイン
+            case ';': // (日本語キーボード対応用)
+                e.preventDefault();
+                const newZoomIn = Math.min(MAX_ZOOM, zoom + KEYBOARD_ZOOM_DELTA);
+                setZoomState(newZoomIn);
+                break;
+            case '-': // -: ズームアウト
+                e.preventDefault();
+                const newZoomOut = Math.max(MIN_ZOOM, zoom - KEYBOARD_ZOOM_DELTA);
+                setZoomState(newZoomOut);
+                break;
+            // パン操作 (Ctrl + 矢印)
+            case 'ArrowUp':
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    shiftPan(0, +KEYBOARD_PAN_DELTA);
+                }
+                break;
+            case 'ArrowDown':
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    shiftPan(0, -KEYBOARD_PAN_DELTA);
+                }
+                break;
+            case 'ArrowLeft':
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    shiftPan(KEYBOARD_PAN_DELTA, 0);
+                }
+                break;
+            case 'ArrowRight':
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    shiftPan(-KEYBOARD_PAN_DELTA, 0);
+                }
+                break;
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [clampPan]);
+
+  const onContextMenu = (event) => {
+    // 製品版の場合はコンテキストメニューを禁止
+    if (IS_PRODUCTION)
+      event.preventDefault();
+  };
+
+  return (
+    <div className="advanced-camera" ref={containerRef} onContextMenu={onContextMenu}>
+      {/* 非表示の Video 要素 */}
+      <video ref={videoRef} className="advanced-camera__video-source" autoPlay playsInline muted />
+
+      {/* 描画用 Canvas */}
+      <canvas
+        ref={canvasRef}
+        className="advanced-camera__viewport"
+        tabIndex={0}
+        aria-label="Camera Viewport"
+      />
+
+     {/* UI オーバーレイ */}
+      {status === 'initializing' && (
+        <div className="advanced-camera__overlay">
+            <RefreshCw className="spin" size={48} />
+            <p className="advanced-camera__overlay-text">カメラ起動中です</p>
+        </div>
+      )}
+      {status === 'switching' && (
+        <div className="advanced-camera__overlay">
+             <RefreshCw className="spin" size={48} />
+            <p className="advanced-camera__overlay-text">しばらくお待ちください</p>
+        </div>
+      )}
+      {status === 'noPermission' && (
+        <div className="advanced-camera__overlay">
+             <VideoOff size={48} color="red" />
+            <p className="advanced-camera__overlay-text">
+                カメラ権限がありません。<br/>
+                アプリ設定でカメラ権限を許可してアプリを再起動してください。
+            </p>
+            {/* 再起動ボタン */}
+            <button className="advanced-camera__restart-btn" onClick={handleRestart}>
+                アプリの再起動
+            </button>
+        </div>
+      )}
+      {status === 'noDevice' && (
+        <div className="advanced-camera__overlay">
+            <VideoOff size={48} color="red" />
+            <p className="advanced-camera__overlay-text">カメラデバイスが見つかりません</p>
+        </div>
+      )}
+
+      {/* 録画中タイマー [左上端] */}
+      {isRecording && status === 'ready' && (
+        <div className="advanced-camera__timer">
+            {formatTime(recordingTime)}
+        </div>
+      )}
+
+      {/* [上部中央] ズーム倍率表示 */}
+      {status === 'ready' && (
+        <div className="advanced-camera__zoom-display">
+            {zoom.toFixed(1)}x
+        </div>
+      )}
+
+
+      {/* [下部中央] コントロールパネル */}
+      {status === 'ready' && showControls && (
+        <div className={`advanced-camera__controls ${isRecording ? 'advanced-camera__controls--recording' : ''}`}>
+
+            {/* 1. マイクON/OFF ボタン */}
+            <button
+                className={`advanced-camera__button ${hasMic && micEnabled ? 'advanced-camera__button--mic-on' : 'advanced-camera__button--mic-off'}`}
+                onClick={toggleMic}
+                disabled={!hasMic || isRecording}
+                aria-label={micEnabled ? "マイクをミュート" : "マイクを有効化"}
+            >
+                {hasMic && micEnabled ? <Mic size={ICON_SIZE} /> : <MicOff size={ICON_SIZE} />}
+            </button>
+
+            {/* 2. 写真撮影 ボタン */}
+            <button
+                className="advanced-camera__button advanced-camera__button--photo"
+                onClick={takePhoto}
+                aria-label="写真撮影"
+            >
+                <Camera size={ICON_SIZE} />
+            </button>
+
+            {/* 3. 録画/停止 ボタン */}
+            <button
+                className={`advanced-camera__button advanced-camera__button--record ${isRecording ? 'is-recording' : ''}`}
+                onClick={toggleRecording}
+                aria-label={isRecording ? "録画を停止" : "録画を開始"}
+            >
+                <Video size={ICON_SIZE} />
+            </button>
+        </div>
+      )}
+
+      {/* 右下端の「カメラ切り替え」ボタン */}
+      {status === 'ready' && showControls && (
+        <button
+          className="advanced-camera__button advanced-camera__button--switch"
+          onClick={switchCamera}
+          disabled={isRecording}
+          aria-label="カメラ切り替え"
+        >
+          <SwitchCamera size={ICON_SIZE} />
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default AdvancedCamera;
