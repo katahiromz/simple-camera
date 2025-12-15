@@ -439,8 +439,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
   }, []);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-      console.log("mouse dragging");
       if (!isDraggingRef.current) return;
+      console.log("mouse dragging");
       e.preventDefault();
       
       const dx = e.clientX - lastMousePosRef.current.x;
@@ -789,7 +789,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         aria-label="Camera Viewport"
       />
 
-     {/* UI オーバーレイ */}
+      {/* UI オーバーレイ */}
       {status === 'initializing' && (
         <div className="advanced-camera__overlay">
             <RefreshCw className="spin" size={48} />

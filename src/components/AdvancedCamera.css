@@ -51,6 +51,7 @@
   z-index: 10;
   text-align: center;
   padding: 20px;
+  box-sizing: border-box;
 }
 
 .advanced-camera__overlay-text {
