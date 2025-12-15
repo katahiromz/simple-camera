@@ -1,4 +1,18 @@
 {
   "ac_text_photo": "Photo",
-  "ac_text_video": "Video"
+  "ac_text_video": "Video",
+  "ac_start_recording": "Start recording",
+  "ac_stop_recording": "Stop recording",
+  "ac_switch_camera": "Switch camera",
+  "ac_take_photo": "Take photo",
+  "ac_enable_microphone": "Enable microphone",
+  "ac_mute_microphone": "Mute microphone",
+  "ac_no_camera_found": "No camera found",
+  "ac_restart_app": "Restart application",
+  "ac_no_camera_permission": "This app has no camera permission. Please allow camera permission in the app settings and restart the app.",
+  "ac_starting_camera": "Starting camera...",
+  "ac_switching_camera": "Switching camera...",
+  "ac_taking_photo_failed": "Failed to save photo.",
+  "ac_recording_disconnected": "Recording device disconnected",
+  "ac_recording_cannot_start": "Recording could not be started: {{error}}",
 }

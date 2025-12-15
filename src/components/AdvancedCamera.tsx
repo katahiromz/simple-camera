@@ -564,7 +564,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
       
       if (!photoCtx) {
         console.error('Failed to get photo canvas context');
-        alert('写真の生成に失敗しました');
+        alert(t('ac_taking_photo_failed'));
         return;
       }
 
@@ -579,7 +579,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
       photoCanvas.toBlob((blob) => {
         if (!blob) {
           console.error('Failed to create photo blob');
-          alert('写真の生成に失敗しました');
+          alert(t('ac_taking_photo_failed'));
           return;
         }
 
@@ -594,7 +594,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
       }, 'image/jpeg', 0.95); // JPEG形式、品質95%
     } catch (error) {
       console.error('Photo capture failed', error);
-      alert('写真撮影に失敗しました');
+      alert(t('ac_taking_photo_failed'));
     }
   };
 
@@ -679,13 +679,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         combinedStream.getVideoTracks()[0].onended = () => {
             recorder.stop();
             setStatus('noDevice');
-            alert('録画デバイスが切断されました');
+            alert(t('ac_recording_disconnected'));
         };
 
         recorder.onerror = (e) => {
             console.error('MediaRecorder Error', e);
             recorder.stop();
-            alert('録画を中断しました: ' + e.toString());
+            alert(t('ac_recording_error', e.toString()));
         };
 
         recorder.start(1000); // 1秒ごとにチャンク作成
@@ -694,7 +694,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
 
     } catch (e) {
         console.error('Recording start failed', e);
-        alert('録画を開始できませんでした');
+        alert(t('ac_recording_cannot_start', e));
     }
   };
 
@@ -800,32 +800,31 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
       {status === 'initializing' && (
         <div className="advanced-camera__overlay">
             <RefreshCw className="spin" size={48} />
-            <p className="advanced-camera__overlay-text">カメラ起動中です</p>
+            <p className="advanced-camera__overlay-text">{t('ac_starting_camera')}</p>
         </div>
       )}
       {status === 'switching' && (
         <div className="advanced-camera__overlay">
              <RefreshCw className="spin" size={48} />
-            <p className="advanced-camera__overlay-text">しばらくお待ちください</p>
+            <p className="advanced-camera__overlay-text">{t('ac_switching_camera')}</p>
         </div>
       )}
       {status === 'noPermission' && (
         <div className="advanced-camera__overlay">
              <VideoOff size={48} color="red" />
             <p className="advanced-camera__overlay-text">
-                カメラ権限がありません。<br/>
-                アプリ設定でカメラ権限を許可してアプリを再起動してください。
+                {t('ac_no_camera_permission')}
             </p>
             {/* 再起動ボタン */}
             <button className="advanced-camera__restart-btn" onClick={handleRestart}>
-                アプリの再起動
+                {t('ac_restart_app')}
             </button>
         </div>
       )}
       {status === 'noDevice' && (
         <div className="advanced-camera__overlay">
             <VideoOff size={48} color="red" />
-            <p className="advanced-camera__overlay-text">カメラデバイスが見つかりません</p>
+            <p className="advanced-camera__overlay-text">{t('ac_no_camera_found')}</p>
         </div>
       )}
 
@@ -853,7 +852,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
                 className={`advanced-camera__button ${hasMic && micEnabled ? 'advanced-camera__button--mic-on' : 'advanced-camera__button--mic-off'}`}
                 onClick={toggleMic}
                 disabled={!hasMic || isRecording}
-                aria-label={micEnabled ? "マイクをミュート" : "マイクを有効化"}
+                aria-label={micEnabled ? t('ac_mute_microphone') : t('ac_enable_microphone')}
             >
                 {hasMic && micEnabled ? <Mic size={ICON_SIZE} /> : <MicOff size={ICON_SIZE} />}
             </button>
@@ -862,7 +861,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
             <button
                 className="advanced-camera__button advanced-camera__button--photo"
                 onClick={takePhoto}
-                aria-label="写真撮影"
+                aria-label={t('ac_take_photo')}
             >
                 <Camera size={ICON_SIZE} />
             </button>
@@ -871,7 +870,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
             <button
                 className={`advanced-camera__button advanced-camera__button--record ${isRecording ? 'is-recording' : ''}`}
                 onClick={toggleRecording}
-                aria-label={isRecording ? "録画を停止" : "録画を開始"}
+                aria-label={isRecording ? t('ac_stop_recording') : t('ac_start_recording')}
             >
                 <Video size={ICON_SIZE} />
             </button>
@@ -884,7 +883,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
           className="advanced-camera__button advanced-camera__button--switch"
           onClick={switchCamera}
           disabled={isRecording}
-          aria-label="カメラ切り替え"
+          aria-label={t('ac_switch_camera')}
         >
           <SwitchCamera size={ICON_SIZE} />
         </button>
