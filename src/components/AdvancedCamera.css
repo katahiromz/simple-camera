@@ -6,10 +6,6 @@
   position: relative;
   width: 100%;
   height: 100%;
-  max-width: 100vw;
-  max-width: 100dvw; /* 動的ビューポート幅に対応 */
-  max-height: 100vh;
-  max-height: 100dvh; /* 動的ビューポート高さに対応 */
   background-color: #000;
   display: flex;
   flex-direction: column;
@@ -30,10 +26,6 @@
 .advanced-camera__viewport {
   width: 100%;
   height: 100%;
-  max-width: 100vw;
-  max-width: 100dvw; /* 動的ビューポート高さに対応 */
-  max-height: 100vh;
-  max-height: 100dvh; /* 動的ビューポート高さに対応 */
   display: block;
   touch-action: none; /* ブラウザの標準タッチ操作を無効化 */
 }
