@@ -608,17 +608,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
     localStorage.setItem('AdvancedCamera_micEnabled', String(newState));
   };
 
-  // 録画開始・停止
-  const toggleRecording = async () => {
-    if (isRecording) {
-        // 停止
-        mediaRecorderRef.current?.stop();
-        return;
-    }
-
-    // 開始処理
+  // 録画開始
+  const startRecording = async () => {
     try {
-        if (!canvasRef.current) return;
+        if (!canvasRef.current) return; // キャンバスがない？
 
         // ビデオ録画開始音を再生
         playSound(videoStartAudioRef.current);
@@ -643,18 +636,26 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         // フォーマット確認
         let mimeType = 'video/webm';
         if (!MediaRecorder.isTypeSupported(mimeType)) {
-            mimeType = 'video/mp4'; // fallback
+          mimeType = 'video/mp4'; // fallback
         }
 
         const recorder = new MediaRecorder(combinedStream, { mimeType });
         const chunks: BlobPart[] = [];
 
         recorder.ondataavailable = (e) => {
-            if (e.data.size > 0) chunks.push(e.data);
+          if (e.data.size > 0) chunks.push(e.data);
         };
 
         // 停止時・エラー時のダウンロード処理
-        const saveVideo = () => {
+        recorder.onstop = () => {
+            // トラック停止
+            combinedStream.getTracks().forEach(t => t.stop());
+            setIsRecording(false);
+            setRecordingTime(0);
+
+            // ビデオ録画完了音を再生
+            playSound(videoCompleteAudioRef.current);
+
             const blob = new Blob(chunks, { type: mimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -663,17 +664,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
             a.download = generateFileName(t('ac_text_video') + '_', mimeType.includes('mp4') ? 'mp4' : 'webm');
             a.click();
             URL.revokeObjectURL(url);
-
-            // トラック停止
-            combinedStream.getTracks().forEach(t => t.stop());
-            setIsRecording(false);
-            setRecordingTime(0);
-
-            // ビデオ録画完了音を再生
-            playSound(videoCompleteAudioRef.current);
         };
-
-        recorder.onstop = saveVideo;
 
         // ストリーム切断検知
         combinedStream.getVideoTracks()[0].onended = () => {
@@ -682,6 +673,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
             alert(t('ac_recording_disconnected'));
         };
 
+        // エラー時の処理
         recorder.onerror = (e) => {
             console.error('MediaRecorder Error', e);
             recorder.stop();
@@ -691,10 +683,23 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         recorder.start(1000); // 1秒ごとにチャンク作成
         mediaRecorderRef.current = recorder;
         setIsRecording(true);
-
     } catch (e) {
         console.error('Recording start failed', e);
         alert(t('ac_recording_cannot_start', e));
+    }
+  };
+
+  // 録画停止
+  const stopRecording = async () => {
+    mediaRecorderRef.current?.stop();
+  };
+
+  // 録画開始・停止の切り替え
+  const toggleRecording = async () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
     }
   };
 
