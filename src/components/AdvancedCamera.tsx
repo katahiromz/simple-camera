@@ -849,7 +849,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
 
             {/* 1. マイクON/OFF ボタン */}
             <button
-                className={`advanced-camera__button ${hasMic && micEnabled ? 'advanced-camera__button--mic-on' : 'advanced-camera__button--mic-off'}`}
+                className={`advanced-camera__button advanced-camera__button--microphone ${hasMic && micEnabled ? 'advanced-camera__button--mic-on' : 'advanced-camera__button--mic-off'}`}
                 onClick={toggleMic}
                 disabled={!hasMic || isRecording}
                 aria-label={micEnabled ? t('ac_mute_microphone') : t('ac_enable_microphone')}
