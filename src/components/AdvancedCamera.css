@@ -78,6 +78,7 @@
   background: transparent;
   z-index: 5;
   transition: opacity 0.3s ease;
+  pointer-events: none; /* コンテナ自体のクリックを無効化 */
 }
 
 /* 録画中はUIの状態を変える */
@@ -97,9 +98,10 @@
   justify-content: center;
   color: white;
   cursor: pointer;
-  transition: all 0.2s ease; /* アニメーション */
+  transition: all 0.2s ease;
   backdrop-filter: blur(4px);
   flex-shrink: 0;
+  pointer-events: auto; /* ボタン自体はクリック可能に */
 }
 
 .advanced-camera__button:hover:not(:disabled) {
