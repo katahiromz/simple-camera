@@ -910,9 +910,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         Timber.i("onStartShutterSound")
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         if (oldVolume == -1.0)
-            oldVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            oldVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble()
         var musicVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        musicVolume *= volume;
+        musicVolume = (volume * musicVolume.toDouble()).toInt();
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, musicVolume, 0)
     }
 
@@ -921,7 +921,8 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         Timber.i("onEndShutterSound")
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         if (oldVolume != -1.0) {
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, oldVolume, 0)
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC,
+                oldVolume.toInt(), 0)
             oldVolume = -1.0;
         }
     }
