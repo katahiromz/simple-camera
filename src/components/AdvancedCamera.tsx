@@ -527,14 +527,47 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
   // --- 写真撮影ロジック ---
   const takePhoto = () => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
 
     // シャッター音再生
     playSound(shutterAudioRef.current);
 
     try {
-      // 描画されている現在のキャンバスの内容を Blob (JPEG) として取得
-      canvas.toBlob((blob) => {
+      // 映像が実際に描画されている領域を計算
+      const { renderWidth, renderHeight, offsetX, offsetY } = renderMetrics;
+      
+      // ズームとパンを考慮した描画領域を計算
+      const zoomedWidth = renderWidth * zoom;
+      const zoomedHeight = renderHeight * zoom;
+      
+      // 切り取り領域の計算（キャンバス座標系）
+      const cropX = Math.max(0, (canvas.width - zoomedWidth) / 2 - pan.x);
+      const cropY = Math.max(0, (canvas.height - zoomedHeight) / 2 - pan.y);
+      const cropWidth = Math.min(zoomedWidth, canvas.width);
+      const cropHeight = Math.min(zoomedHeight, canvas.height);
+
+      // 新しいキャンバスを作成して、映像部分のみを描画
+      const photoCanvas = document.createElement('canvas');
+      photoCanvas.width = cropWidth;
+      photoCanvas.height = cropHeight;
+      const photoCtx = photoCanvas.getContext('2d');
+      
+      if (!photoCtx) {
+        console.error('Failed to get photo canvas context');
+        alert('写真の生成に失敗しました');
+        return;
+      }
+
+      // 元のキャンバスから映像部分のみを切り取ってコピー
+      photoCtx.drawImage(
+        canvas,
+        cropX, cropY, cropWidth, cropHeight,  // 元のキャンバスの切り取り領域
+        0, 0, cropWidth, cropHeight            // 新しいキャンバスの描画領域
+      );
+
+      // 新しいキャンバスを Blob (JPEG) として保存
+      photoCanvas.toBlob((blob) => {
         if (!blob) {
           console.error('Failed to create photo blob');
           alert('写真の生成に失敗しました');
