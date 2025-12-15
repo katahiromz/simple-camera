@@ -21,6 +21,9 @@ const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
 // アプリケーションのベースパスを取得
 const BASE_URL = import.meta.env.BASE_URL;
 
+// Androidアプリ内で実行されているか確認
+const isAndroidApp = typeof window.android !== 'undefined';
+
 // ステータス定義
 type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice' | 'switching';
 
@@ -533,6 +536,39 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
     };
   }, [handleMouseDown, handleMouseMove, handleMouseUp, handleTouchStart, handleTouchMove]);
 
+  // フォールバック用のダウンロード関数
+  const downloadFallback = (blob, fileName) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = fileName;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // 画像の保存(Android用)
+  const saveImageToGallery = (blob, fileName) => {
+    console.assert(isAndroidApp);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64data = reader.result.split(',')[1];
+      if (typeof window.android.saveImageToGallery === 'function') {
+        try {
+          window.android.saveImageToGallery(base64data, fileName);
+          console.log('Saved image:', fileName);
+        } catch (e) {
+          console.assert(false);
+          console.error('Failed to save image:', e);
+          downloadFallback(blob, fileName);
+        }
+      } else {
+        console.assert(false);
+        downloadFallback(blob, fileName);
+      }
+    };
+    reader.readAsDataURL(blob);
+  };
+
   // --- 写真撮影ロジック ---
   const takePhoto = () => {
     const canvas = canvasRef.current;
@@ -583,14 +619,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
           return;
         }
 
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
+        // ファイル名
+        const fileName = generateFileName(t('ac_text_photo') + '_', 'jpg');
 
-        // utils.ts を使用してファイル名を生成
-        a.download = generateFileName(t('ac_text_photo') + '_', 'jpg'); // JPEGを使用
-        a.click();
-        URL.revokeObjectURL(url);
+        if (isAndroidApp) {
+          saveImageToGallery(blob, fileName);
+        } else {
+          downloadFallback(blob, fileName);
+        }
       }, 'image/jpeg', 0.95); // JPEG形式、品質95%
     } catch (error) {
       console.error('Photo capture failed', error);
@@ -606,6 +642,25 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
     setMicEnabled(newState);
     // 設定保存
     localStorage.setItem('AdvancedCamera_micEnabled', String(newState));
+  };
+
+  // ビデオをギャラリーに保存(Android専用)
+  const saveVideoToGallery = (blob, fileName) => {
+    console.assert(isAndroidApp);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // Base64エンコードされた文字列（データURI）を取得
+      const base64Data = reader.result.split(',')[1];
+      // Kotlin側の関数を呼び出す
+      try {
+        window.android.saveVideoToGallery(base64Data, fileName);
+        console.log('保存完了:' + fileName);
+      } catch (error) {
+        console.error('android インタフェース呼び出しエラー:', error);
+        alert(t('ac_saving_movie_failed', { error: error }));
+      }
+    };
+    reader.readAsDataURL(blob); // BlobをBase64に変換
   };
 
   // 録画開始
@@ -656,14 +711,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
             // ビデオ録画完了音を再生
             playSound(videoCompleteAudioRef.current);
 
+            const fileName = generateFileName(t('ac_text_video') + '_', mimeType.includes('mp4') ? 'mp4' : 'webm');
             const blob = new Blob(chunks, { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            // ファイル名生成
-            a.download = generateFileName(t('ac_text_video') + '_', mimeType.includes('mp4') ? 'mp4' : 'webm');
-            a.click();
-            URL.revokeObjectURL(url);
+            if (isAndroidApp) {
+              saveVideoToGallery(blob, fileName);
+            } else {
+              downloadFallback(blob, fileName);
+            }
         };
 
         // ストリーム切断検知
