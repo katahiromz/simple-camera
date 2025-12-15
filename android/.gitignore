@@ -9,3 +9,4 @@
 .cxx
 local.properties
 app/release
+android/app/src/main/assets/camera/

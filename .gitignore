@@ -12,9 +12,6 @@ dist
 dist-ssr
 *.local
 
-# Build artifacts - Android assets
-android/app/src/main/assets/simple_camera/
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
