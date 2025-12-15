@@ -4,7 +4,8 @@
   padding: 0;
 }
 body, html, #root {
-  width: 100%;
+  width: 100vw;
+  width: 100dvw;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
