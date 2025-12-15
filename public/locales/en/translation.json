@@ -1,20 +1,4 @@
 {
-  "text_video": "Video",
-  "text_photo": "Photo",
-  "permission_denied_title": "Camera permission denied",
-  "permission_denied_message": "Please allow camera access in your application settings",
-  "button_reset_zoom": "Reset",
-  "button_switch_camera": "↕",
-  "button_mic_enabled_title": "Microphone enabled (click to disable)",
-  "button_mic_denied_title": "Microphone disabled (click to enable)",
-  "button_mic_recording_title": "Microphone settings cannot be changed while recording",
-  "alert_recording_max_time": "Recording time limit ({{max_time}}) reached and automatically stopped.",
-  "alert_save_video_failed": "Failed to save video: {{error}}",
-  "alert_video_saved": "Video saved to gallery: {{file_name}}",
-  "alert_camera_setup_failed": "Camera setup failed",
-  "alert_access_failed": "Camera access failed",
-  "alert_camera_permission_needed": "Camera usage is not permitted. Please check your browser settings",
-  "alert_camera_not_found": "No available cameras were found",
-  "alert_camera_in_use": "The camera is in use by another application",
-  "alert_error_detail": "Error details: {{error_name}}"
+  "ac_text_photo": "Photo",
+  "ac_text_video": "Video"
 }

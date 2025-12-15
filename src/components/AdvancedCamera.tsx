@@ -2,6 +2,8 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Camera, Mic, MicOff, Video, VideoOff, RefreshCw, SwitchCamera} from 'lucide-react'; // lucide-reactを使用
 import './AdvancedCamera.css';
+
+// 汎用関数群
 import {
   calculateVideoRenderMetrics,
   calculateMaxPanOffsets,
@@ -9,6 +11,10 @@ import {
   formatTime,
   RenderMetrics
 } from './utils';
+
+// 国際化(i18n)
+import './i18n.ts';
+import { useTranslation } from 'react-i18next';
 
 const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
 
@@ -26,6 +32,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
   const ICON_SIZE = 32; // アイコンサイズ
   const MIN_ZOOM = 1.0; // ズーム倍率の最小値
   const MAX_ZOOM = 4.0; // ズーム倍率の最大値
+  const { t } = useTranslation(); // 翻訳用
 
   // --- Refs ---
   const containerRef = useRef<HTMLDivElement>(null);
@@ -581,7 +588,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         a.href = url;
 
         // utils.ts を使用してファイル名を生成
-        a.download = generateFileName('photo_', 'jpeg'); // JPEGを使用
+        a.download = generateFileName(t('ac_text_photo') + '_', 'jpg'); // JPEGを使用
         a.click();
         URL.revokeObjectURL(url);
       }, 'image/jpeg', 0.95); // JPEG形式、品質95%
@@ -653,7 +660,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
             const a = document.createElement('a');
             a.href = url;
             // ファイル名生成
-            a.download = generateFileName('video_', mimeType.includes('mp4') ? 'mp4' : 'webm');
+            a.download = generateFileName(t('ac_text_video') + '_', mimeType.includes('mp4') ? 'mp4' : 'webm');
             a.click();
             URL.revokeObjectURL(url);
 

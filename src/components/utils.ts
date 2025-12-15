@@ -72,10 +72,9 @@ export const calculateMaxPanOffsets = (
 export const generateFileName = (prefix: 'video_' | 'photo_', extension: string): string => {
   const now = new Date();
   // ISO 8601 形式の日付
-  let timestamp = now.toISOString();
+  let timestamp = now.toLocaleDateString() + " " + now.toLocaleTimeString();
   // 空白文字やファイル名に使用できない文字を _ に置き換える
-  timestamp = timestamp.replace(/[:\.]/g, '_');
-  
+  timestamp = timestamp.replace(/[:\.\\\/]/g, '_');
   return `${prefix}${timestamp}.${extension}`;
 };
 

@@ -1,4 +1,4 @@
-// 翻訳・国際化(i18n)用
+// AdvancedCamera翻訳・国際化(i18n)用
 
 import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';

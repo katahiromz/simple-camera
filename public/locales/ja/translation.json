@@ -1,20 +1,4 @@
 {
-  "text_video": "動画",
-  "text_photo": "写真",
-  "permission_denied_title": "カメラの権限がありません",
-  "permission_denied_message": "アプリの設定でカメラへのアクセスを許可してください",
-  "button_reset_zoom": "リセット",
-  "button_switch_camera": "↕",
-  "button_mic_enabled_title": "マイクが有効です（クリックで無効化）",
-  "button_mic_denied_title": "マイクが無効です（クリックで有効化）",
-  "button_mic_recording_title": "録画中はマイク設定を変更できません",
-  "alert_recording_max_time": "録画時間が上限 ({{max_time}}) に達したため、自動的に停止しました。",
-  "alert_save_video_failed": "動画の保存に失敗しました: {{error}}",
-  "alert_video_saved": "動画をギャラリーに保存しました: {{file_name}}",
-  "alert_camera_setup_failed": "カメラのセットアップに失敗しました",
-  "alert_access_failed": "カメラへのアクセスに失敗しました",
-  "alert_camera_permission_needed": "カメラの使用が許可されていません。ブラウザの設定を確認してください。",
-  "alert_camera_not_found": "利用可能なカメラが見つかりませんでした。",
-  "alert_camera_in_use": "カメラは他のアプリケーションで使用中です。",
-  "alert_error_detail": "エラー詳細: {{error_name}}"
+  "ac_text_photo": "写真",
+  "ac_text_video": "動画"
 }
