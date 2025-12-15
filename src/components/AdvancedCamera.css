@@ -209,17 +209,17 @@ position: absolute;
 
 /* マイクON時のスタイル */
 .advanced-camera__button--mic-on {
-  color: black;
+  color: white;
+  background: rgba(0, 0, 0, 0.5);
   border: 2px solid #aaa; /* 外側のリング */
-  background: rgba(191, 191, 191, 0.5);
 }
 
 /* マイクOFF時のスタイル (視覚的な違いを明確にする) */
 .advanced-camera__button--mic-off {
   opacity: 0.8;
-  color: black;
+  color: white;
+  background: rgba(0, 0, 0, 0.5);
   border: 2px solid #aaa; /* 外側のリング */
-  background: rgba(191, 191, 191, 0.5);
 }
 
 /* カメラ切り替えボタン (右下端のフローティング配置) */
@@ -236,7 +236,7 @@ position: absolute;
   height: 64px; 
   /* デフォルトの advanced-camera__button スタイルを継承 */
   background: rgba(0, 0, 0, 0.5);
-   border: 2px solid #aaa; /* 外側のリング */
+  border: 2px solid #aaa; /* 外側のリング */
 }
 
 .advanced-camera__button--switch:disabled {
