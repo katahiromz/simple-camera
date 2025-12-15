@@ -38,6 +38,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
   const videoStartAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画開始音の Audio オブジェクト
   const videoCompleteAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画完了音の Audio オブジェクト
 
+  // タッチ操作用のRef
+  const lastTouchDistanceRef = useRef(0);
+  const lastTouchCenterRef = useRef({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+  const lastMousePosRef = useRef({ x: 0, y: 0 });
+
   // --- State ---
   // 状態管理
   const [status, setStatus] = useState<CameraStatus>('initializing'); // カメラの状態
@@ -423,9 +429,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
   let isDragging = false;
   let lastMouseX = 0, lastMouseY = 0;
 
-  const isDraggingRef = useRef(false);
-  const lastMousePosRef = useRef({ x: 0, y: 0 });
-
   const handleMouseDown = useCallback((e: MouseEvent) => {
       console.log("mouse button down");
       if (e.button === 1) { // 中央ボタン
@@ -457,8 +460,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
   }, []);
 
   // --- Touch: ピンチズーム & パン ---
-  let lastTouchDistance = 0;
-  let lastTouchCenter = { x: 0, y: 0 };
 
   const getDistance = (t1: Touch, t2: Touch) => {
       return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
@@ -468,16 +469,16 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
       return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
   };
 
-  const handleTouchStart = (e: TouchEvent) => {
+  const handleTouchStart = useCallback((e: TouchEvent) => {
       if (e.touches.length === 2) {
           console.log("touch start");
           e.preventDefault();
-          lastTouchDistance = getDistance(e.touches[0], e.touches[1]);
-          lastTouchCenter = getCenter(e.touches[0], e.touches[1]);
+          lastTouchDistanceRef.current = getDistance(e.touches[0], e.touches[1]);
+          lastTouchCenterRef.current = getCenter(e.touches[0], e.touches[1]);
       }
-  };
+  }, []);
 
-  const handleTouchMove = (e: TouchEvent) => {
+  const handleTouchMove = useCallback((e: TouchEvent) => {
       if (e.touches.length === 2) { // 2本指操作
           console.log("touch move");
           e.preventDefault();
@@ -485,21 +486,22 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
           setZoomState(prevZoom => {
               const t1 = e.touches[0], t2 = e.touches[1];
               const newDist = getDistance(t1, t2);
-              const zoomDelta = (newDist - lastTouchDistance) * 0.01;
+              const zoomDelta = (newDist - lastTouchDistanceRef.current) * 0.01;
               const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + zoomDelta));
 
               // パン処理 (ズーム後の新しい値を使用)
               const newCenter = getCenter(t1, t2);
-              const dx = newCenter.x - lastTouchCenter.x;
-              const dy = newCenter.y - lastTouchCenter.y;
+              const dx = newCenter.x - lastTouchCenterRef.current.x;
+              const dy = newCenter.y - lastTouchCenterRef.current.y;
               setPanState(prevPan => clampPan(prevPan.x + dx, prevPan.y + dy, newZoom));
+
+              lastTouchDistanceRef.current = newDist;
+              lastTouchCenterRef.current = newCenter;
+
               return newZoom;
           });
-
-          lastTouchDistance = newDist;
-          lastTouchCenter = newCenter;
       }
-  };
+  }, [clampPan]);
 
   // イベントリスナーの設定
   useEffect(() => {
@@ -522,7 +524,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         canvas.removeEventListener('touchstart', handleTouchStart);
         canvas.removeEventListener('touchmove', handleTouchMove);
     };
-  }, [handleMouseDown, handleMouseMove, handleMouseUp]);
+  }, [handleMouseDown, handleMouseMove, handleMouseUp, handleTouchStart, handleTouchMove]);
 
   // --- 写真撮影ロジック ---
   const takePhoto = () => {
