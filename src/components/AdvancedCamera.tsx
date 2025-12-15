@@ -72,8 +72,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
       if (saved === 'user' || saved === 'environment') {
         return saved;
       }
-    } catch (e) {
-      console.warn('Failed to load facingMode from localStorage:', e);
+    } catch (error) {
+      console.warn('Failed to load facingMode from localStorage:', error);
     }
     return 'environment'; // デフォルト値
   });
@@ -81,8 +81,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
   useEffect(() => {
     try {
       localStorage.setItem('AdvancedCamera_facingMode', facingMode);
-    } catch (e) {
-      console.warn('Failed to save facingMode to localStorage:', e);
+    } catch (error) {
+      console.warn('Failed to save facingMode to localStorage:', error);
     }
   }, [facingMode]);
 
@@ -110,8 +110,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         videoStartAudioRef.current.load(); 
         videoCompleteAudioRef.current = new Audio(`${BASE_URL}video-completed.mp3`);
         videoCompleteAudioRef.current.load(); 
-    } catch (e) {
-        console.error('Failed to initialize shutter audio:', e);
+    } catch (error) {
+        console.error('Failed to initialize shutter audio:', error);
     }
   }, []); // 依存配列が空なのでマウント時に一度だけ実行される
 
@@ -122,7 +122,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
     // 可能ならばシステム音量を変更する
     try {
       window.android.onStartShutterSound(VOLUME);
-    } catch (e) {}
+    } catch (error) {}
 
     try {
       if (audio) {
@@ -131,14 +131,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         audio.currentTime = 0;
         audio.play();
       }
-    } catch (e) {
-      console.warn('sound playback failed:', e);
+    } catch (error) {
+      console.warn('sound playback failed:', error);
     }
 
     // 可能ならばシステム音量を元に戻す
     try {
       window.android.onEndShutterSound();
-    } catch (e) {}
+    } catch (error) {}
   }
 
   // --- 描画メトリクスを計算・設定する関数を分離 ---
@@ -187,7 +187,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
                     audio: false // まず映像のみ取得
                 });
                 if (videoStream) break;
-            } catch (e) {
+            } catch (error) {
                 console.warn('Constraint failed:', constraint);
                 continue;
             }
@@ -213,8 +213,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
                         setFacingMode(actualFacingMode);
                     }
                 }
-            } catch (e) {
-                console.warn('Failed to get camera facing mode:', e);
+            } catch (error) {
+                console.warn('Failed to get camera facing mode:', error);
             }
 
             // readyへの遷移を onloadedmetadata に委ねる (Promiseで待機)
@@ -243,7 +243,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
             setHasMic(true);
             // マイクストリームは録画時に結合するのでここでは保持せずトラックだけ確認して閉じる
             audioStream.getTracks().forEach(t => t.stop());
-        } catch (e) {
+        } catch (error) {
             setHasMic(false);
         }
 
@@ -374,9 +374,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
             renderWidth,
             renderHeight
         );
-    } catch (e) {
+    } catch (error) {
         // drawImage失敗はconsole.warnのみ
-        console.warn('drawImage failed', e);
+        console.warn('drawImage failed', error);
     }
 
     ctx.restore();
@@ -421,12 +421,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
   };
 
   // --- PC: マウスホイールでズーム ---
-  const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) { // Ctrl + ホイール
-          e.preventDefault();
+  const handleWheel = (event: WheelEvent) => {
+      if (event.ctrlKey) { // Ctrl + ホイール
+          event.preventDefault();
           // 現在の zoom state を取得するために setZoomState の関数形式を使用
           setZoomState(prevZoom => {
-              const delta = -e.deltaY * MOUSE_WHEEL_DELTA;
+              const delta = -event.deltaY * MOUSE_WHEEL_DELTA;
               const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + delta));
               const clamped = clampPan(pan.x, pan.y, newZoom);
               setPanState(clamped);
@@ -439,28 +439,28 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
   let isDragging = false;
   let lastMouseX = 0, lastMouseY = 0;
 
-  const handleMouseDown = useCallback((e: MouseEvent) => {
+  const handleMouseDown = useCallback((event: MouseEvent) => {
       console.log("mouse button down");
-      if (e.button === 1) { // 中央ボタン
-          e.preventDefault();
+      if (event.button === 1) { // 中央ボタン
+          event.preventDefault();
           isDraggingRef.current = true;
-          lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+          lastMousePosRef.current = { x: event.clientX, y: event.clientY };
       }
   }, []);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handleMouseMove = useCallback((event: MouseEvent) => {
       if (!isDraggingRef.current) return;
       console.log("mouse dragging");
-      e.preventDefault();
+      event.preventDefault();
       
-      const dx = e.clientX - lastMousePosRef.current.x;
-      const dy = e.clientY - lastMousePosRef.current.y;
+      const dx = event.clientX - lastMousePosRef.current.x;
+      const dy = event.clientY - lastMousePosRef.current.y;
       
       setPanState(prevPan => 
           clampPan(prevPan.x + dx, prevPan.y + dy, zoom)
       );
       
-      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+      lastMousePosRef.current = { x: event.clientX, y: event.clientY };
   }, [clampPan, zoom]);
 
   const handleMouseUp = useCallback(() => {
@@ -479,22 +479,22 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
       return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
   };
 
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-      if (e.touches.length === 2) {
+  const handleTouchStart = useCallback((event: TouchEvent) => {
+      if (event.touches.length === 2) {
           console.log("touch start");
-          e.preventDefault();
-          lastTouchDistanceRef.current = getDistance(e.touches[0], e.touches[1]);
-          lastTouchCenterRef.current = getCenter(e.touches[0], e.touches[1]);
+          event.preventDefault();
+          lastTouchDistanceRef.current = getDistance(event.touches[0], event.touches[1]);
+          lastTouchCenterRef.current = getCenter(event.touches[0], event.touches[1]);
       }
   }, []);
 
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-      if (e.touches.length === 2) { // 2本指操作
+  const handleTouchMove = useCallback((event: TouchEvent) => {
+      if (event.touches.length === 2) { // 2本指操作
           console.log("touch move");
-          e.preventDefault();
+          event.preventDefault();
 
           setZoomState(prevZoom => {
-              const t1 = e.touches[0], t2 = e.touches[1];
+              const t1 = event.touches[0], t2 = event.touches[1];
               const newDist = getDistance(t1, t2);
               const zoomDelta = (newDist - lastTouchDistanceRef.current) * 0.01;
               const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + zoomDelta));
@@ -556,9 +556,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         try {
           window.android.saveImageToGallery(base64data, fileName);
           console.log('Saved image:', fileName);
-        } catch (e) {
+        } catch (error) {
           console.assert(false);
-          console.error('Failed to save image:', e);
+          console.error('android インタフェース呼び出しエラー:', error);
           downloadFallback(blob, fileName);
         }
       } else {
@@ -680,8 +680,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
             try {
                 const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 tracks.push(...audioStream.getAudioTracks());
-            } catch (e) {
-                console.warn('Mic access failed during record start', e);
+            } catch (error) {
+                console.warn('Mic access failed during record start', error);
             }
         }
 
@@ -697,8 +697,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         const recorder = new MediaRecorder(combinedStream, { mimeType });
         const chunks: BlobPart[] = [];
 
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) chunks.push(e.data);
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) chunks.push(event.data);
         };
 
         // 停止時・エラー時のダウンロード処理
@@ -728,18 +728,18 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         };
 
         // エラー時の処理
-        recorder.onerror = (e) => {
-            console.error('MediaRecorder Error', e);
+        recorder.onerror = (error) => {
+            console.error('MediaRecorder Error', error);
             recorder.stop();
-            alert(t('ac_recording_error', e.toString()));
+            alert(t('ac_recording_error', error.toString()));
         };
 
         recorder.start(1000); // 1秒ごとにチャンク作成
         mediaRecorderRef.current = recorder;
         setIsRecording(true);
-    } catch (e) {
-        console.error('Recording start failed', e);
-        alert(t('ac_recording_cannot_start', e));
+    } catch (error) {
+        console.error('Recording start failed', error);
+        alert(t('ac_recording_cannot_start', error));
     }
   };
 
@@ -775,57 +775,53 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
   const KEYBOARD_ZOOM_DELTA = 0.1;
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-        // canvasにフォーカスがあるか、全体制御とするかは実装次第だが、
-        // 要件に従い、通常はコンテナへのフォーカスなどを確認する。
-        // ここでは簡略化のため、activeElementチェックを入れるか、グローバルにリッスンして制御する。
-
-        switch(e.key) {
+    const handleKeyDown = (event: KeyboardEvent) => {
+        switch(event.key) {
             case ' ': // Space: 写真撮影
-                if (e.ctrlKey && e.shiftKey) { // Ctrl+Shift+Space: 写真撮影
-                  e.preventDefault();
+                if (event.ctrlKey && event.shiftKey) { // Ctrl+Shift+Space: 写真撮影
+                  event.preventDefault();
                   takePhoto();
                 }
                 break;
             case 'r': case 'R':
-                if (e.ctrlKey && e.shiftKey) { // Ctrl+Shift+R: 録画の開始／終了
-                  e.preventDefault();
+                if (event.ctrlKey && event.shiftKey) { // Ctrl+Shift+R: 録画の開始／終了
+                  event.preventDefault();
                   toggleRecording();
                 }
                 break;
             case '+': // +: ズームイン
             case ';': // (日本語キーボード対応用)
-                e.preventDefault();
+                event.preventDefault();
                 const newZoomIn = Math.min(MAX_ZOOM, zoom + KEYBOARD_ZOOM_DELTA);
                 setZoomState(newZoomIn);
                 break;
             case '-': // -: ズームアウト
-                e.preventDefault();
+                event.preventDefault();
                 const newZoomOut = Math.max(MIN_ZOOM, zoom - KEYBOARD_ZOOM_DELTA);
                 setZoomState(newZoomOut);
                 break;
             // パン操作 (Ctrl + 矢印)
             case 'ArrowUp':
-                if (e.ctrlKey) {
-                    e.preventDefault();
+                if (event.ctrlKey) {
+                    event.preventDefault();
                     shiftPan(0, +KEYBOARD_PAN_DELTA);
                 }
                 break;
             case 'ArrowDown':
-                if (e.ctrlKey) {
-                    e.preventDefault();
+                if (event.ctrlKey) {
+                    event.preventDefault();
                     shiftPan(0, -KEYBOARD_PAN_DELTA);
                 }
                 break;
             case 'ArrowLeft':
-                if (e.ctrlKey) {
-                    e.preventDefault();
+                if (event.ctrlKey) {
+                    event.preventDefault();
                     shiftPan(KEYBOARD_PAN_DELTA, 0);
                 }
                 break;
             case 'ArrowRight':
-                if (e.ctrlKey) {
-                    e.preventDefault();
+                if (event.ctrlKey) {
+                    event.preventDefault();
                     shiftPan(-KEYBOARD_PAN_DELTA, 0);
                 }
                 break;
