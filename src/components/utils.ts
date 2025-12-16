@@ -67,7 +67,26 @@ export const calculateMaxPanOffsets = (
 };
 
 /**
+ * 拡張子を正規化する（先頭のドットを削除）
+ */
+export const normalizeExtension = (extension: string): string => {
+  return extension.replace(/^\.*/, '');
+};
+
+/**
+ * ファイル名から拡張子を削除する
+ */
+export const removeExtension = (filename: string): string => {
+  const lastDotIndex = filename.lastIndexOf('.');
+  if (lastDotIndex === -1 || lastDotIndex === 0) {
+    return filename;
+  }
+  return filename.substring(0, lastDotIndex);
+};
+
+/**
  * ダウンロードファイル名の生成
+ * 拡張子の重複を防ぐため、既存の拡張子を削除してから新しい拡張子を追加する
  */
 export const generateFileName = (prefix: 'video_' | 'photo_', extension: string): string => {
   const now = new Date();
@@ -75,7 +94,18 @@ export const generateFileName = (prefix: 'video_' | 'photo_', extension: string)
   let timestamp = now.toLocaleDateString() + " " + now.toLocaleTimeString();
   // 空白文字やファイル名に使用できない文字を _ に置き換える
   timestamp = timestamp.replace(/[:\.\\\/]/g, '_');
-  return `${prefix}${timestamp}.${extension}`;
+  
+  // 拡張子を正規化（先頭のドットを削除）
+  const normalizedExtension = normalizeExtension(extension);
+  
+  // プレフィックスとタイムスタンプを結合したベースファイル名を作成
+  let baseFilename = `${prefix}${timestamp}`;
+  
+  // ベースファイル名から既存の拡張子を削除（重複を防ぐため）
+  baseFilename = removeExtension(baseFilename);
+  
+  // 正規化された拡張子を追加
+  return `${baseFilename}.${normalizedExtension}`;
 };
 
 /**
