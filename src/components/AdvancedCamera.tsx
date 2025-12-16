@@ -181,79 +181,79 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
     try {
         // 制約候補でループ
         for (const constraint of constraintsCandidates) {
-            try {
-                videoStream = await navigator.mediaDevices.getUserMedia({
-                    video: constraint,
-                    audio: false // まず映像のみ取得
-                });
-                if (videoStream) break;
-            } catch (error) {
-                console.warn('Constraint failed:', constraint);
-                continue;
-            }
+          try {
+            videoStream = await navigator.mediaDevices.getUserMedia({
+              video: constraint,
+              audio: false // まず映像のみ取得
+            });
+            if (videoStream) break;
+          } catch (error) {
+            console.warn('Constraint failed:', constraint);
+            continue;
+          }
         }
 
         if (!videoStream) {
-            throw new Error('No suitable camera device found');
+          throw new Error('No suitable camera device found');
         }
 
         if (videoRef.current) {
-            videoRef.current.srcObject = videoStream;
-            streamRef.current = videoStream;
+          videoRef.current.srcObject = videoStream;
+          streamRef.current = videoStream;
 
-            // 実際に使用されているカメラのfacingModeを取得
-            try {
-                const videoTrack = videoStream.getVideoTracks()[0];
-                const settings = videoTrack.getSettings();
-                if (settings.facingMode) {
-                    // 実際のfacingModeで状態を更新
-                    const actualFacingMode = settings.facingMode as 'user' | 'environment';
-                    if (actualFacingMode !== facingMode) {
-                        console.log(`Actual camera facing mode: ${actualFacingMode}`);
-                        setFacingMode(actualFacingMode);
-                    }
-                }
-            } catch (error) {
-                console.warn('Failed to get camera facing mode:', error);
+          // 実際に使用されているカメラのfacingModeを取得
+          try {
+            const videoTrack = videoStream.getVideoTracks()[0];
+            const settings = videoTrack.getSettings();
+            if (settings.facingMode) {
+              // 実際のfacingModeで状態を更新
+              const actualFacingMode = settings.facingMode as 'user' | 'environment';
+              if (actualFacingMode !== facingMode) {
+                console.log(`Actual camera facing mode: ${actualFacingMode}`);
+                setFacingMode(actualFacingMode);
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to get camera facing mode:', error);
+          }
+
+          // readyへの遷移を onloadedmetadata に委ねる (Promiseで待機)
+          await new Promise<void>((resolve) => {
+            const video = videoRef.current;
+
+            // 既にメタデータがロード済みの場合 (非常に稀)
+            if (video.readyState >= 2) {
+              updateRenderMetrics('contain');
+              resolve();
+              return;
             }
 
-            // readyへの遷移を onloadedmetadata に委ねる (Promiseで待機)
-            await new Promise<void>((resolve) => {
-                const video = videoRef.current;
-
-                // 既にメタデータがロード済みの場合 (非常に稀)
-                if (video.readyState >= 2) {
-                    updateRenderMetrics('contain');
-                    resolve();
-                    return;
-                }
-
-                // メタデータがロードされたら
-                video.onloadedmetadata = () => {
-                    updateRenderMetrics('contain'); // 描画メトリクスを更新
-                    video.onloadedmetadata = null; // ハンドラを解除 (二重発火防止)
-                    resolve();
-                };
-            });
+            // メタデータがロードされたら
+            video.onloadedmetadata = () => {
+              updateRenderMetrics('contain'); // 描画メトリクスを更新
+              video.onloadedmetadata = null; // ハンドラを解除 (二重発火防止)
+              resolve();
+            };
+          });
         }
 
         // マイクの確認
         try {
-            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            setHasMic(true);
-            // マイクストリームは録画時に結合するのでここでは保持せずトラックだけ確認して閉じる
-            audioStream.getTracks().forEach(t => t.stop());
+          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          setHasMic(true);
+          // マイクストリームは録画時に結合するのでここでは保持せずトラックだけ確認して閉じる
+          audioStream.getTracks().forEach(t => t.stop());
         } catch (error) {
-            setHasMic(false);
+          setHasMic(false);
         }
 
         setStatus('ready');
     } catch (error: any) {
         console.error('Camera Init Error:', error);
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            setStatus('noPermission');
+          setStatus('noPermission');
         } else {
-            setStatus('noDevice');
+          setStatus('noDevice');
         }
     }
   }, [updateRenderMetrics, facingMode]);
@@ -294,10 +294,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
     // クリーンアップ
     return () => {
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current.getTracks().forEach(track => track.stop());
         }
         if (animeRequestRef.current) {
-            cancelAnimationFrame(animeRequestRef.current);
+          cancelAnimationFrame(animeRequestRef.current);
         }
     };
   }, [initCamera]);
@@ -313,24 +313,24 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
     const observer = new ResizeObserver((entries) => {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => {
-            if (!isRecording && canvasRef.current) {
-                const entry = entries[0];
-                const width = entry.contentRect.width;
-                const height = entry.contentRect.height;
+          if (!isRecording && canvasRef.current) {
+            const entry = entries[0];
+            const width = entry.contentRect.width;
+            const height = entry.contentRect.height;
 
-                // 描画メトリクスとパンをリセットする
-                setRenderMetrics({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 });
-                setPanState({ x: 0, y: 0 }); // パン位置もリセット
-                setZoomState(1.0); // ズームもリセット
+            // 描画メトリクスとパンをリセットする
+            setRenderMetrics({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 });
+            setPanState({ x: 0, y: 0 }); // パン位置もリセット
+            setZoomState(1.0); // ズームもリセット
 
-                // キャンバスの内部解像度をコンテナサイズに合わせる
-                if (canvasRef.current) {
-                    canvasRef.current.width = width;
-                    canvasRef.current.height = height;
-                }
-
-                updateRenderMetrics('contain'); // 内部サイズ変更後に描画メトリクスを再計算
+            // キャンバスの内部解像度をコンテナサイズに合わせる
+            if (canvasRef.current) {
+              canvasRef.current.width = width;
+              canvasRef.current.height = height;
             }
+
+            updateRenderMetrics('contain'); // 内部サイズ変更後に描画メトリクスを再計算
+          }
         }, 500);
     });
 
@@ -368,11 +368,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
     // object-fit: cover 再現描画
     try {
         ctx.drawImage(
-            video,
-            offsetX,
-            offsetY,
-            renderWidth,
-            renderHeight
+          video,
+          offsetX,
+          offsetY,
+          renderWidth,
+          renderHeight
         );
     } catch (error) {
         // drawImage失敗はconsole.warnのみ
@@ -426,11 +426,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
           event.preventDefault();
           // 現在の zoom state を取得するために setZoomState の関数形式を使用
           setZoomState(prevZoom => {
-              const delta = -event.deltaY * MOUSE_WHEEL_DELTA;
-              const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + delta));
-              const clamped = clampPan(pan.x, pan.y, newZoom);
-              setPanState(clamped);
-              return newZoom;
+          const delta = -event.deltaY * MOUSE_WHEEL_DELTA;
+          const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + delta));
+          const clamped = clampPan(pan.x, pan.y, newZoom);
+          setPanState(clamped);
+          return newZoom;
           });
       }
   };
@@ -494,21 +494,21 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
           event.preventDefault();
 
           setZoomState(prevZoom => {
-              const t1 = event.touches[0], t2 = event.touches[1];
-              const newDist = getDistance(t1, t2);
-              const zoomDelta = (newDist - lastTouchDistanceRef.current) * 0.01;
-              const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + zoomDelta));
+          const t1 = event.touches[0], t2 = event.touches[1];
+          const newDist = getDistance(t1, t2);
+          const zoomDelta = (newDist - lastTouchDistanceRef.current) * 0.01;
+          const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + zoomDelta));
 
-              // パン処理 (ズーム後の新しい値を使用)
-              const newCenter = getCenter(t1, t2);
-              const dx = newCenter.x - lastTouchCenterRef.current.x;
-              const dy = newCenter.y - lastTouchCenterRef.current.y;
-              setPanState(prevPan => clampPan(prevPan.x + dx, prevPan.y + dy, newZoom));
+          // パン処理 (ズーム後の新しい値を使用)
+          const newCenter = getCenter(t1, t2);
+          const dx = newCenter.x - lastTouchCenterRef.current.x;
+          const dy = newCenter.y - lastTouchCenterRef.current.y;
+          setPanState(prevPan => clampPan(prevPan.x + dx, prevPan.y + dy, newZoom));
 
-              lastTouchDistanceRef.current = newDist;
-              lastTouchCenterRef.current = newCenter;
+          lastTouchDistanceRef.current = newDist;
+          lastTouchCenterRef.current = newCenter;
 
-              return newZoom;
+          return newZoom;
           });
       }
   }, [clampPan]);
@@ -677,12 +677,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
 
         // 音声ストリーム
         if (hasMic && micEnabled) {
-            try {
-                const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                tracks.push(...audioStream.getAudioTracks());
-            } catch (error) {
-                console.warn('Mic access failed during record start', error);
-            }
+          try {
+            const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            tracks.push(...audioStream.getAudioTracks());
+          } catch (error) {
+            console.warn('Mic access failed during record start', error);
+          }
         }
 
         // 結合
@@ -703,35 +703,35 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
 
         // 停止時・エラー時のダウンロード処理
         recorder.onstop = () => {
-            // トラック停止
-            combinedStream.getTracks().forEach(t => t.stop());
-            setIsRecording(false);
-            setRecordingTime(0);
+          // トラック停止
+          combinedStream.getTracks().forEach(t => t.stop());
+          setIsRecording(false);
+          setRecordingTime(0);
 
-            // ビデオ録画完了音を再生
-            playSound(videoCompleteAudioRef.current);
+          // ビデオ録画完了音を再生
+          playSound(videoCompleteAudioRef.current);
 
-            const fileName = generateFileName(t('ac_text_video') + '_', mimeType.includes('mp4') ? 'mp4' : 'webm');
-            const blob = new Blob(chunks, { type: mimeType });
-            if (isAndroidApp) {
-              saveVideoToGallery(blob, fileName);
-            } else {
-              downloadFallback(blob, fileName);
-            }
+          const fileName = generateFileName(t('ac_text_video') + '_', mimeType.includes('mp4') ? 'mp4' : 'webm');
+          const blob = new Blob(chunks, { type: mimeType });
+          if (isAndroidApp) {
+          saveVideoToGallery(blob, fileName);
+          } else {
+          downloadFallback(blob, fileName);
+          }
         };
 
         // ストリーム切断検知
         combinedStream.getVideoTracks()[0].onended = () => {
-            recorder.stop();
-            setStatus('noDevice');
-            alert(t('ac_recording_disconnected'));
+          recorder.stop();
+          setStatus('noDevice');
+          alert(t('ac_recording_disconnected'));
         };
 
         // エラー時の処理
         recorder.onerror = (error) => {
-            console.error('MediaRecorder Error', error);
-            recorder.stop();
-            alert(t('ac_recording_error', error.toString()));
+          console.error('MediaRecorder Error', error);
+          recorder.stop();
+          alert(t('ac_recording_error', error.toString()));
         };
 
         recorder.start(1000); // 1秒ごとにチャンク作成
@@ -762,7 +762,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
     let interval: NodeJS.Timeout;
     if (isRecording) {
         interval = setInterval(() => {
-            setRecordingTime(prev => prev + 1);
+          setRecordingTime(prev => prev + 1);
         }, 1000);
     }
     return () => clearInterval(interval);
@@ -777,54 +777,54 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
         switch(event.key) {
-            case ' ': // Space: 写真撮影
-                if (event.ctrlKey && event.shiftKey) { // Ctrl+Shift+Space: 写真撮影
-                  event.preventDefault();
-                  takePhoto();
-                }
-                break;
-            case 'r': case 'R':
-                if (event.ctrlKey && event.shiftKey) { // Ctrl+Shift+R: 録画の開始／終了
-                  event.preventDefault();
-                  toggleRecording();
-                }
-                break;
-            case '+': // +: ズームイン
-            case ';': // (日本語キーボード対応用)
-                event.preventDefault();
-                const newZoomIn = Math.min(MAX_ZOOM, zoom + KEYBOARD_ZOOM_DELTA);
-                setZoomState(newZoomIn);
-                break;
-            case '-': // -: ズームアウト
-                event.preventDefault();
-                const newZoomOut = Math.max(MIN_ZOOM, zoom - KEYBOARD_ZOOM_DELTA);
-                setZoomState(newZoomOut);
-                break;
-            // パン操作 (Ctrl + 矢印)
-            case 'ArrowUp':
-                if (event.ctrlKey) {
-                    event.preventDefault();
-                    shiftPan(0, +KEYBOARD_PAN_DELTA);
-                }
-                break;
-            case 'ArrowDown':
-                if (event.ctrlKey) {
-                    event.preventDefault();
-                    shiftPan(0, -KEYBOARD_PAN_DELTA);
-                }
-                break;
-            case 'ArrowLeft':
-                if (event.ctrlKey) {
-                    event.preventDefault();
-                    shiftPan(KEYBOARD_PAN_DELTA, 0);
-                }
-                break;
-            case 'ArrowRight':
-                if (event.ctrlKey) {
-                    event.preventDefault();
-                    shiftPan(-KEYBOARD_PAN_DELTA, 0);
-                }
-                break;
+          case ' ': // Space: 写真撮影
+            if (event.ctrlKey && event.shiftKey) { // Ctrl+Shift+Space: 写真撮影
+            event.preventDefault();
+            takePhoto();
+            }
+            break;
+          case 'r': case 'R':
+            if (event.ctrlKey && event.shiftKey) { // Ctrl+Shift+R: 録画の開始／終了
+            event.preventDefault();
+            toggleRecording();
+            }
+            break;
+          case '+': // +: ズームイン
+          case ';': // (日本語キーボード対応用)
+            event.preventDefault();
+            const newZoomIn = Math.min(MAX_ZOOM, zoom + KEYBOARD_ZOOM_DELTA);
+            setZoomState(newZoomIn);
+            break;
+          case '-': // -: ズームアウト
+            event.preventDefault();
+            const newZoomOut = Math.max(MIN_ZOOM, zoom - KEYBOARD_ZOOM_DELTA);
+            setZoomState(newZoomOut);
+            break;
+          // パン操作 (Ctrl + 矢印)
+          case 'ArrowUp':
+            if (event.ctrlKey) {
+              event.preventDefault();
+              shiftPan(0, +KEYBOARD_PAN_DELTA);
+            }
+            break;
+          case 'ArrowDown':
+            if (event.ctrlKey) {
+              event.preventDefault();
+              shiftPan(0, -KEYBOARD_PAN_DELTA);
+            }
+            break;
+          case 'ArrowLeft':
+            if (event.ctrlKey) {
+              event.preventDefault();
+              shiftPan(KEYBOARD_PAN_DELTA, 0);
+            }
+            break;
+          case 'ArrowRight':
+            if (event.ctrlKey) {
+              event.preventDefault();
+              shiftPan(-KEYBOARD_PAN_DELTA, 0);
+            }
+            break;
         }
     };
 
@@ -854,46 +854,46 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
       {/* UI オーバーレイ */}
       {status === 'initializing' && (
         <div className="advanced-camera__overlay">
-            <RefreshCw className="spin" size={48} />
-            <p className="advanced-camera__overlay-text">{t('ac_starting_camera')}</p>
+          <RefreshCw className="spin" size={48} />
+          <p className="advanced-camera__overlay-text">{t('ac_starting_camera')}</p>
         </div>
       )}
       {status === 'switching' && (
         <div className="advanced-camera__overlay">
-             <RefreshCw className="spin" size={48} />
-            <p className="advanced-camera__overlay-text">{t('ac_switching_camera')}</p>
+          <RefreshCw className="spin" size={48} />
+          <p className="advanced-camera__overlay-text">{t('ac_switching_camera')}</p>
         </div>
       )}
       {status === 'noPermission' && (
         <div className="advanced-camera__overlay">
-             <VideoOff size={48} color="red" />
-            <p className="advanced-camera__overlay-text">
-                {t('ac_no_camera_permission')}
-            </p>
-            {/* 再起動ボタン */}
-            <button className="advanced-camera__restart-btn" onClick={handleRestart}>
-                {t('ac_restart_app')}
-            </button>
+          <VideoOff size={48} color="red" />
+          <p className="advanced-camera__overlay-text">
+            {t('ac_no_camera_permission')}
+          </p>
+          {/* 再起動ボタン */}
+          <button className="advanced-camera__restart-btn" onClick={handleRestart}>
+            {t('ac_restart_app')}
+          </button>
         </div>
       )}
       {status === 'noDevice' && (
         <div className="advanced-camera__overlay">
-            <VideoOff size={48} color="red" />
-            <p className="advanced-camera__overlay-text">{t('ac_no_camera_found')}</p>
+          <VideoOff size={48} color="red" />
+          <p className="advanced-camera__overlay-text">{t('ac_no_camera_found')}</p>
         </div>
       )}
 
       {/* 録画中タイマー [左上端] */}
       {isRecording && status === 'ready' && (
         <div className="advanced-camera__timer">
-            {formatTime(recordingTime)}
+          {formatTime(recordingTime)}
         </div>
       )}
 
       {/* [上部中央] ズーム倍率表示 */}
       {status === 'ready' && (
         <div className="advanced-camera__zoom-display">
-            {zoom.toFixed(1)}x
+          {zoom.toFixed(1)}x
         </div>
       )}
 
@@ -902,33 +902,33 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
       {status === 'ready' && showControls && (
         <div className={`advanced-camera__controls ${isRecording ? 'advanced-camera__controls--recording' : ''}`}>
 
-            {/* 1. マイクON/OFF ボタン */}
-            <button
-                className={`advanced-camera__button advanced-camera__button--microphone ${hasMic && micEnabled ? 'advanced-camera__button--mic-on' : 'advanced-camera__button--mic-off'}`}
-                onClick={toggleMic}
-                disabled={!hasMic || isRecording}
-                aria-label={micEnabled ? t('ac_mute_microphone') : t('ac_enable_microphone')}
-            >
-                {hasMic && micEnabled ? <Mic size={ICON_SIZE} /> : <MicOff size={ICON_SIZE} />}
-            </button>
+          {/* 1. マイクON/OFF ボタン */}
+          <button
+            className={`advanced-camera__button advanced-camera__button--microphone ${hasMic && micEnabled ? 'advanced-camera__button--mic-on' : 'advanced-camera__button--mic-off'}`}
+            onClick={toggleMic}
+            disabled={!hasMic || isRecording}
+            aria-label={micEnabled ? t('ac_mute_microphone') : t('ac_enable_microphone')}
+          >
+            {hasMic && micEnabled ? <Mic size={ICON_SIZE} /> : <MicOff size={ICON_SIZE} />}
+          </button>
 
-            {/* 2. 写真撮影 ボタン */}
-            <button
-                className="advanced-camera__button advanced-camera__button--photo"
-                onClick={takePhoto}
-                aria-label={t('ac_take_photo')}
-            >
-                <Camera size={ICON_SIZE} />
-            </button>
+          {/* 2. 写真撮影 ボタン */}
+          <button
+            className="advanced-camera__button advanced-camera__button--photo"
+            onClick={takePhoto}
+            aria-label={t('ac_take_photo')}
+          >
+            <Camera size={ICON_SIZE} />
+          </button>
 
-            {/* 3. 録画/停止 ボタン */}
-            <button
-                className={`advanced-camera__button advanced-camera__button--record ${isRecording ? 'is-recording' : ''}`}
-                onClick={toggleRecording}
-                aria-label={isRecording ? t('ac_stop_recording') : t('ac_start_recording')}
-            >
-                <Video size={ICON_SIZE} />
-            </button>
+          {/* 3. 録画/停止 ボタン */}
+          <button
+            className={`advanced-camera__button advanced-camera__button--record ${isRecording ? 'is-recording' : ''}`}
+            onClick={toggleRecording}
+            aria-label={isRecording ? t('ac_stop_recording') : t('ac_start_recording')}
+          >
+            <Video size={ICON_SIZE} />
+          </button>
         </div>
       )}
 
