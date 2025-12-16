@@ -3,7 +3,10 @@
 
 package com.katahiromz.simple_camera
 
+import android.content.Intent
+import android.net.Uri
 import android.text.InputType
+import android.view.View
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
@@ -13,7 +16,9 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.FileProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import timber.log.Timber
 import java.util.Locale
 
@@ -174,6 +179,29 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
                         outputStream.write(imageBytes)
                     }
+                    
+                    // Snackbarを表示
+                    currentActivity.runOnUiThread {
+                        try {
+                            val rootView = currentActivity.findViewById<View>(android.R.id.content)
+                            Snackbar.make(rootView, "画像を保存しました", Snackbar.LENGTH_LONG)
+                                .setAction("ファイルを開く") {
+                                    try {
+                                        val openIntent = Intent(Intent.ACTION_VIEW).apply {
+                                            setDataAndType(it, "image/*")
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        currentActivity.startActivity(openIntent)
+                                    } catch (e: Exception) {
+                                        Timber.e(e, "Failed to open image")
+                                    }
+                                }
+                                .show()
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to show Snackbar")
+                        }
+                    }
+                    
                     true
                 } ?: false
             } else {
@@ -198,6 +226,33 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     arrayOf("image/png"),
                     null
                 )
+                
+                // Snackbarを表示
+                currentActivity.runOnUiThread {
+                    try {
+                        val rootView = currentActivity.findViewById<View>(android.R.id.content)
+                        val uri = FileProvider.getUriForFile(
+                            currentActivity,
+                            "${currentActivity.packageName}.fileprovider",
+                            file
+                        )
+                        Snackbar.make(rootView, "画像を保存しました", Snackbar.LENGTH_LONG)
+                            .setAction("ファイルを開く") {
+                                try {
+                                    val openIntent = Intent(Intent.ACTION_VIEW).apply {
+                                        setDataAndType(uri, "image/*")
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    currentActivity.startActivity(openIntent)
+                                } catch (e: Exception) {
+                                    Timber.e(e, "Failed to open image")
+                                }
+                            }
+                            .show()
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to show Snackbar")
+                    }
+                }
                 
                 true
             }
@@ -233,6 +288,29 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
                         outputStream.write(videoBytes)
                     }
+                    
+                    // Snackbarを表示
+                    currentActivity.runOnUiThread {
+                        try {
+                            val rootView = currentActivity.findViewById<View>(android.R.id.content)
+                            Snackbar.make(rootView, "動画を保存しました", Snackbar.LENGTH_LONG)
+                                .setAction("ファイルを開く") {
+                                    try {
+                                        val openIntent = Intent(Intent.ACTION_VIEW).apply {
+                                            setDataAndType(it, "video/*")
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        currentActivity.startActivity(openIntent)
+                                    } catch (e: Exception) {
+                                        Timber.e(e, "Failed to open video")
+                                    }
+                                }
+                                .show()
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to show Snackbar")
+                        }
+                    }
+                    
                     true
                 } ?: false
             } else {
@@ -257,6 +335,33 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     arrayOf("video/webm"),
                     null
                 )
+                
+                // Snackbarを表示
+                currentActivity.runOnUiThread {
+                    try {
+                        val rootView = currentActivity.findViewById<View>(android.R.id.content)
+                        val uri = FileProvider.getUriForFile(
+                            currentActivity,
+                            "${currentActivity.packageName}.fileprovider",
+                            file
+                        )
+                        Snackbar.make(rootView, "動画を保存しました", Snackbar.LENGTH_LONG)
+                            .setAction("ファイルを開く") {
+                                try {
+                                    val openIntent = Intent(Intent.ACTION_VIEW).apply {
+                                        setDataAndType(uri, "video/*")
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    currentActivity.startActivity(openIntent)
+                                } catch (e: Exception) {
+                                    Timber.e(e, "Failed to open video")
+                                }
+                            }
+                            .show()
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to show Snackbar")
+                    }
+                }
                 
                 true
             }
