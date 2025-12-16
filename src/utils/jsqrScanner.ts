@@ -36,10 +36,15 @@ export interface QRDetectionResult {
 export function detectFromImageData(imageData: ImageData): QRDetectionResult | null {
   try {
     const code = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: 'dontInvert', // Optimization: don't try inverted colors
+      inversionAttempts: 'attemptBoth', // Support both normal and inverted QR codes
     });
 
     if (!code) {
+      return null;
+    }
+
+    // Defensive check: ensure location exists
+    if (!code.location) {
       return null;
     }
 

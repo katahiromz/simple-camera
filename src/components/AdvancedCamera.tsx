@@ -294,13 +294,28 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       return;
     }
 
-    const metrics = calculateVideoRenderMetrics(
+    // calculateVideoRenderMetrics は CSS ピクセル単位を前提として呼び出す
+    // canvas.width/height は内部ピクセル（CSS px × DPR）なので、DPR で割って CSS サイズを取得
+    const dpr = window.devicePixelRatio || 1;
+    const cssPxWidth = canvas.width / dpr;
+    const cssPxHeight = canvas.height / dpr;
+
+    const cssMetrics = calculateVideoRenderMetrics(
       sourceWidth,
       sourceHeight,
-      canvas.width,
-      canvas.height,
+      cssPxWidth,
+      cssPxHeight,
       'contain'
     );
+
+    // renderMetrics を内部ピクセル単位（CSS px × DPR）で保存
+    const metrics: RenderMetrics = {
+      renderWidth: cssMetrics.renderWidth * dpr,
+      renderHeight: cssMetrics.renderHeight * dpr,
+      offsetX: cssMetrics.offsetX * dpr,
+      offsetY: cssMetrics.offsetY * dpr,
+    };
+
     setRenderMetrics(metrics);
   }, [isDummyImageLoaded]);
 
@@ -614,18 +629,22 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       timeoutId = setTimeout(() => {
         if (!isRecording && canvasRef.current) {
           const entry = entries[0];
-          const width = entry.contentRect.width;
-          const height = entry.contentRect.height;
+          const cssPxWidth = entry.contentRect.width;
+          const cssPxHeight = entry.contentRect.height;
+          const dpr = window.devicePixelRatio || 1;
 
           // 描画メトリクスとパンをリセットする
           setRenderMetrics({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 });
           setPanState({ x: 0, y: 0 }); // パン位置もリセット
           setZoomState(1.0); // ズームもリセット
 
-          // キャンバスの内部解像度をコンテナサイズに合わせる
+          // キャンバスの内部解像度を DPR を考慮して設定（内部ピクセル = CSS px × DPR）
           if (canvasRef.current) {
-            canvasRef.current.width = width;
-            canvasRef.current.height = height;
+            canvasRef.current.width = cssPxWidth * dpr;
+            canvasRef.current.height = cssPxHeight * dpr;
+            // CSS サイズは元のまま保持
+            canvasRef.current.style.width = `${cssPxWidth}px`;
+            canvasRef.current.style.height = `${cssPxHeight}px`;
           }
 
           updateRenderMetrics('contain'); // 内部サイズ変更後に描画メトリクスを再計算
@@ -1190,6 +1209,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         const ctx = scanCanvas.getContext('2d');
         if (!ctx) return;
 
+        // canvas.width/height は内部ピクセル単位（CSS px × DPR）
         // 中央領域を選択
         const sourceWidth = canvas.width * SCAN_CENTER_REGION;
         const sourceHeight = canvas.height * SCAN_CENTER_REGION;
@@ -1197,8 +1217,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         const sourceY = (canvas.height - sourceHeight) / 2;
 
         // スキャン用キャンバスのサイズを設定（縮小してパフォーマンス向上）
-        const targetWidth = Math.floor(sourceWidth * SCAN_SCALE_FACTOR);
-        const targetHeight = Math.floor(sourceHeight * SCAN_SCALE_FACTOR);
+        // 内部ピクセル単位で計算し、最低サイズを確保
+        const MIN_SCAN_SIZE = 8;
+        const targetWidth = Math.max(MIN_SCAN_SIZE, Math.floor(sourceWidth * SCAN_SCALE_FACTOR));
+        const targetHeight = Math.max(MIN_SCAN_SIZE, Math.floor(sourceHeight * SCAN_SCALE_FACTOR));
         
         if (scanCanvas.width !== targetWidth || scanCanvas.height !== targetHeight) {
           scanCanvas.width = targetWidth;
@@ -1217,7 +1239,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         const result = detectFromImageData(imageData);
 
         if (result) {
-          // 検出座標を元のキャンバス座標系に変換
+          // 検出座標を元のキャンバス座標系（内部ピクセル）に変換
           const scaleX = sourceWidth / targetWidth;
           const scaleY = sourceHeight / targetHeight;
           
