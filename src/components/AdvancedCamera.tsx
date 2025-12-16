@@ -174,23 +174,69 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   // シャッター音などの初期化
   useEffect(() => {
     // Audioオブジェクトを作成し、Refに保持
-    try {
-      if (shutterSoundUrl) {
-        shutterAudioRef.current = new Audio(shutterSoundUrl);
-        shutterAudioRef.current.load();
+    const initAudio = async () => {
+      try {
+        if (shutterSoundUrl) {
+          const audio = new Audio(shutterSoundUrl);
+          
+          // 音声ファイルの読み込みを待機
+          await new Promise<void>((resolve, reject) => {
+            audio.addEventListener('canplaythrough', () => {
+              console.log('Shutter sound loaded successfully');
+              resolve();
+            }, { once: true });
+            
+            audio.addEventListener('error', (e) => {
+              console.error('Failed to load shutter sound:', e);
+              reject(e);
+            }, { once: true });
+            
+            audio.load();
+          });
+          
+          shutterAudioRef.current = audio;
+        }
+        
+        if (videoStartSoundUrl) {
+          const audio = new Audio(videoStartSoundUrl);
+          await new Promise<void>((resolve, reject) => {
+            audio.addEventListener('canplaythrough', () => {
+              console.log('Video start sound loaded successfully');
+              resolve();
+            }, { once: true });
+            audio.addEventListener('error', (e) => {
+              console.error('Failed to load video start sound:', e);
+              reject(e);
+            }, { once: true });
+            audio.load();
+          });
+          videoStartAudioRef.current = audio;
+        }
+        
+        if (videoCompleteSoundUrl) {
+          const audio = new Audio(videoCompleteSoundUrl);
+          await new Promise<void>((resolve, reject) => {
+            audio.addEventListener('canplaythrough', () => {
+              console.log('Video complete sound loaded successfully');
+              resolve();
+            }, { once: true });
+            audio.addEventListener('error', (e) => {
+              console.error('Failed to load video complete sound:', e);
+              reject(e);
+            }, { once: true });
+            audio.load();
+          });
+          videoCompleteAudioRef.current = audio;
+        }
+      } catch (error) {
+        console.error('Failed to initialize audio:', error);
+        // 音声ファイルの読み込みに失敗しても、カメラ機能は継続して使用可能
+        // ただし、シャッター音が鳴らないことをユーザーに通知することが望ましい
       }
-      if (videoStartSoundUrl) {
-        videoStartAudioRef.current = new Audio(videoStartSoundUrl);
-        videoStartAudioRef.current.load();
-      }
-      if (videoCompleteSoundUrl) {
-        videoCompleteAudioRef.current = new Audio(videoCompleteSoundUrl);
-        videoCompleteAudioRef.current.load();
-      }
-    } catch (error) {
-      console.error('Failed to initialize shutter audio:', error);
-    }
-  }, []); // 依存配列が空なのでマウント時に一度だけ実行される
+    };
+    
+    initAudio();
+  }, [shutterSoundUrl, videoStartSoundUrl, videoCompleteSoundUrl]); // 依存配列に音声URLを追加
 
   // ダミー画像の初期化
   useEffect(() => {
@@ -212,30 +258,78 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
   }, [dummyImageSrc]); // ダミー画像のパスが変更されたら再ロード
 
-  const VOLUME = 0.5; // 音量
+  const VOLUME = 1.0; // 音量 (日本・韓国の法規制に準拠するため最大音量)
 
   // 音声を再生する
   const playSound = (audio: HTMLAudioElement | null) => {
-    // 可能ならばシステム音量を変更する
-    try {
-      window.android.onStartShutterSound(VOLUME);
-    } catch (error) {}
-
-    try {
-      if (audio) {
-        // 再生位置をリセットしてから再生
-        audio.volume = VOLUME;
-        audio.currentTime = 0;
-        audio.play();
-      }
-    } catch (error) {
-      console.warn('sound playback failed:', error);
+    if (!audio) {
+      console.error('Audio element is null, cannot play sound');
+      return;
     }
 
-    // 可能ならばシステム音量を元に戻す
+    // 可能ならばシステム音量を変更する（Android）
     try {
-      window.android.onEndShutterSound();
-    } catch (error) {}
+      if (typeof window.android !== 'undefined' && window.android.onStartShutterSound) {
+        window.android.onStartShutterSound(VOLUME);
+      }
+    } catch (error) {
+      console.warn('Failed to set system volume:', error);
+    }
+
+    // 再生位置をリセットしてから再生
+    audio.volume = VOLUME;
+    audio.currentTime = 0;
+
+    // 音声の再生を開始し、完了後に音量を戻す
+    const playPromise = audio.play();
+    
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          // 再生が開始された
+          console.log('Shutter sound playback started successfully');
+          
+          // 音声の再生が終了したら音量を元に戻す
+          audio.onended = () => {
+            try {
+              if (typeof window.android !== 'undefined' && window.android.onEndShutterSound) {
+                window.android.onEndShutterSound();
+              }
+            } catch (error) {
+              console.warn('Failed to restore system volume:', error);
+            }
+            audio.onended = null; // クリーンアップ
+          };
+        })
+        .catch((error) => {
+          console.error('Shutter sound playback failed:', error);
+          // 再生に失敗した場合でも音量を戻す
+          try {
+            if (typeof window.android !== 'undefined' && window.android.onEndShutterSound) {
+              window.android.onEndShutterSound();
+            }
+          } catch (e) {
+            console.warn('Failed to restore system volume after error:', e);
+          }
+          // ユーザーに通知（オプション：ブラウザ環境では自動再生がブロックされる場合がある）
+          if (error.name === 'NotAllowedError') {
+            console.warn('Audio playback was prevented by browser autoplay policy');
+          }
+        });
+    } else {
+      // 古いブラウザの場合、playがPromiseを返さない可能性がある
+      console.warn('Audio.play() did not return a Promise');
+      // タイムアウトで音量を戻す（フォールバック）
+      setTimeout(() => {
+        try {
+          if (typeof window.android !== 'undefined' && window.android.onEndShutterSound) {
+            window.android.onEndShutterSound();
+          }
+        } catch (error) {
+          console.warn('Failed to restore system volume (fallback):', error);
+        }
+      }, 1000); // 1秒後に戻す（シャッター音は通常1秒未満）
+    }
   }
 
   // 効果音を再生するかどうか決める関数

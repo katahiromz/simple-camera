@@ -906,24 +906,63 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
 
     // 音量を変更
     private var oldVolume: Double = -1.0
+    private var minVolumeForShutter: Int = -1 // シャッター音に必要な最小音量を記録
+    
     fun startShutterSound(volume: Double) {
-        Timber.i("onStartShutterSound")
+        Timber.i("onStartShutterSound: volume=$volume")
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        if (oldVolume == -1.0)
+        
+        // 現在の音量を保存（まだ保存していない場合のみ）
+        if (oldVolume == -1.0) {
             oldVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble()
-        var musicVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        musicVolume = (volume * musicVolume.toDouble()).toInt();
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, musicVolume, 0)
+        }
+        
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        
+        // 日本・韓国の法規制に準拠するため、最大音量の50%以上を保証
+        // volume引数は0.0～1.0の範囲で、1.0が最大音量
+        var targetVolume = (volume * maxVolume.toDouble()).toInt()
+        
+        // 最小音量を最大音量の50%に設定（法規制対応）
+        val minRequiredVolume = (maxVolume * 0.5).toInt()
+        if (targetVolume < minRequiredVolume) {
+            targetVolume = minRequiredVolume
+            Timber.i("Increased shutter sound volume to meet regulatory requirements: $targetVolume/$maxVolume")
+        }
+        
+        // 最小音量を記録
+        minVolumeForShutter = targetVolume
+        
+        // 音量を設定
+        try {
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVolume, 0)
+            Timber.i("Set music volume to $targetVolume (max: $maxVolume, original: $oldVolume)")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to set stream volume")
+        }
     }
 
     // 音量を元に戻す。
     fun endShutterSound() {
         Timber.i("onEndShutterSound")
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        
+        // 保存された音量がある場合のみ復元
         if (oldVolume != -1.0) {
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC,
-                oldVolume.toInt(), 0)
-            oldVolume = -1.0;
+            try {
+                audioManager.setStreamVolume(
+                    AudioManager.STREAM_MUSIC,
+                    oldVolume.toInt(),
+                    0
+                )
+                Timber.i("Restored music volume to $oldVolume")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to restore stream volume")
+            }
+            oldVolume = -1.0
+            minVolumeForShutter = -1
+        } else {
+            Timber.w("No saved volume to restore")
         }
     }
 
