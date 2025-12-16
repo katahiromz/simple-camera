@@ -1253,10 +1253,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             <button
               className={`advanced-camera__button advanced-camera__button--microphone ${hasMic && micEnabled ? 'advanced-camera__button--mic-on' : 'advanced-camera__button--mic-off'}`}
               onClick={toggleMic}
-              disabled={!hasMic || isRecording || (dummyImageSrc && isDummyImageLoaded)}
+              disabled={!hasMic || isRecording || dummyImageSrc}
               aria-label={micEnabled ? t('ac_mute_microphone') : t('ac_enable_microphone')}
             >
-              {hasMic && micEnabled ? <Mic size={ICON_SIZE} /> : <MicOff size={ICON_SIZE} />}
+              {hasMic && micEnabled && !dummyImageSrc ? <Mic size={ICON_SIZE} /> : <MicOff size={ICON_SIZE} />}
             </button>
           )}
 
@@ -1285,11 +1285,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       )}
 
       {/* 「カメラ切り替え」ボタン */}
-      {status === 'ready' && showControls && (
+      {status === 'ready' && showControls && !isRecording && !dummyImageSrc && (
         <button
           className="advanced-camera__button advanced-camera__button--switch"
           onClick={switchCamera}
-          disabled={isRecording || (dummyImageSrc && isDummyImageLoaded)}
+          disabled={isRecording}
           aria-label={t('ac_switch_camera')}
         >
           <SwitchCamera size={ICON_SIZE} />
