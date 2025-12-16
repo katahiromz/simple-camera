@@ -262,12 +262,27 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       return;
     }
 
+    // canvas drawing buffer dimensions (in device pixels)
+    let canvasWidth = canvas.width;
+    let canvasHeight = canvas.height;
+    
+    // If canvas drawing buffer hasn't been set yet, use clientWidth/Height with dpr
+    if (canvasWidth === 0 || canvasHeight === 0) {
+      const dpr = window.devicePixelRatio || 1;
+      canvasWidth = Math.round(canvas.clientWidth * dpr);
+      canvasHeight = Math.round(canvas.clientHeight * dpr);
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      canvas.style.width = `${canvas.clientWidth}px`;
+      canvas.style.height = `${canvas.clientHeight}px`;
+    }
+
     const metrics = calculateVideoRenderMetrics(
       sourceWidth,
       sourceHeight,
-      canvas.width,
-      canvas.height,
-      'contain'
+      canvasWidth,
+      canvasHeight,
+      objectFit
     );
     setRenderMetrics(metrics);
   }, [isDummyImageLoaded]);
@@ -590,10 +605,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           setPanState({ x: 0, y: 0 }); // パン位置もリセット
           setZoomState(1.0); // ズームもリセット
 
-          // キャンバスの内部解像度をコンテナサイズに合わせる
+          // キャンバスの内部解像度をコンテナサイズに合わせる (device pixels)
           if (canvasRef.current) {
-            canvasRef.current.width = width;
-            canvasRef.current.height = height;
+            const dpr = window.devicePixelRatio || 1;
+            canvasRef.current.width = Math.round(width * dpr);
+            canvasRef.current.height = Math.round(height * dpr);
+            // Set CSS size to maintain layout in CSS pixels
+            canvasRef.current.style.width = `${width}px`;
+            canvasRef.current.style.height = `${height}px`;
           }
 
           updateRenderMetrics('contain'); // 内部サイズ変更後に描画メトリクスを再計算
