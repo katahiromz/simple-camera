@@ -4,6 +4,5 @@
     <color name="white">#FFFFFFFF</color>
     <color name="themeColor">#FFAAAAAA</color>
     <color name="themeColorDark">#FFCCCCCC</color>
-    <color name="web_start_page_background">#FFFFFFFF</color>
     <color name="black_dialog">#FF353434</color>
 </resources>

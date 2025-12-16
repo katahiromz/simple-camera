@@ -9,4 +9,5 @@
 .cxx
 local.properties
 app/release
+android/.kotlin/sessions/*
 app/src/main/assets/camera/
