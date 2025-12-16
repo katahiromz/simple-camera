@@ -16,9 +16,9 @@ function App() {
     emulateInsets(); // insetsをエミュレートする
   }
   
-  // 非本番環境ではダミー画像のパスを指定
-  const dummyImageSrc = !IS_PRODUCTION ? `${BASE_URL}dummy.jpg` : null;
-  
+  const dummyImageSrc = !IS_PRODUCTION ? `${BASE_URL}dummy.jpg` : null; // 非本番環境ではダミー画像のパスを指定
+  //const dummyImageSrc = null; // ダミー画像を使わない
+
   return (
     <AdvancedCamera dummyImageSrc={dummyImageSrc}></AdvancedCamera>
   );
