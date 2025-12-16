@@ -100,10 +100,19 @@ advanced-camera__overlay-description {
   pointer-events: auto; /* ボタン自体はクリック可能に */
 }
 
-.advanced-camera__button:hover:not(:disabled) {
-  color: black;
-  background: rgba(255, 255, 255, 0.6);
-  transform: scale(1.2);
+@media (hover: hover) { /* hover指定できるPCを想定したスタイル */
+  .advanced-camera__button:hover:not(:disabled) {
+    color: black;
+    background: rgba(255, 255, 255, 0.6);
+    transform: scale(1.2);
+  }
+}
+@media (hover: none) { /* hoverが使えないタッチ端末を想定したスタイル */
+  .advanced-camera__button:active:not(:disabled) {
+    color: black;
+    background: rgba(255, 255, 255, 0.6);
+    transform: scale(1.2);
+  }
 }
 
 .advanced-camera__button:disabled {
