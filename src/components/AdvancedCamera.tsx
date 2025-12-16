@@ -38,7 +38,9 @@ type userImageProcessFn = (
   x: number, // 転送先X座標
   y: number, // 転送先Y座標
   width: number, // 転送先の幅
-  height: number // 転送先の高さ
+  height: number, // 転送先の高さ
+  zoom: number, // ズーム倍率(0.0～1.0)
+  pan: { x: number, y: number }, // パン(平行移動量、ピクセル単位)
 ) => null;
 
 // 便利なプロパティ
@@ -379,7 +381,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   }, [isRecording, updateRenderMetrics]);
 
   // デフォルトのイメージ処理関数
-  const onDefaultImageProcess = (canvas, video, ctx, x, y, width, height) => {
+  const onDefaultImageProcess = (canvas, video, ctx, x, y, width, height, zoom, pan) => {
     // 画面クリア
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -413,9 +415,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     try {
       if (onImageProcess) {
-        onImageProcess(canvas, video, ctx, offsetX, offsetY, renderWidth, renderHeight);
+        onImageProcess(canvas, video, ctx, offsetX, offsetY, renderWidth, renderHeight, zoom, pan);
       } else {
-        onDefaultImageProcess(canvas, video, ctx, offsetX, offsetY, renderWidth, renderHeight);
+        onDefaultImageProcess(canvas, video, ctx, offsetX, offsetY, renderWidth, renderHeight, zoom, pan);
       }
     } catch (error) {
       // drawImage失敗はconsole.warnのみ
