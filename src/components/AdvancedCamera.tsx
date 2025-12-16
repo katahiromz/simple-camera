@@ -1427,7 +1427,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           <button
             className={`advanced-camera__button advanced-camera__button--scan ${scanningEnabled ? 'advanced-camera__button--scan-active' : ''}`}
             onClick={toggleScanning}
-            disabled={isRecording || status !== 'ready' || !streamRef.current}
+            disabled={isRecording || status !== 'ready'}
             aria-label={scanningEnabled ? t('ac_disable_scanning') : t('ac_enable_scanning')}
           >
             <ScanLine size={ICON_SIZE} />
