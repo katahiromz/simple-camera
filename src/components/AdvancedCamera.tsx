@@ -41,6 +41,7 @@ type userImageProcessFn = (
   height: number // 転送先の高さ
 ) => null;
 
+// 便利なプロパティ
 interface AdvancedCameraProps {
   audio?: boolean; // 音声を有効にするか?
   showTakePhoto?: boolean; // 写真撮影ボタンを表示するか？
@@ -943,14 +944,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         </div>
       )}
 
-      {/* 録画中タイマー [左上端] */}
+      {/* 録画中タイマー */}
       {isRecording && status === 'ready' && (
         <div className="advanced-camera__timer">
           {formatTime(recordingTime)}
         </div>
       )}
 
-      {/* [上部中央] ズーム倍率表示 */}
+      {/* ズーム倍率表示 */}
       {status === 'ready' && (
         <div className="advanced-camera__zoom-display">
           {zoom.toFixed(1)}x
@@ -958,7 +959,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       )}
 
 
-      {/* [下部中央] コントロールパネル */}
+      {/* コントロールパネル */}
       {status === 'ready' && showControls && (
         <div className={`advanced-camera__controls ${isRecording ? 'advanced-camera__controls--recording' : ''}`}>
 
@@ -998,7 +999,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           </div>
       )}
 
-      {/* 右下端の「カメラ切り替え」ボタン */}
+      {/* 「カメラ切り替え」ボタン */}
       {status === 'ready' && showControls && (
         <button
           className="advanced-camera__button advanced-camera__button--switch"
