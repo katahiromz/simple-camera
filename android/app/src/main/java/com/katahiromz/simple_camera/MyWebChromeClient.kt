@@ -18,7 +18,6 @@ import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.snackbar.Snackbar
 import timber.log.Timber
 import java.util.Locale
 
@@ -153,15 +152,17 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         return hasCameraPermission
     }
 
-    // Snackbarを表示してファイルを開くアクションを提供するヘルパーメソッド
+    // TopSnackbarを表示してファイルを開くアクションを提供するヘルパーメソッド
     private fun showFileOpenSnackbar(currentActivity: MainActivity, uri: Uri, messageResId: Int, mimeType: String) {
         currentActivity.runOnUiThread {
             try {
-                val rootView = currentActivity.findViewById<View>(android.R.id.content)
                 val message = currentActivity.getString(messageResId)
                 val actionLabel = currentActivity.getString(R.string.open_file)
-                Snackbar.make(rootView, message, Snackbar.LENGTH_LONG)
-                    .setAction(actionLabel) {
+                TopSnackbar.show(
+                    currentActivity,
+                    message,
+                    actionLabel,
+                    {
                         try {
                             val openIntent = Intent(Intent.ACTION_VIEW).apply {
                                 setDataAndType(uri, mimeType)
@@ -178,9 +179,9 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                             Timber.e(e, "Failed to open file")
                         }
                     }
-                    .show()
+                )
             } catch (e: Exception) {
-                Timber.e(e, "Failed to show Snackbar")
+                Timber.e(e, "Failed to show TopSnackbar")
             }
         }
     }
