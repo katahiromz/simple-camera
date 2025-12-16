@@ -59,10 +59,13 @@ interface AdvancedCameraProps {
   showControls: boolean; // コントロールボタン群を表示するか？
   photoQuality: number; // 写真の品質(0.0～1.0)
   photoFormat: supportedPictureFormats; // 写真の形式
-  onUserMedia?: userMediaFn; // ストリームを返す関数
+  onUserMedia?: userMediaFn; // ストリームを取得するための関数
   onImageProcess?: userImageProcessFn; // イメージを処理する関数
   dummyImageSrc: string | null; // ダミー画像へのパス
   soundEffect: boolean; // 撮影時に音を鳴らすか？
+  showStatus: boolean; // 状態を表示するか？
+  showTimer: boolean; // タイマーを表示するか？
+  showZoom: boolean; // ズーム倍率を表示するか？
   shutterSoundUrl: string | null; // 撮影時の音の場所
   videoStartSoundUrl: string | null; // 動画撮影開始時の音の場所
   videoCompleteSoundUrl: string | null; // 動画撮影完了時の音の場所
@@ -80,6 +83,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   onImageProcess = null,
   dummyImageSrc = null,
   soundEffect = true,
+  showStatus = true,
+  showTimer = true,
+  showZoom = true,
   shutterSoundUrl = `${BASE_URL}ac-camera-shutter-sound.mp3`,
   videoStartSoundUrl = `${BASE_URL}ac-video-started.mp3`,
   videoCompleteSoundUrl = `${BASE_URL}ac-video-completed.mp3`,
@@ -1038,19 +1044,19 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       />
 
       {/* UI オーバーレイ */}
-      {status === 'initializing' && (
+      {showStatus && status === 'initializing' && (
         <div className="advanced-camera__overlay">
           <RefreshCw className="spin" size={48} />
           <p className="advanced-camera__overlay-text">{t('ac_starting_camera')}</p>
         </div>
       )}
-      {status === 'switching' && (
+      {showStatus && status === 'switching' && (
         <div className="advanced-camera__overlay">
           <RefreshCw className="spin" size={48} />
           <p className="advanced-camera__overlay-text">{t('ac_switching_camera')}</p>
         </div>
       )}
-      {status === 'noPermission' && (
+      {showStatus && status === 'noPermission' && (
         <div className="advanced-camera__overlay">
           <VideoOff size={48} color="red" />
           <p className="advanced-camera__overlay-text">
@@ -1065,7 +1071,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           </button>
         </div>
       )}
-      {status === 'noDevice' && (
+      {showStatus && status === 'noDevice' && (
         <div className="advanced-camera__overlay">
           <CameraOff size={48} color="red" />
           <p className="advanced-camera__overlay-text">{t('ac_no_camera_found')}</p>
@@ -1078,14 +1084,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       )}
 
       {/* 録画中タイマー */}
-      {isRecording && status === 'ready' && (
+      {showTimer && isRecording && status === 'ready' && (
         <div className="advanced-camera__timer">
           {formatTime(recordingTime)}
         </div>
       )}
 
       {/* ズーム倍率表示 */}
-      {status === 'ready' && (
+      {showZoom && status === 'ready' && (
         <div className="advanced-camera__zoom-display">
           {zoom.toFixed(1)}x
         </div>
@@ -1094,7 +1100,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       {/* コントロールパネル */}
       {status === 'ready' && showControls && (
         <div className={`advanced-camera__controls ${isRecording ? 'advanced-camera__controls--recording' : ''}`}>
-
           {/* 1. マイクON/OFF ボタン */}
           {showMic && (
             <button
