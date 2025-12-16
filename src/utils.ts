@@ -12,8 +12,8 @@ export const emulateInsets = () => {
     'カスタム': custom
   };
   // CSS変数を更新
-  const values = presets['カスタム'];
-  //const values = presets['なし'];
+  //const values = presets['カスタム'];
+  const values = presets['なし'];
   document.documentElement.style.setProperty('--safe-inset-top', `${values.top}px`);
   document.documentElement.style.setProperty('--safe-inset-bottom', `${values.bottom}px`);
   document.documentElement.style.setProperty('--safe-inset-left', `${values.left}px`);
