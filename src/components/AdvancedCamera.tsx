@@ -1,6 +1,6 @@
 // AdvancedCamera.tsx
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Camera, Mic, MicOff, Video, VideoOff, RefreshCw, SwitchCamera} from 'lucide-react'; // lucide-reactを使用
+import { Camera, Mic, MicOff, Video, VideoOff, RefreshCw, SwitchCamera, CameraOff} from 'lucide-react'; // lucide-reactを使用
 import './AdvancedCamera.css';
 
 // 汎用関数群
@@ -870,6 +870,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
           <p className="advanced-camera__overlay-text">
             {t('ac_no_camera_permission')}
           </p>
+          <p className="advanced-camera__overlay-description">
+            {t('ac_no_camera_permission_2')}
+          </p>
           {/* 再起動ボタン */}
           <button className="advanced-camera__restart-btn" onClick={handleRestart}>
             {t('ac_restart_app')}
@@ -878,8 +881,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
       )}
       {status === 'noDevice' && (
         <div className="advanced-camera__overlay">
-          <VideoOff size={48} color="red" />
+          <CameraOff size={48} color="red" />
           <p className="advanced-camera__overlay-text">{t('ac_no_camera_found')}</p>
+          <p className="advanced-camera__overlay-description">{t('ac_no_camera_found_2')}</p>
+          {/* 再起動ボタン */}
+          <button className="advanced-camera__restart-btn" onClick={handleRestart}>
+            {t('ac_restart_app')}
+          </button>
         </div>
       )}
 

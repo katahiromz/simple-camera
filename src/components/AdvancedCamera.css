@@ -56,6 +56,10 @@
   font-size: 1.2rem;
 }
 
+advanced-camera__overlay-description {
+  font-size: 1rem;
+}
+
 /* コントロールパネル */
 .advanced-camera__controls {
   position: absolute;
@@ -155,6 +159,7 @@ position: absolute;
 }
 
 .advanced-camera__restart-btn {
+  margin: 30px;
   padding: 10px 20px;
   background: #007bff;
   color: white;
