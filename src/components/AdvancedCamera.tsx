@@ -27,6 +27,9 @@ const isAndroidApp = typeof window.android !== 'undefined';
 // ステータス定義
 type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice' | 'switching';
 
+// ストリームを返す関数形
+type userMediaFn = (MediaStream) => null;
+
 interface AdvancedCameraProps {
   audio?: boolean; // 音声を有効にするか?
   showTakePhoto?: boolean; // 写真撮影ボタンを表示するか？
@@ -35,6 +38,7 @@ interface AdvancedCameraProps {
   showControls?: boolean; // コントロールパネルを表示するか？
   screenshotQuality?: number; // スクリーンショットの品質(0.0～1.0)
   screenshotFormat?: string; // スクリーンショットの形式
+  onUserMedia?: userMediaFn; // ストリームを返す関数
 };
 
 const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
@@ -45,6 +49,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   showControls = true,
   screenshotQuality = 0.92,
   screenshotFormat = 'image/jpeg',
+  onUserMedia = null
 }) => {
   const ICON_SIZE = 32; // アイコンサイズ
   const MIN_ZOOM = 1.0; // ズーム倍率の最小値
@@ -218,6 +223,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       if (videoRef.current) {
         videoRef.current.srcObject = videoStream;
         streamRef.current = videoStream;
+
+        if (onUserMedia)
+          onUserMedia(videoStream);
 
         // 実際に使用されているカメラのfacingModeを取得
         try {
