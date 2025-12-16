@@ -9,6 +9,12 @@ import {
   calculateMaxPanOffsets,
   generateFileName,
   formatTime,
+  photoFormatToExtension,
+  extensionToPhotoFormat,
+  validateMimeTypeAndExtension,
+  videoFormatToExtension,
+  extensionToVideoFormat,
+  validateVideoMimeTypeAndExtension,
   RenderMetrics
 } from './utils';
 
@@ -849,14 +855,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   };
 
   // 画像の保存(Android用)
-  const saveImageToGallery = (blob, fileName) => {
+  const saveImageToGallery = (blob, fileName, mimeType) => {
     console.assert(isAndroidApp);
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64data = reader.result.split(',')[1];
       if (typeof window.android.saveImageToGallery === 'function') {
         try {
-          window.android.saveImageToGallery(base64data, fileName);
+          window.android.saveImageToGallery(base64data, fileName, mimeType);
           console.log('Saved image:', fileName);
         } catch (error) {
           console.assert(false);
@@ -922,17 +928,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
   };
 
-  // 画像の形式から拡張子へ
-  const photoFormatToExtension = (format: string): string => {
-    switch (format) {
-    case 'image/png': return 'png';
-    case 'image/tiff': return 'tif';
-    case 'image/webp': return 'webp';
-    case 'image/bmp': return 'bmp';
-    case 'image/jpeg': default: return 'jpg';
-    }
-  };
-
   // 実際に写真を撮影し、ファイルに保存する
   const takePhoto = (options = null) => {
     try {
@@ -947,12 +942,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         // 拡張子を選ぶ
         let extension = photoFormatToExtension(photoFormat);
 
+        // MIME typeと拡張子の整合性を検証
+        validateMimeTypeAndExtension(photoFormat, extension);
+
         // ファイル名
         const fileName = generateFileName(t('ac_text_photo') + '_', extension);
 
         // ファイルに保存
         if (isAndroidApp) {
-          saveImageToGallery(blob, fileName);
+          saveImageToGallery(blob, fileName, photoFormat);
         } else {
           downloadFallback(blob, fileName);
         }
@@ -974,7 +972,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   };
 
   // ビデオをギャラリーに保存(Android専用)
-  const saveVideoToGallery = (blob, fileName) => {
+  const saveVideoToGallery = (blob, fileName, mimeType) => {
     console.assert(isAndroidApp);
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -982,7 +980,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const base64Data = reader.result.split(',')[1];
       // Kotlin側の関数を呼び出す
       try {
-        window.android.saveVideoToGallery(base64Data, fileName);
+        window.android.saveVideoToGallery(base64Data, fileName, mimeType);
         console.log('保存完了:' + fileName);
       } catch (error) {
         console.error('android インタフェース呼び出しエラー:', error);
@@ -1044,11 +1042,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           playSound(videoCompleteAudioRef.current);
         }
 
-        const extension = mimeType.includes('mp4') ? 'mp4' : 'webm'; // 拡張子
+        const extension = videoFormatToExtension(mimeType); // 拡張子
+        
+        // MIME typeと拡張子の整合性を検証
+        validateVideoMimeTypeAndExtension(mimeType, extension);
+        
         const fileName = generateFileName(t('ac_text_video') + '_', extension); // ファイル名
         const blob = new Blob(chunks, { type: mimeType });
         if (isAndroidApp) {
-          saveVideoToGallery(blob, fileName);
+          saveVideoToGallery(blob, fileName, mimeType);
         } else {
           downloadFallback(blob, fileName);
         }
