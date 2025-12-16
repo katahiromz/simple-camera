@@ -45,8 +45,11 @@ object TopSnackbar {
     private const val SWIPE_THRESHOLD = 100f
     private const val SWIPE_VELOCITY_THRESHOLD = 100f
     
+    @Volatile
     private var currentSnackbarView: View? = null
+    @Volatile
     private var currentAnimator: AnimatorSet? = null
+    @Volatile
     private var dismissRunnable: Runnable? = null
     
     /**
@@ -121,7 +124,7 @@ object TopSnackbar {
                 dismissRunnable = Runnable {
                     dismissWithAnimation()
                 }
-                snackbarView.postDelayed(dismissRunnable, durationMillis.toLong())
+                dismissRunnable?.let { snackbarView.postDelayed(it, durationMillis.toLong()) }
                 
             } catch (e: Exception) {
                 Timber.e(e, "Failed to show TopSnackbar")
@@ -223,10 +226,11 @@ object TopSnackbar {
                 velocityX: Float,
                 velocityY: Float
             ): Boolean {
-                if (e1 == null) return false
+                // Handle null e1 gracefully (can happen in some Android versions)
+                val startEvent = e1 ?: return false
                 
-                val diffX = e2.x - e1.x
-                val diffY = e2.y - e1.y
+                val diffX = e2.x - startEvent.x
+                val diffY = e2.y - startEvent.y
                 
                 // Check if it's a significant swipe
                 if (abs(diffX) > SWIPE_THRESHOLD || abs(diffY) > SWIPE_THRESHOLD) {
@@ -257,9 +261,12 @@ object TopSnackbar {
             }
         })
         
+        // Use a touch listener that doesn't consume all events to allow button clicks
         view.setOnTouchListener { v, event ->
-            gestureDetector.onTouchEvent(event)
-            true
+            // Let the gesture detector handle the event
+            val handled = gestureDetector.onTouchEvent(event)
+            // Return false to allow child views (like buttons) to also receive events
+            handled && event.action == MotionEvent.ACTION_UP
         }
     }
     
