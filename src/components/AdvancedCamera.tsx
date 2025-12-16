@@ -27,6 +27,13 @@ const isAndroidApp = typeof window.android !== 'undefined';
 // ステータス定義
 type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice' | 'switching';
 
+// QRコードスキャン結果の型定義
+type ScanResult = {
+  rawValue: string;
+  boundingBox: { x: number; y: number; width: number; height: number };
+  format: string;
+};
+
 // ストリームを渡すための関数型
 type userMediaFn = (MediaStream) => null;
 
@@ -128,13 +135,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // QRコードスキャン関連の状態
   const [scanningEnabled, setScanningEnabled] = useState(false); // スキャンが有効か？
-  const [scanResult, setScanResult] = useState<{ rawValue: string; boundingBox: { x: number; y: number; width: number; height: number }; format: string } | null>(null); // スキャン結果
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null); // スキャン結果
   const [isBarcodeDetectorSupported, setIsBarcodeDetectorSupported] = useState(true); // BarcodeDetectorがサポートされているか？
   const scanWorkerRef = useRef<Worker | null>(null); // スキャン用のWorker
   const lastScanTimeRef = useRef<number>(0); // 最後にスキャンした時刻
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null); // スキャン間隔タイマー
   const scanTimeoutRef = useRef<NodeJS.Timeout | null>(null); // スキャン後の一時停止タイマー
-  const scanResultRef = useRef<{ rawValue: string; boundingBox: { x: number; y: number; width: number; height: number }; format: string } | null>(null); // スキャン結果のRef（描画用）
+  const scanResultRef = useRef<ScanResult | null>(null); // スキャン結果のRef（描画用）
 
   // カメラの種類(背面／前面)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(() => {
@@ -813,9 +820,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const textHeight = fontSize;
       const padding = 8;
       
-      // テキストの背景を描画（バウンディングボックスの上部）
+      // テキストの背景を描画（バウンディングボックスの上部、または下部に配置）
       const textX = bbox.x;
-      const textY = bbox.y - textHeight - padding * 2;
+      let textY = bbox.y - textHeight - padding * 2;
+      
+      // 上部に表示すると画面外になる場合は下部に表示
+      if (textY < 0) {
+        textY = bbox.y + bbox.height + padding;
+      }
+      
       ctx.fillRect(textX, textY, textWidth + padding * 2, textHeight + padding * 2);
       
       // テキストを描画

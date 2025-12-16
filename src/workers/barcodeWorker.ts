@@ -16,7 +16,7 @@ interface NoSupportMessage {
 
 type WorkerResponse = DetectionResult | NoSupportMessage;
 
-// Check if BarcodeDetector is available
+// Check if BarcodeDetector is available and supports qr_code format
 const isBarcodeDetectorSupported = 'BarcodeDetector' in self;
 
 // Initialize BarcodeDetector if supported
@@ -24,10 +24,32 @@ let barcodeDetector: BarcodeDetector | null = null;
 
 if (isBarcodeDetectorSupported) {
   try {
-    barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
-    console.log('[BarcodeWorker] BarcodeDetector initialized with qr_code format');
+    // Check if getSupportedFormats is available and verify qr_code support
+    const checkFormatSupport = async () => {
+      if (typeof (BarcodeDetector as any).getSupportedFormats === 'function') {
+        const formats = await (BarcodeDetector as any).getSupportedFormats();
+        if (!formats.includes('qr_code')) {
+          console.warn('[BarcodeWorker] qr_code format is not supported');
+          self.postMessage({ type: 'no-support' } as NoSupportMessage);
+          return false;
+        }
+      }
+      return true;
+    };
+
+    // Try to initialize with qr_code format
+    checkFormatSupport().then((supported) => {
+      if (supported) {
+        barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+        console.log('[BarcodeWorker] BarcodeDetector initialized with qr_code format');
+      }
+    }).catch((error) => {
+      console.error('[BarcodeWorker] Format check failed:', error);
+      self.postMessage({ type: 'no-support' } as NoSupportMessage);
+    });
   } catch (error) {
     console.error('[BarcodeWorker] Failed to initialize BarcodeDetector:', error);
+    self.postMessage({ type: 'no-support' } as NoSupportMessage);
   }
 } else {
   console.warn('[BarcodeWorker] BarcodeDetector is not supported in this browser');
