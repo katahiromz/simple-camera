@@ -27,8 +27,19 @@ const isAndroidApp = typeof window.android !== 'undefined';
 // ステータス定義
 type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice' | 'switching';
 
-// ストリームを返す関数形
+// ストリームを渡すための関数型
 type userMediaFn = (MediaStream) => null;
+
+// イメージを処理するための関数型
+type userImageProcessFn = (
+  canvas: HTMLCanvasElement, // キャンバス
+  video: HTMLVideoElement, // ビデオ
+  ctx: CanvasRenderingContext2D, // 描画コンテキスト
+  x: number, // 転送先X座標
+  y: number, // 転送先Y座標
+  width: number, // 転送先の幅
+  height: number // 転送先の高さ
+) => null;
 
 interface AdvancedCameraProps {
   audio?: boolean; // 音声を有効にするか?
@@ -39,6 +50,7 @@ interface AdvancedCameraProps {
   screenshotQuality?: number; // スクリーンショットの品質(0.0～1.0)
   screenshotFormat?: string; // スクリーンショットの形式
   onUserMedia?: userMediaFn; // ストリームを返す関数
+  onImageProcess?: userImageProcessFn; // イメージを処理する関数
 };
 
 const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
@@ -49,7 +61,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   showControls = true,
   screenshotQuality = 0.92,
   screenshotFormat = 'image/jpeg',
-  onUserMedia = null
+  onUserMedia = null,
+  onImageProcess = null,
 }) => {
   const ICON_SIZE = 32; // アイコンサイズ
   const MIN_ZOOM = 1.0; // ズーム倍率の最小値
@@ -364,6 +377,21 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     return () => observer.disconnect();
   }, [isRecording, updateRenderMetrics]);
 
+  // デフォルトのイメージ処理関数
+  const onDefaultImageProcess = (canvas, video, ctx, x, y, width, height) => {
+    // 画面クリア
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // ズームとパンの適用(object-fit: cover/contain再現)
+    // 中心を基準にスケーリングするために translate -> scale -> translate back
+    ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
+    // イメージを転送
+    ctx.drawImage(video, x, y, width, height);
+  };
+
   // requestAnimationFrameによる描画ループ
   const draw = useCallback(() => {
     const video = videoRef.current;
@@ -380,26 +408,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     // 毎フレームのメトリクス再計算を削除。状態の renderMetrics を直接使用
     const { renderWidth, renderHeight, offsetX, offsetY } = renderMetrics;
 
-    // 画面クリア
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     ctx.save();
 
-    // ズームとパンの適用
-    // 中心を基準にスケーリングするために translate -> scale -> translate back
-    ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
-    ctx.scale(zoom, zoom);
-    ctx.translate(-canvas.width / 2, -canvas.height / 2);
-
-    // object-fit: cover 再現描画
     try {
-      ctx.drawImage(
-        video,
-        offsetX,
-        offsetY,
-        renderWidth,
-        renderHeight
-      );
+      if (onImageProcess) {
+        onImageProcess(canvas, video, ctx, offsetX, offsetY, renderWidth, renderHeight);
+      } else {
+        onDefaultImageProcess(canvas, video, ctx, offsetX, offsetY, renderWidth, renderHeight);
+      }
     } catch (error) {
       // drawImage失敗はconsole.warnのみ
       console.warn('drawImage failed', error);
@@ -646,7 +662,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         }
 
         // 拡張子
-        let extension = 'jpg';
+        let extension;
         switch (screenshotFormat) {
         case 'image/png': extension = 'png'; break;
         case 'image/tiff': extension = 'tif'; break;
