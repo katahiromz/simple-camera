@@ -4,7 +4,9 @@
 
 React+Vita製のシンプルなカメラアプリです。PWAとAndroidに対応しております。
 
-<img src="public/pwa-192x192.png" alt="[カメラ アイコン]" />
+<img src="public/pwa-192x192.png" alt="[カメラ アイコン]" align="center" />
+
+<img src="img/screenshot.png" alt="[スクリーンショット]" align="center" />
 
 ## 機能
 
