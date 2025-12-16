@@ -30,8 +30,8 @@ type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice' | 'sw
 // ストリームを渡すための関数型
 type userMediaFn = (MediaStream) => null;
 
-// イメージを処理するための関数型
-type userImageProcessFn = (
+// イメージを処理するための型
+type userImageProcessData = {
   canvas: HTMLCanvasElement, // キャンバス
   video: HTMLVideoElement, // ビデオ
   ctx: CanvasRenderingContext2D, // 描画コンテキスト
@@ -41,7 +41,10 @@ type userImageProcessFn = (
   height: number, // 転送先の高さ
   zoom: number, // ズーム倍率(0.0～1.0)
   pan: { x: number, y: number }, // パン(平行移動量、ピクセル単位)
-) => null;
+  dummyImage: HTMLImageElement | null, // ダミー画像
+};
+
+type userImageProcessFn = (data: userImageProcessData) => void;
 
 // 便利なプロパティ
 interface AdvancedCameraProps {
@@ -165,7 +168,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       img.onload = () => {
         dummyImageRef.current = img;
         setIsDummyImageLoaded(true);
-        console.log('Dummy image loaded for non-production environment:', {
+        console.log('Dummy image loaded:', {
           width: img.naturalWidth,
           height: img.naturalHeight
         });
@@ -246,7 +249,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     // もしあればダミー画像を使用
     if (dummyImageSrc && dummyImageRef.current && isDummyImageLoaded) {
-      console.log('Using dummy image in non-production environment');
+      console.log('Using dummy image');
       updateRenderMetrics('contain');
       setStatus('ready');
       setHasMic(false); // ダミー画像使用時はマイクなし
@@ -441,7 +444,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   }, [isRecording, updateRenderMetrics]);
 
   // デフォルトのイメージ処理関数
-  const onDefaultImageProcess = (canvas, video, ctx, x, y, width, height, zoom, pan) => {
+  const onDefaultImageProcess = (data: userImageProcessData) => {
+    // 引数データ取得
+    const canvas = data.canvas, video = data.video;
+    const ctx = data.ctx, x = data.x, y = data.y, width = data.width, height = data.height;
+    const zoom = data.zoom, pan = data.pan;
+
     // 画面クリア
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -451,12 +459,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     ctx.scale(zoom, zoom);
     ctx.translate(-canvas.width / 2, -canvas.height / 2);
 
-    // ダミー画像を、本番環境ではビデオを転送
-    const source = (dummyImageSrc && dummyImageRef.current && isDummyImageLoaded) 
-      ? dummyImageRef.current 
-      : video;
-    
     // イメージを転送
+    const source = data.dummyImage ? data.dummyImage : video;
     ctx.drawImage(source, x, y, width, height);
   };
 
@@ -468,7 +472,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     // ダミー画像を使用するか？
     const useDummyImage = dummyImageSrc && dummyImageRef.current && isDummyImageLoaded;
-    
+    const dummyImage = useDummyImage ? dummyImageRef.current : null;
+
     // ビデオまたはダミー画像のいずれかが利用可能である必要がある
     if (!useDummyImage && !video) return;
 
@@ -486,9 +491,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     try {
       if (onImageProcess) {
-        onImageProcess(canvas, video, ctx, offsetX, offsetY, renderWidth, renderHeight, zoom, pan);
+        onImageProcess({canvas, video, ctx, x:offsetX, y:offsetY, width:renderWidth, height:renderHeight, zoom, pan, dummyImage});
       } else {
-        onDefaultImageProcess(canvas, video, ctx, offsetX, offsetY, renderWidth, renderHeight, zoom, pan);
+        onDefaultImageProcess({canvas, video, ctx, x:offsetX, y:offsetY, width:renderWidth, height:renderHeight, zoom, pan, dummyImage});
       }
     } catch (error) {
       // drawImage失敗はconsole.warnのみ
