@@ -54,7 +54,7 @@ interface AdvancedCameraProps {
   photoFormat?: string; // 写真の形式
   onUserMedia?: userMediaFn; // ストリームを返す関数
   onImageProcess?: userImageProcessFn; // イメージを処理する関数
-  dummyImageSrc?: string; // 非本番環境で使用するダミー画像のパス
+  dummyImageSrc?: string | null; // 非本番環境で使用するダミー画像のパス
 };
 
 const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
@@ -67,7 +67,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   photoFormat = 'image/jpeg',
   onUserMedia = null,
   onImageProcess = null,
-  dummyImageSrc = `${BASE_URL}dummy.jpg`,
+  dummyImageSrc = null,
 }) => {
   const ICON_SIZE = 32; // アイコンサイズ
   const MIN_ZOOM = 1.0; // ズーム倍率の最小値
@@ -160,7 +160,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // ダミー画像の初期化（非本番環境のみ）
   useEffect(() => {
-    if (!IS_PRODUCTION) {
+    if (!IS_PRODUCTION && dummyImageSrc) {
       const img = new Image();
       img.onload = () => {
         dummyImageRef.current = img;
@@ -386,8 +386,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   }, [facingMode, initCamera]);
 
   useEffect(() => {
-    // 非本番環境ではダミー画像のロードを待つ
-    if (!IS_PRODUCTION && !isDummyImageLoaded) {
+    // 非本番環境でダミー画像が指定されている場合は、ロードを待つ
+    if (!IS_PRODUCTION && dummyImageSrc && !isDummyImageLoaded) {
       console.log('Waiting for dummy image to load...');
       return;
     }
@@ -402,7 +402,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         cancelAnimationFrame(animeRequestRef.current);
       }
     };
-  }, [initCamera, isDummyImageLoaded]);
+  }, [initCamera, isDummyImageLoaded, dummyImageSrc]);
 
   // --- サイズ監視とレンダリング ---
 
