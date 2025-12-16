@@ -1055,11 +1055,22 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const chunks: BlobPart[] = [];
 
       recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunks.push(event.data);
+        if (event.data && event.data.size > 0) {
+          chunks.push(event.data);
+          console.log('Video chunk received:', {
+            size: event.data.size,
+            totalChunks: chunks.length
+          });
+        } else {
+          console.warn('Received empty or invalid chunk');
+        }
       };
 
       // 停止時・エラー時のダウンロード処理
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
+        // MediaRecorderの内部バッファフラッシュを待つため、少し遅延
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // トラック停止
         combinedStream.getTracks().forEach(t => t.stop());
         setIsRecording(false);
@@ -1077,6 +1088,23 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         
         const fileName = generateFileName(t('ac_text_video') + '_', extension); // ファイル名
         const blob = new Blob(chunks, { type: mimeType });
+        
+        // Blobの検証とログ出力
+        console.log('Video recording completed:', {
+          fileName,
+          mimeType,
+          blobSize: blob.size,
+          chunksCount: chunks.length,
+          isValidBlob: blob.size > 0
+        });
+        
+        // Blobが空でないか確認
+        if (blob.size === 0) {
+          console.error('Generated video blob is empty!');
+          alert(t('ac_recording_error', 'Video file is empty'));
+          return;
+        }
+        
         if (isAndroidApp) {
           saveVideoToGallery(blob, fileName, mimeType);
         } else {
@@ -1109,7 +1137,17 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // 録画停止
   const stopRecording = async () => {
-    mediaRecorderRef.current?.stop();
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return;
+    
+    // 最後のチャンクを明示的にフラッシュ
+    try {
+      recorder.requestData();
+    } catch (error) {
+      console.warn('requestData failed:', error);
+    }
+    
+    recorder.stop();
   };
 
   // 録画開始・停止の切り替え
