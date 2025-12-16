@@ -28,10 +28,24 @@ const isAndroidApp = typeof window.android !== 'undefined';
 type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice' | 'switching';
 
 interface AdvancedCameraProps {
+  audio?: boolean; // 音声を有効にするか?
+  showTakePhoto?: boolean; // 写真撮影ボタンを表示するか？
+  showMic?: boolean; // マイクボタンを表示するか？
+  showRecord?: boolean; // ビデオ撮影ボタンを表示するか？
   showControls?: boolean; // コントロールパネルを表示するか？
-}
+  screenshotQuality?: number; // スクリーンショットの品質(0.0～1.0)
+  screenshotFormat?: string; // スクリーンショットの形式
+};
 
-const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) => {
+const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
+  audio = true,
+  showTakePhoto = true,
+  showMic = true,
+  showRecord = true,
+  showControls = true,
+  screenshotQuality = 0.92,
+  screenshotFormat = 'image/jpeg',
+}) => {
   const ICON_SIZE = 32; // アイコンサイズ
   const MIN_ZOOM = 1.0; // ズーム倍率の最小値
   const MAX_ZOOM = 4.0; // ズーム倍率の最大値
@@ -94,6 +108,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
 
   // マイク設定の読み込み
   useEffect(() => {
+    if (!audio) {
+      setMicEnabled(false);
+      return;
+    }
     const savedMic = localStorage.getItem('AdvancedCamera_micEnabled');
     if (savedMic !== null) {
       setMicEnabled(savedMic === 'true');
@@ -619,15 +637,24 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
           return;
         }
 
+        // 拡張子
+        let extension = 'jpg';
+        switch (screenshotFormat) {
+        case 'image/png': extension = 'png'; break;
+        case 'image/tiff': extension = 'tif'; break;
+        case 'image/webp': extension = 'webp'; break;
+        case 'image/jpeg': default: extension = 'jpg'; break;
+        }
+
         // ファイル名
-        const fileName = generateFileName(t('ac_text_photo') + '_', 'jpg');
+        const fileName = generateFileName(t('ac_text_photo') + '_', extension);
 
         if (isAndroidApp) {
           saveImageToGallery(blob, fileName);
         } else {
           downloadFallback(blob, fileName);
         }
-      }, 'image/jpeg', 0.95); // JPEG形式、品質95%
+      }, screenshotFormat, screenshotQuality); // JPEG形式
     } catch (error) {
       console.error('Photo capture failed', error);
       alert(t('ac_taking_photo_failed'));
@@ -638,7 +665,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
 
   // マイク切り替え
   const toggleMic = () => {
-    const newState = !micEnabled;
+    const newState = audio && !micEnabled;
     setMicEnabled(newState);
     // 設定保存
     localStorage.setItem('AdvancedCamera_micEnabled', String(newState));
@@ -911,33 +938,39 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         <div className={`advanced-camera__controls ${isRecording ? 'advanced-camera__controls--recording' : ''}`}>
 
           {/* 1. マイクON/OFF ボタン */}
-          <button
-            className={`advanced-camera__button advanced-camera__button--microphone ${hasMic && micEnabled ? 'advanced-camera__button--mic-on' : 'advanced-camera__button--mic-off'}`}
-            onClick={toggleMic}
-            disabled={!hasMic || isRecording}
-            aria-label={micEnabled ? t('ac_mute_microphone') : t('ac_enable_microphone')}
-          >
-            {hasMic && micEnabled ? <Mic size={ICON_SIZE} /> : <MicOff size={ICON_SIZE} />}
-          </button>
+          {showMic && (
+            <button
+              className={`advanced-camera__button advanced-camera__button--microphone ${hasMic && micEnabled ? 'advanced-camera__button--mic-on' : 'advanced-camera__button--mic-off'}`}
+              onClick={toggleMic}
+              disabled={!hasMic || isRecording}
+              aria-label={micEnabled ? t('ac_mute_microphone') : t('ac_enable_microphone')}
+            >
+              {hasMic && micEnabled ? <Mic size={ICON_SIZE} /> : <MicOff size={ICON_SIZE} />}
+            </button>
+          )}
 
           {/* 2. 写真撮影 ボタン */}
-          <button
-            className="advanced-camera__button advanced-camera__button--photo"
-            onClick={takePhoto}
-            aria-label={t('ac_take_photo')}
-          >
-            <Camera size={ICON_SIZE} />
-          </button>
+          {showTakePhoto && (
+            <button
+              className="advanced-camera__button advanced-camera__button--photo"
+              onClick={takePhoto}
+              aria-label={t('ac_take_photo')}
+            >
+              <Camera size={ICON_SIZE} />
+            </button>
+          )}
 
           {/* 3. 録画/停止 ボタン */}
-          <button
-            className={`advanced-camera__button advanced-camera__button--record ${isRecording ? 'is-recording' : ''}`}
-            onClick={toggleRecording}
-            aria-label={isRecording ? t('ac_stop_recording') : t('ac_start_recording')}
-          >
-            <Video size={ICON_SIZE} />
-          </button>
-        </div>
+          {showRecord && (
+            <button
+              className={`advanced-camera__button advanced-camera__button--record ${isRecording ? 'is-recording' : ''}`}
+              onClick={toggleRecording}
+              aria-label={isRecording ? t('ac_stop_recording') : t('ac_start_recording')}
+            >
+              <Video size={ICON_SIZE} />
+            </button>
+          )}
+          </div>
       )}
 
       {/* 右下端の「カメラ切り替え」ボタン */}
