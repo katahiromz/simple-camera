@@ -316,7 +316,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     setZoomState(1.0); // ズームもリセット
 
     // もしあればダミー画像を使用
-    if (dummyImageSrc && dummyImageRef.current && isDummyImageLoaded) {
+    if (dummyImageSrc) {
       console.log('Using dummy image');
       updateRenderMetrics('contain');
       setStatus('ready');
@@ -696,8 +696,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         onDefaultImageProcess({canvas, video, ctx, x:offsetX, y:offsetY, width:renderWidth, height:renderHeight, zoom, pan, dummyImage});
       }
     } catch (error) {
-      // drawImage失敗はconsole.warnのみ
-      console.warn('drawImage failed', error);
+      console.warn('image processing failed', error);
     }
 
     ctx.restore();
