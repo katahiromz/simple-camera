@@ -188,14 +188,17 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   useEffect(() => {
     // Audioオブジェクトを作成し、Refに保持
     try {
+      // シャッター音
       if (shutterSoundUrl) {
         shutterAudioRef.current = new Audio(shutterSoundUrl);
         shutterAudioRef.current.load();
       }
+      // ビデオ録画開始音
       if (videoStartSoundUrl) {
         videoStartAudioRef.current = new Audio(videoStartSoundUrl);
         videoStartAudioRef.current.load();
       }
+      // ビデオ録画完了音
       if (videoCompleteSoundUrl) {
         videoCompleteAudioRef.current = new Audio(videoCompleteSoundUrl);
         videoCompleteAudioRef.current.load();
@@ -1059,9 +1062,18 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const combinedStream = new MediaStream(tracks);
 
       // フォーマット確認
+      const mimeTypes = [
+        'video/webm; codecs=vp9',
+        'video/webm; codecs=vp8',
+        'video/webm',
+        'video/mp4',
+      ];
       let mimeType = 'video/webm';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/mp4'; // fallback
+      for (let type of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          break;
+        }
       }
 
       const recorder = new MediaRecorder(combinedStream, { mimeType });
