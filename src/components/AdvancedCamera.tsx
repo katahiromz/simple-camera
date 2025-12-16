@@ -284,7 +284,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     // canvas drawing buffer dimensions (in device pixels)
     let canvasWidth = canvas.width;
     let canvasHeight = canvas.height;
-    
+
     // If canvas drawing buffer hasn't been set yet, use clientWidth/Height with dpr
     if (canvasWidth === 0 || canvasHeight === 0) {
       const dpr = window.devicePixelRatio || 1;
@@ -805,10 +805,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       event.preventDefault();
       const distance = getDistance(event.touches[0], event.touches[1]);
       const center = getCenter(event.touches[0], event.touches[1]);
-      
+
       lastTouchDistanceRef.current = distance;
       lastTouchCenterRef.current = center;
-      
+
       // ピンチ開始時の状態を記録
       initialTouchDistanceRef.current = distance;
       initialTouchCenterRef.current = center;
@@ -970,8 +970,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         // 拡張子を選ぶ
         let extension = photoFormatToExtension(photoFormat);
 
-        // MIME typeと拡張子の整合性を検証
-        validateMimeTypeAndExtension(photoFormat, extension);
+        if (!IS_PRODUCTION) {
+          // MIME typeと拡張子の整合性を検証
+          validateMimeTypeAndExtension(photoFormat, extension);
+        }
 
         // ファイル名
         const fileName = generateFileName(t('ac_text_photo') + '_', extension);
@@ -1070,7 +1072,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       recorder.onstop = async () => {
         // MediaRecorderの内部バッファフラッシュを待つため、少し遅延
         await new Promise(resolve => setTimeout(resolve, BUFFER_FLUSH_DELAY_MS));
-        
+
         // トラック停止
         combinedStream.getTracks().forEach(t => t.stop());
         setIsRecording(false);
@@ -1082,13 +1084,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         }
 
         const extension = videoFormatToExtension(mimeType); // 拡張子
-        
-        // MIME typeと拡張子の整合性を検証
-        validateVideoMimeTypeAndExtension(mimeType, extension);
-        
+
+        if (!IS_PRODUCTION) {
+          // MIME typeと拡張子の整合性を検証
+          validateVideoMimeTypeAndExtension(mimeType, extension);
+        }
+
         const fileName = generateFileName(t('ac_text_video') + '_', extension); // ファイル名
         const blob = new Blob(chunks, { type: mimeType });
-        
+
         // Blobの検証とログ出力
         console.log('Video recording completed:', {
           fileName,
@@ -1097,14 +1101,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           chunksCount: chunks.length,
           isValidBlob: blob.size > 0
         });
-        
+
         // Blobが空でないか確認
         if (blob.size === 0) {
           console.error('Generated video blob is empty!');
           alert(t('ac_recording_error', 'Video file is empty'));
           return;
         }
-        
+
         if (isAndroidApp) {
           saveVideoToGallery(blob, fileName, mimeType);
         } else {
@@ -1139,14 +1143,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const stopRecording = async () => {
     const recorder = mediaRecorderRef.current;
     if (!recorder) return;
-    
+
     // 最後のチャンクを明示的にフラッシュ
     try {
       recorder.requestData();
     } catch (error) {
       console.warn('requestData failed:', error);
     }
-    
+
     recorder.stop();
   };
 
