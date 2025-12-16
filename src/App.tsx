@@ -12,8 +12,9 @@ const BASE_URL = import.meta.env.BASE_URL;
 
 // アプリ
 function App() {
-  // 本番環境ではない場合、insetsをエミュレートする
-  if (!IS_PRODUCTION) { emulateInsets(); }
+  if (!IS_PRODUCTION) { // 本番環境ではない場合、
+    emulateInsets(); // insetsをエミュレートする
+  }
   return (
     <AdvancedCamera></AdvancedCamera>
   );
