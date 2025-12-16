@@ -42,8 +42,8 @@ object TopSnackbar {
     private const val ACTION_BUTTON_COLOR = "#64B5F6"
     private const val ANIMATION_DURATION_SHOW = 300L
     private const val ANIMATION_DURATION_HIDE = 200L
-    private const val SWIPE_THRESHOLD = 100f
-    private const val SWIPE_VELOCITY_THRESHOLD = 100f
+    private const val SWIPE_THRESHOLD = 50f
+    private const val SWIPE_VELOCITY_THRESHOLD = 50f
     
     @Volatile
     private var currentSnackbarView: View? = null
@@ -226,31 +226,26 @@ object TopSnackbar {
                 velocityX: Float,
                 velocityY: Float
             ): Boolean {
-                // Handle null e1 gracefully (can happen in some Android versions)
                 val startEvent = e1 ?: return false
-                
+
                 val diffX = e2.x - startEvent.x
                 val diffY = e2.y - startEvent.y
-                
-                // Check if it's a significant swipe
+
+                Timber.d("TopSnackbar onFling diffX=%.1f diffY=%.1f vX=%.1f vY=%.1f", diffX, diffY, velocityX, velocityY)
+
+                // 閾値は定数に合わせる
                 if (abs(diffX) > SWIPE_THRESHOLD || abs(diffY) > SWIPE_THRESHOLD) {
-                    // Determine swipe direction
                     if (abs(diffY) > abs(diffX)) {
-                        // Vertical swipe
                         if (diffY < 0 && abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
-                            // Swipe up
                             dismissWithSwipe(view, SwipeDirection.UP)
                             return true
                         }
                     } else {
-                        // Horizontal swipe
                         if (abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
                             if (diffX < 0) {
-                                // Swipe left
                                 dismissWithSwipe(view, SwipeDirection.LEFT)
                                 return true
                             } else {
-                                // Swipe right
                                 dismissWithSwipe(view, SwipeDirection.RIGHT)
                                 return true
                             }
@@ -260,13 +255,30 @@ object TopSnackbar {
                 return false
             }
         })
-        
-        // Use a touch listener that doesn't consume all events to allow button clicks
+
         view.setOnTouchListener { v, event ->
-            // Let the gesture detector handle the event
+            // 子ビュー（ボタン等）のクリック可能領域なら子に処理を委譲
+            if (v is ViewGroup) {
+                for (i in 0 until v.childCount) {
+                    val child = v.getChildAt(i)
+                    if (child.visibility == View.VISIBLE && child.isClickable) {
+                        val sx = event.x.toInt()
+                        val sy = event.y.toInt()
+                        if (sx >= child.left && sx <= child.right && sy >= child.top && sy <= child.bottom) {
+                            return@setOnTouchListener false
+                        }
+                    }
+                }
+            }
+
             val handled = gestureDetector.onTouchEvent(event)
-            // Return false to allow child views (like buttons) to also receive events
-            handled && event.action == MotionEvent.ACTION_UP
+
+            // ACTION_DOWN は true を返して以降のイベントを受け取るようにする
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                return@setOnTouchListener true
+            }
+
+            handled
         }
     }
     
