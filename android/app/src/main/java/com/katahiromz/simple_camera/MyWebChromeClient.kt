@@ -154,12 +154,14 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
     }
 
     // Snackbarを表示してファイルを開くアクションを提供するヘルパーメソッド
-    private fun showFileOpenSnackbar(currentActivity: MainActivity, uri: Uri, message: String, mimeType: String) {
+    private fun showFileOpenSnackbar(currentActivity: MainActivity, uri: Uri, messageResId: Int, mimeType: String) {
         currentActivity.runOnUiThread {
             try {
                 val rootView = currentActivity.findViewById<View>(android.R.id.content)
+                val message = currentActivity.getString(messageResId)
+                val actionLabel = currentActivity.getString(R.string.open_file)
                 Snackbar.make(rootView, message, Snackbar.LENGTH_LONG)
-                    .setAction("ファイルを開く") {
+                    .setAction(actionLabel) {
                         try {
                             val openIntent = Intent(Intent.ACTION_VIEW).apply {
                                 setDataAndType(uri, mimeType)
@@ -211,7 +213,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     }
                     
                     // Snackbarを表示
-                    showFileOpenSnackbar(currentActivity, it, "画像を保存しました", "image/*")
+                    showFileOpenSnackbar(currentActivity, it, R.string.image_saved, "image/*")
                     
                     true
                 } ?: false
@@ -244,7 +246,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     "${currentActivity.packageName}.fileprovider",
                     file
                 )
-                showFileOpenSnackbar(currentActivity, uri, "画像を保存しました", "image/*")
+                showFileOpenSnackbar(currentActivity, uri, R.string.image_saved, "image/*")
                 
                 true
             }
@@ -282,7 +284,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     }
                     
                     // Snackbarを表示
-                    showFileOpenSnackbar(currentActivity, it, "動画を保存しました", "video/*")
+                    showFileOpenSnackbar(currentActivity, it, R.string.video_saved, "video/*")
                     
                     true
                 } ?: false
@@ -315,7 +317,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     "${currentActivity.packageName}.fileprovider",
                     file
                 )
-                showFileOpenSnackbar(currentActivity, uri, "動画を保存しました", "video/*")
+                showFileOpenSnackbar(currentActivity, uri, R.string.video_saved, "video/*")
                 
                 true
             }

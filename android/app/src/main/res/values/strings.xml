@@ -17,6 +17,11 @@
     <string name="progress_bar">ProgressBar</string>
     <string name="now_starting">Loading camera...</string>
 
+    <!-- file saving -->
+    <string name="image_saved">Image saved</string>
+    <string name="video_saved">Video saved</string>
+    <string name="open_file">Open file</string>
+
     <!-- URLs -->
     <string name="url">https://appassets.androidplatform.net/camera/index.html</string>
 </resources>
