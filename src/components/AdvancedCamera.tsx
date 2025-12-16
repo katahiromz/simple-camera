@@ -48,8 +48,8 @@ interface AdvancedCameraProps {
   showMic?: boolean; // マイクボタンを表示するか？
   showRecord?: boolean; // ビデオ撮影ボタンを表示するか？
   showControls?: boolean; // コントロールパネルを表示するか？
-  screenshotQuality?: number; // スクリーンショットの品質(0.0～1.0)
-  screenshotFormat?: string; // スクリーンショットの形式
+  photoQuality?: number; // 写真の品質(0.0～1.0)
+  photoFormat?: string; // 写真の形式
   onUserMedia?: userMediaFn; // ストリームを返す関数
   onImageProcess?: userImageProcessFn; // イメージを処理する関数
 };
@@ -60,8 +60,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   showMic = true,
   showRecord = true,
   showControls = true,
-  screenshotQuality = 0.92,
-  screenshotFormat = 'image/jpeg',
+  photoQuality = 0.92,
+  photoFormat = 'image/jpeg',
   onUserMedia = null,
   onImageProcess = null,
 }) => {
@@ -664,7 +664,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
         // 拡張子
         let extension;
-        switch (screenshotFormat) {
+        switch (photoFormat) {
         case 'image/png': extension = 'png'; break;
         case 'image/tiff': extension = 'tif'; break;
         case 'image/webp': extension = 'webp'; break;
@@ -679,7 +679,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         } else {
           downloadFallback(blob, fileName);
         }
-      }, screenshotFormat, screenshotQuality); // JPEG形式
+      }, photoFormat, photoQuality); // JPEG形式
     } catch (error) {
       console.error('Photo capture failed', error);
       alert(t('ac_taking_photo_failed'));
