@@ -918,13 +918,19 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       case '+': // +: ズームイン
       case ';': // (日本語キーボード対応用)
         event.preventDefault();
-        const newZoomIn = Math.min(MAX_ZOOM, zoom + KEYBOARD_ZOOM_DELTA);
-        setZoomState(newZoomIn);
+        setZoomState(prevZoom => {
+          const newZoom = Math.min(MAX_ZOOM, prevZoom + KEYBOARD_ZOOM_DELTA);
+          setPanState(prevPan => clampPan(prevPan.x, prevPan.y, newZoom));
+          return newZoom;
+        });
         break;
       case '-': // -: ズームアウト
         event.preventDefault();
-        const newZoomOut = Math.max(MIN_ZOOM, zoom - KEYBOARD_ZOOM_DELTA);
-        setZoomState(newZoomOut);
+        setZoomState(prevZoom => {
+          const newZoom = Math.max(MIN_ZOOM, prevZoom - KEYBOARD_ZOOM_DELTA);
+          setPanState(prevPan => clampPan(prevPan.x, prevPan.y, newZoom));
+          return newZoom;
+        });
         break;
       // パン操作 (Ctrl + 矢印)
       case 'ArrowUp':
@@ -956,7 +962,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [clampPan]);
+  }, [clampPan, takePhoto, toggleRecording]);
 
   const onContextMenu = (event) => {
     // 製品版の場合はコンテキストメニューを禁止
