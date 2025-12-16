@@ -68,6 +68,7 @@ export const calculateMaxPanOffsets = (
 
 /**
  * ダウンロードファイル名の生成
+ * 拡張子はドット付き・ドット無し両方に対応
  */
 export const generateFileName = (prefix: 'video_' | 'photo_', extension: string): string => {
   const now = new Date();
@@ -75,7 +76,9 @@ export const generateFileName = (prefix: 'video_' | 'photo_', extension: string)
   let timestamp = now.toLocaleDateString() + " " + now.toLocaleTimeString();
   // 空白文字やファイル名に使用できない文字を _ に置き換える
   timestamp = timestamp.replace(/[:\.\\\/]/g, '_');
-  return `${prefix}${timestamp}.${extension}`;
+  // 拡張子が既にドットで始まっている場合はそのまま、そうでない場合はドットを追加
+  const ext = extension.startsWith('.') ? extension : `.${extension}`;
+  return `${prefix}${timestamp}${ext}`;
 };
 
 /**
@@ -88,4 +91,77 @@ export const formatTime = (seconds: number): string => {
   
   const pad = (n: number) => n.toString().padStart(2, '0');
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
+};
+
+/**
+ * 画像の形式から拡張子へ（ドット付き）
+ */
+export const photoFormatToExtension = (format: string): string => {
+  switch (format) {
+  case 'image/png': return '.png';
+  case 'image/tiff': return '.tif';
+  case 'image/webp': return '.webp';
+  case 'image/bmp': return '.bmp';
+  case 'image/jpeg': default: return '.jpg';
+  }
+};
+
+/**
+ * 拡張子から画像の形式へ（バリデーション用）
+ * 拡張子はドット付き・ドット無しの両方に対応
+ */
+export const extensionToPhotoFormat = (extension: string): string => {
+  const ext = extension.toLowerCase().replace(/^\./, ''); // ドットを削除して正規化
+  switch (ext) {
+  case 'png': return 'image/png';
+  case 'tif': case 'tiff': return 'image/tiff';
+  case 'webp': return 'image/webp';
+  case 'bmp': return 'image/bmp';
+  case 'jpg': case 'jpeg': default: return 'image/jpeg';
+  }
+};
+
+/**
+ * MIME typeと拡張子の整合性を検証
+ */
+export const validateMimeTypeAndExtension = (mimeType: string, extension: string): boolean => {
+  const expectedMimeType = extensionToPhotoFormat(extension);
+  const valid = expectedMimeType === mimeType;
+  if (!valid) {
+    console.warn(`MIME type mismatch: expected ${expectedMimeType} for extension ${extension}, but got ${mimeType}`);
+  }
+  return valid;
+};
+
+/**
+ * 動画の形式から拡張子へ（ドット付き）
+ */
+export const videoFormatToExtension = (format: string): string => {
+  if (format.includes('mp4')) return '.mp4';
+  if (format.includes('webm')) return '.webm';
+  return '.webm'; // default
+};
+
+/**
+ * 拡張子から動画の形式へ（バリデーション用）
+ * 拡張子はドット付き・ドット無しの両方に対応
+ */
+export const extensionToVideoFormat = (extension: string): string => {
+  const ext = extension.toLowerCase().replace(/^\./, ''); // ドットを削除して正規化
+  switch (ext) {
+  case 'mp4': return 'video/mp4';
+  case 'webm': default: return 'video/webm';
+  }
+};
+
+/**
+ * 動画のMIME typeと拡張子の整合性を検証
+ */
+export const validateVideoMimeTypeAndExtension = (mimeType: string, extension: string): boolean => {
+  const expectedMimeType = extensionToVideoFormat(extension);
+  const valid = expectedMimeType === mimeType;
+  if (!valid) {
+    console.warn(`Video MIME type mismatch: expected ${expectedMimeType} for extension ${extension}, but got ${mimeType}`);
+  }
+  return valid;
 };
