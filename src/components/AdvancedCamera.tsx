@@ -849,14 +849,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   };
 
   // 画像の保存(Android用)
-  const saveImageToGallery = (blob, fileName) => {
+  const saveImageToGallery = (blob, fileName, mimeType) => {
     console.assert(isAndroidApp);
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64data = reader.result.split(',')[1];
       if (typeof window.android.saveImageToGallery === 'function') {
         try {
-          window.android.saveImageToGallery(base64data, fileName);
+          window.android.saveImageToGallery(base64data, fileName, mimeType);
           console.log('Saved image:', fileName);
         } catch (error) {
           console.assert(false);
@@ -1001,7 +1001,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
         // ファイルに保存
         if (isAndroidApp) {
-          saveImageToGallery(blob, fileName);
+          saveImageToGallery(blob, fileName, photoFormat);
         } else {
           downloadFallback(blob, fileName);
         }
@@ -1023,7 +1023,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   };
 
   // ビデオをギャラリーに保存(Android専用)
-  const saveVideoToGallery = (blob, fileName) => {
+  const saveVideoToGallery = (blob, fileName, mimeType) => {
     console.assert(isAndroidApp);
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -1031,7 +1031,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const base64Data = reader.result.split(',')[1];
       // Kotlin側の関数を呼び出す
       try {
-        window.android.saveVideoToGallery(base64Data, fileName);
+        window.android.saveVideoToGallery(base64Data, fileName, mimeType);
         console.log('保存完了:' + fileName);
       } catch (error) {
         console.error('android インタフェース呼び出しエラー:', error);
@@ -1101,7 +1101,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         const fileName = generateFileName(t('ac_text_video') + '_', extension); // ファイル名
         const blob = new Blob(chunks, { type: mimeType });
         if (isAndroidApp) {
-          saveVideoToGallery(blob, fileName);
+          saveVideoToGallery(blob, fileName, mimeType);
         } else {
           downloadFallback(blob, fileName);
         }

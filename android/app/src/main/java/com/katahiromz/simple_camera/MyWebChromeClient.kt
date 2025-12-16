@@ -186,26 +186,13 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         }
     }
 
-    // Helper function to get MIME type from image filename extension
-    private fun getMimeTypeFromImageFilename(filename: String): String {
-        return when (filename.substringAfterLast('.', "").lowercase()) {
-            "png" -> "image/png"
-            "jpg", "jpeg" -> "image/jpeg"
-            "webp" -> "image/webp"
-            "bmp" -> "image/bmp"
-            "tif", "tiff" -> "image/tiff"
-            else -> "image/jpeg" // default fallback
-        }
-    }
-
     // 画像をギャラリーに保存する
     @JavascriptInterface
-    fun saveImageToGallery(base64Data: String, filename: String): Boolean {
+    fun saveImageToGallery(base64Data: String, filename: String, mimeType: String): Boolean {
         val currentActivity = activity ?: return false
         
         return try {
             val imageBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
-            val mimeType = getMimeTypeFromImageFilename(filename)
             
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Android 10以降: MediaStore APIを使用
@@ -270,23 +257,13 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         }
     }
 
-    // Helper function to get MIME type from video filename extension
-    private fun getMimeTypeFromVideoFilename(filename: String): String {
-        return when (filename.substringAfterLast('.', "").lowercase()) {
-            "webm" -> "video/webm"
-            "mp4" -> "video/mp4"
-            else -> "video/webm" // default fallback
-        }
-    }
-
     // 動画をギャラリーに保存する
     @JavascriptInterface
-    fun saveVideoToGallery(base64Data: String, filename: String): Boolean {
+    fun saveVideoToGallery(base64Data: String, filename: String, mimeType: String): Boolean {
         val currentActivity = activity ?: return false
         
         return try {
             val videoBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
-            val mimeType = getMimeTypeFromVideoFilename(filename)
             
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Android 10以降: MediaStore APIを使用
