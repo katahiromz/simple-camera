@@ -389,6 +389,134 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     initCamera();
   };
 
+  // --- Permission の監視(可能なら) ---
+  const cameraPermissionRef = useState(null);
+  const micPermissionRef = useState(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const cleanupPermissionListeners = () => {
+      try {
+        if (cameraPermissionRef.current) {
+          cameraPermissionRef.current.onchange = null;
+          cameraPermissionRef.current = null;
+        }
+        if (micPermissionRef.current) {
+          micPermissionRef.current.onchange = null;
+          micPermissionRef.current = null;
+        }
+      } catch (e) {
+        console.warn('cleanupPermissionListeners failed', e);
+      }
+    };
+
+    const handleCameraPermissionChange = () => {
+      try {
+        const state = cameraPermissionRef.current?.state;
+        console.log('camera permission state:', state);
+        if (!isActive) return;
+        if (state === 'denied') {
+          // 権限が取り消されたらストリーム停止 & 状態更新
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+          }
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            mediaRecorderRef.current.stop();
+          }
+          setStatus('noPermission');
+        } else if (state === 'granted') {
+          // 権限が付与されたら再初期化
+          if (status !== 'ready') {
+            initCamera();
+          }
+        }
+      } catch (e) {
+        console.warn('handleCameraPermissionChange failed', e);
+      }
+    };
+
+    const handleMicPermissionChange = () => {
+      try {
+        const state = micPermissionRef.current?.state;
+        console.log('microphone permission state:', state);
+        if (!isActive) return;
+        if (state === 'denied') {
+          setHasMic(false);
+          // 録画中にマイクが取り消されたら録画は続けるが音声は無し (あるいは録画停止)
+        } else if (state === 'granted') {
+          setHasMic(true);
+        }
+      } catch (e) {
+        console.warn('handleMicPermissionChange failed', e);
+      }
+    };
+
+    const setupPermissions = async () => {
+      if (!navigator.permissions || !navigator.permissions.query) {
+        console.log('Permissions API not supported in this browser');
+        return;
+      }
+
+      try {
+        // camera
+        // some browsers require 'camera' as PermissionName, cast to any for TS
+        const cameraStatus = await (navigator.permissions as any).query({ name: 'camera' });
+        cameraPermissionRef.current = cameraStatus;
+        cameraStatus.onchange = handleCameraPermissionChange;
+
+        // microphone
+        const micStatus = await (navigator.permissions as any).query({ name: 'microphone' });
+        micPermissionRef.current = micStatus;
+        micStatus.onchange = handleMicPermissionChange;
+
+        // 初期状態の反映
+        handleCameraPermissionChange();
+        handleMicPermissionChange();
+      } catch (error) {
+        console.warn('setupPermissions failed', error);
+      }
+    };
+
+    // devicechange をフォールバックとして監視（権限やデバイスの変更を検出できることがある）
+    const onDeviceChange = () => {
+      console.log('mediaDevices devicechange detected — reinitializing or checking permissions');
+      // 少し遅延して再初期化 (デバイスリストが更新されるのを待つ)
+      setTimeout(() => {
+        // 権限が denied になっていれば initCamera は no-op となる
+        initCamera();
+      }, 500);
+    };
+
+    setupPermissions();
+
+    if (navigator.mediaDevices && (navigator.mediaDevices as any).addEventListener) {
+      try {
+        (navigator.mediaDevices as any).addEventListener('devicechange', onDeviceChange);
+      } catch (e) {
+        // older browsers
+        try {
+          (navigator.mediaDevices as any).ondevicechange = onDeviceChange;
+        } catch (_) {}
+      }
+    }
+
+    return () => {
+      isActive = false;
+      cleanupPermissionListeners();
+      try {
+        if (navigator.mediaDevices && (navigator.mediaDevices as any).removeEventListener) {
+          (navigator.mediaDevices as any).removeEventListener('devicechange', onDeviceChange);
+        } else if (navigator.mediaDevices) {
+          (navigator.mediaDevices as any).ondevicechange = null;
+        }
+      } catch (e) {
+        console.warn('failed to cleanup devicechange listener', e);
+      }
+    };
+  }, [initCamera, status]);
+
   // カメラ切り替え
   const switchCamera = () => {
     if (isRecording) return; // 録画中は切り替え不可
