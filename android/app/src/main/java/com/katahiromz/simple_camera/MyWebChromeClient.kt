@@ -186,6 +186,18 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         }
     }
 
+    // Helper function to get MIME type from image filename extension
+    private fun getMimeTypeFromImageFilename(filename: String): String {
+        return when (filename.substringAfterLast('.', "").lowercase()) {
+            "png" -> "image/png"
+            "jpg", "jpeg" -> "image/jpeg"
+            "webp" -> "image/webp"
+            "bmp" -> "image/bmp"
+            "tif", "tiff" -> "image/tiff"
+            else -> "image/jpeg" // default fallback
+        }
+    }
+
     // 画像をギャラリーに保存する
     @JavascriptInterface
     fun saveImageToGallery(base64Data: String, filename: String): Boolean {
@@ -193,12 +205,13 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         
         return try {
             val imageBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            val mimeType = getMimeTypeFromImageFilename(filename)
             
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Android 10以降: MediaStore APIを使用
                 val contentValues = android.content.ContentValues().apply {
                     put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, filename)
-                    put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png")
+                    put(android.provider.MediaStore.Images.Media.MIME_TYPE, mimeType)
                     put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, 
                         android.os.Environment.DIRECTORY_PICTURES + "/SimpleCamera")
                 }
@@ -237,7 +250,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 android.media.MediaScannerConnection.scanFile(
                     currentActivity,
                     arrayOf(file.absolutePath),
-                    arrayOf("image/png"),
+                    arrayOf(mimeType),
                     null
                 )
                 
@@ -257,6 +270,15 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         }
     }
 
+    // Helper function to get MIME type from video filename extension
+    private fun getMimeTypeFromVideoFilename(filename: String): String {
+        return when (filename.substringAfterLast('.', "").lowercase()) {
+            "webm" -> "video/webm"
+            "mp4" -> "video/mp4"
+            else -> "video/webm" // default fallback
+        }
+    }
+
     // 動画をギャラリーに保存する
     @JavascriptInterface
     fun saveVideoToGallery(base64Data: String, filename: String): Boolean {
@@ -264,12 +286,13 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         
         return try {
             val videoBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            val mimeType = getMimeTypeFromVideoFilename(filename)
             
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Android 10以降: MediaStore APIを使用
                 val contentValues = android.content.ContentValues().apply {
                     put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, filename)
-                    put(android.provider.MediaStore.Video.Media.MIME_TYPE, "video/webm")
+                    put(android.provider.MediaStore.Video.Media.MIME_TYPE, mimeType)
                     put(android.provider.MediaStore.Video.Media.RELATIVE_PATH, 
                         android.os.Environment.DIRECTORY_MOVIES + "/SimpleCamera")
                 }
@@ -308,7 +331,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 android.media.MediaScannerConnection.scanFile(
                     currentActivity,
                     arrayOf(file.absolutePath),
-                    arrayOf("video/webm"),
+                    arrayOf(mimeType),
                     null
                 )
                 

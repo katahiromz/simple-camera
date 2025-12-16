@@ -933,6 +933,52 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
   };
 
+  // 拡張子から画像の形式へ（バリデーション用）
+  const extensionToPhotoFormat = (extension: string): string => {
+    switch (extension.toLowerCase()) {
+    case 'png': return 'image/png';
+    case 'tif': case 'tiff': return 'image/tiff';
+    case 'webp': return 'image/webp';
+    case 'bmp': return 'image/bmp';
+    case 'jpg': case 'jpeg': default: return 'image/jpeg';
+    }
+  };
+
+  // MIME typeと拡張子の整合性を検証
+  const validateMimeTypeAndExtension = (mimeType: string, extension: string): boolean => {
+    const expectedMimeType = extensionToPhotoFormat(extension);
+    const valid = expectedMimeType === mimeType;
+    if (!valid) {
+      console.warn(`MIME type mismatch: expected ${expectedMimeType} for extension .${extension}, but got ${mimeType}`);
+    }
+    return valid;
+  };
+
+  // 動画の形式から拡張子へ
+  const videoFormatToExtension = (format: string): string => {
+    if (format.includes('mp4')) return 'mp4';
+    if (format.includes('webm')) return 'webm';
+    return 'webm'; // default
+  };
+
+  // 拡張子から動画の形式へ（バリデーション用）
+  const extensionToVideoFormat = (extension: string): string => {
+    switch (extension.toLowerCase()) {
+    case 'mp4': return 'video/mp4';
+    case 'webm': default: return 'video/webm';
+    }
+  };
+
+  // 動画のMIME typeと拡張子の整合性を検証
+  const validateVideoMimeTypeAndExtension = (mimeType: string, extension: string): boolean => {
+    const expectedMimeType = extensionToVideoFormat(extension);
+    const valid = expectedMimeType === mimeType;
+    if (!valid) {
+      console.warn(`Video MIME type mismatch: expected ${expectedMimeType} for extension .${extension}, but got ${mimeType}`);
+    }
+    return valid;
+  };
+
   // 実際に写真を撮影し、ファイルに保存する
   const takePhoto = (options = null) => {
     try {
@@ -946,6 +992,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
         // 拡張子を選ぶ
         let extension = photoFormatToExtension(photoFormat);
+
+        // MIME typeと拡張子の整合性を検証
+        validateMimeTypeAndExtension(photoFormat, extension);
 
         // ファイル名
         const fileName = generateFileName(t('ac_text_photo') + '_', extension);
@@ -1044,7 +1093,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           playSound(videoCompleteAudioRef.current);
         }
 
-        const extension = mimeType.includes('mp4') ? 'mp4' : 'webm'; // 拡張子
+        const extension = videoFormatToExtension(mimeType); // 拡張子
+        
+        // MIME typeと拡張子の整合性を検証
+        validateVideoMimeTypeAndExtension(mimeType, extension);
+        
         const fileName = generateFileName(t('ac_text_video') + '_', extension); // ファイル名
         const blob = new Blob(chunks, { type: mimeType });
         if (isAndroidApp) {
