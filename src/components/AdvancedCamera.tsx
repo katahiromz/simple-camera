@@ -117,6 +117,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   // タッチ操作用のRef
   const lastTouchDistanceRef = useRef(0);
   const lastTouchCenterRef = useRef({ x: 0, y: 0 });
+  const initialTouchDistanceRef = useRef(0); // ピンチ開始時の距離
+  const initialTouchCenterRef = useRef({ x: 0, y: 0 }); // ピンチ開始時の中心座標
+  const initialPanRef = useRef({ x: 0, y: 0 }); // ピンチ開始時のパン位置
+  const initialZoomRef = useRef(1.0); // ピンチ開始時のズーム倍率
   const isDraggingRef = useRef(false);
   const lastMousePosRef = useRef({ x: 0, y: 0 });
 
@@ -131,6 +135,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const [hasMic, setHasMic] = useState(false); // マイクがあるか？
   const [renderMetrics, setRenderMetrics] = useState<RenderMetrics>({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 }); // 描画に使う寸法情報
   const [isDummyImageLoaded, setIsDummyImageLoaded] = useState(false); // ダミー画像がロードされたか？
+
+  // 現在のzoomとpanの値を常にrefに保持（タッチイベントで使用）
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+  useEffect(() => {
+    zoomRef.current = zoom;
+    panRef.current = pan;
+  }, [zoom, pan]);
 
   // カメラの種類(背面／前面)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(() => {
@@ -791,8 +803,17 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (event.touches.length === 2) {
       console.log("touch start");
       event.preventDefault();
-      lastTouchDistanceRef.current = getDistance(event.touches[0], event.touches[1]);
-      lastTouchCenterRef.current = getCenter(event.touches[0], event.touches[1]);
+      const distance = getDistance(event.touches[0], event.touches[1]);
+      const center = getCenter(event.touches[0], event.touches[1]);
+      
+      lastTouchDistanceRef.current = distance;
+      lastTouchCenterRef.current = center;
+      
+      // ピンチ開始時の状態を記録
+      initialTouchDistanceRef.current = distance;
+      initialTouchCenterRef.current = center;
+      initialPanRef.current = panRef.current;
+      initialZoomRef.current = zoomRef.current;
     }
   }, []);
 
@@ -801,23 +822,30 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       console.log("touch move");
       event.preventDefault();
 
-      setZoomState(prevZoom => {
-        const t1 = event.touches[0], t2 = event.touches[1];
-        const newDist = getDistance(t1, t2);
-        const zoomDelta = (newDist - lastTouchDistanceRef.current) * 0.01;
-        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + zoomDelta));
+      const t1 = event.touches[0], t2 = event.touches[1];
+      const currentDist = getDistance(t1, t2);
+      const currentCenter = getCenter(t1, t2);
 
-        // パン処理 (ズーム後の新しい値を使用)
-        const newCenter = getCenter(t1, t2);
-        const dx = newCenter.x - lastTouchCenterRef.current.x;
-        const dy = newCenter.y - lastTouchCenterRef.current.y;
-        setPanState(prevPan => clampPan(prevPan.x + dx, prevPan.y + dy, newZoom));
+      // ズーム倍率を計算（初期距離との比率）
+      // 初期距離が0の場合はズームを変更しない（ガード）
+      let newZoom = zoomRef.current;
+      if (initialTouchDistanceRef.current > 0) {
+        const zoomRatio = currentDist / initialTouchDistanceRef.current;
+        newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, initialZoomRef.current * zoomRatio));
+        setZoomState(newZoom);
+      }
 
-        lastTouchDistanceRef.current = newDist;
-        lastTouchCenterRef.current = newCenter;
+      // パン量を計算（中心位置の移動量）
+      const dx = currentCenter.x - initialTouchCenterRef.current.x;
+      const dy = currentCenter.y - initialTouchCenterRef.current.y;
+      const newPanX = initialPanRef.current.x + dx;
+      const newPanY = initialPanRef.current.y + dy;
 
-        return newZoom;
-      });
+      // パンを更新
+      setPanState(clampPan(newPanX, newPanY, newZoom));
+
+      lastTouchDistanceRef.current = currentDist;
+      lastTouchCenterRef.current = currentCenter;
     }
   }, [clampPan]);
 
