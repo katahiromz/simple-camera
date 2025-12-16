@@ -1,4 +1,4 @@
-// App.tsx
+// App.tsx --- アプリのTypeScriptソース
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import AdvancedCamera from './components/AdvancedCamera.tsx';
 import { emulateInsets } from './utils.ts';

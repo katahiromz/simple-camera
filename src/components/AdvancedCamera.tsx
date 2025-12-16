@@ -1,4 +1,4 @@
-// AdvancedCamera.tsx
+// AdvancedCamera.tsx --- Reactコンポーネント「AdvancedCamera」のTypeScriptソース
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Camera, Mic, MicOff, Video, VideoOff, RefreshCw, SwitchCamera, CameraOff} from 'lucide-react'; // lucide-reactを使用
 import './AdvancedCamera.css';
@@ -57,7 +57,7 @@ interface AdvancedCameraProps {
   showMic: boolean; // マイクボタンを表示するか？
   showRecord: boolean; // ビデオ撮影ボタンを表示するか？
   showControls: boolean; // コントロールボタン群を表示するか？
-  photoQuality: number; // 写真の品質(0.0～1.0)
+  photoQuality: number; // 写真の品質(0～1)
   photoFormat: supportedPictureFormats; // 写真の形式
   onUserMedia?: userMediaFn; // ストリームを取得するための関数
   onImageProcess?: userImageProcessFn; // イメージを処理する関数
@@ -71,6 +71,7 @@ interface AdvancedCameraProps {
   videoCompleteSoundUrl: string | null; // 動画撮影完了時の音の場所
 };
 
+// AdvancedCamera本体
 const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   audio = true,
   showTakePhoto = true,
@@ -90,10 +91,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   videoStartSoundUrl = `${BASE_URL}ac-video-started.mp3`,
   videoCompleteSoundUrl = `${BASE_URL}ac-video-completed.mp3`,
 }) => {
+  const { t } = useTranslation(); // 翻訳用
   const ICON_SIZE = 32; // アイコンサイズ
   const MIN_ZOOM = 1.0; // ズーム倍率の最小値
   const MAX_ZOOM = 4.0; // ズーム倍率の最大値
-  const { t } = useTranslation(); // 翻訳用
 
   // --- Refs ---
   const containerRef = useRef<HTMLDivElement>(null);
