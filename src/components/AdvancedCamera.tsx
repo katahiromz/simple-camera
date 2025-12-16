@@ -714,9 +714,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
           const fileName = generateFileName(t('ac_text_video') + '_', mimeType.includes('mp4') ? 'mp4' : 'webm');
           const blob = new Blob(chunks, { type: mimeType });
           if (isAndroidApp) {
-          saveVideoToGallery(blob, fileName);
+            saveVideoToGallery(blob, fileName);
           } else {
-          downloadFallback(blob, fileName);
+            downloadFallback(blob, fileName);
           }
         };
 
@@ -779,14 +779,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({ showControls = true }) 
         switch(event.key) {
           case ' ': // Space: 写真撮影
             if (event.ctrlKey && event.shiftKey) { // Ctrl+Shift+Space: 写真撮影
-            event.preventDefault();
-            takePhoto();
+              event.preventDefault();
+              takePhoto();
             }
             break;
           case 'r': case 'R':
             if (event.ctrlKey && event.shiftKey) { // Ctrl+Shift+R: 録画の開始／終了
-            event.preventDefault();
-            toggleRecording();
+              event.preventDefault();
+              toggleRecording();
             }
             break;
           case '+': // +: ズームイン
