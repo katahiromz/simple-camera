@@ -17,6 +17,11 @@
     <string name="progress_bar">プログレス バー</string>
     <string name="now_starting">カメラを起動中...</string>
 
+    <!-- file saving -->
+    <string name="image_saved">画像を保存しました</string>
+    <string name="video_saved">動画を保存しました</string>
+    <string name="open_file">ファイルを開く</string>
+
     <!-- URLs -->
     <string name="url">https://appassets.androidplatform.net/camera/index.html</string>
 </resources>

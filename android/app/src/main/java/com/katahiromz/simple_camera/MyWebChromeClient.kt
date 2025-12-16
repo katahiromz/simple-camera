@@ -3,7 +3,10 @@
 
 package com.katahiromz.simple_camera
 
+import android.content.Intent
+import android.net.Uri
 import android.text.InputType
+import android.view.View
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
@@ -13,7 +16,9 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.FileProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import timber.log.Timber
 import java.util.Locale
 
@@ -148,6 +153,38 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         return hasCameraPermission
     }
 
+    // Snackbarを表示してファイルを開くアクションを提供するヘルパーメソッド
+    private fun showFileOpenSnackbar(currentActivity: MainActivity, uri: Uri, messageResId: Int, mimeType: String) {
+        currentActivity.runOnUiThread {
+            try {
+                val rootView = currentActivity.findViewById<View>(android.R.id.content)
+                val message = currentActivity.getString(messageResId)
+                val actionLabel = currentActivity.getString(R.string.open_file)
+                Snackbar.make(rootView, message, Snackbar.LENGTH_LONG)
+                    .setAction(actionLabel) {
+                        try {
+                            val openIntent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, mimeType)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            // アプリが利用可能かチェック
+                            if (openIntent.resolveActivity(currentActivity.packageManager) != null) {
+                                currentActivity.startActivity(openIntent)
+                            } else {
+                                Timber.w("No app available to open file of type: $mimeType")
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to open file")
+                        }
+                    }
+                    .show()
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to show Snackbar")
+            }
+        }
+    }
+
     // 画像をギャラリーに保存する
     @JavascriptInterface
     fun saveImageToGallery(base64Data: String, filename: String): Boolean {
@@ -174,6 +211,10 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
                         outputStream.write(imageBytes)
                     }
+                    
+                    // Snackbarを表示
+                    showFileOpenSnackbar(currentActivity, it, R.string.image_saved, "image/*")
+                    
                     true
                 } ?: false
             } else {
@@ -198,6 +239,14 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     arrayOf("image/png"),
                     null
                 )
+                
+                // Snackbarを表示
+                val uri = FileProvider.getUriForFile(
+                    currentActivity,
+                    "${currentActivity.packageName}.fileprovider",
+                    file
+                )
+                showFileOpenSnackbar(currentActivity, uri, R.string.image_saved, "image/*")
                 
                 true
             }
@@ -233,6 +282,10 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
                         outputStream.write(videoBytes)
                     }
+                    
+                    // Snackbarを表示
+                    showFileOpenSnackbar(currentActivity, it, R.string.video_saved, "video/*")
+                    
                     true
                 } ?: false
             } else {
@@ -257,6 +310,14 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     arrayOf("video/webm"),
                     null
                 )
+                
+                // Snackbarを表示
+                val uri = FileProvider.getUriForFile(
+                    currentActivity,
+                    "${currentActivity.packageName}.fileprovider",
+                    file
+                )
+                showFileOpenSnackbar(currentActivity, uri, R.string.video_saved, "video/*")
                 
                 true
             }
