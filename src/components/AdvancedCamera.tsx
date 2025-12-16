@@ -134,6 +134,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const lastScanTimeRef = useRef<number>(0); // 最後にスキャンした時刻
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null); // スキャン間隔タイマー
   const scanTimeoutRef = useRef<NodeJS.Timeout | null>(null); // スキャン後の一時停止タイマー
+  const scanResultRef = useRef<{ rawValue: string; boundingBox: { x: number; y: number; width: number; height: number }; format: string } | null>(null); // スキャン結果のRef（描画用）
 
   // カメラの種類(背面／前面)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(() => {
@@ -193,7 +194,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     } catch (error) {
       console.error('Failed to initialize shutter audio:', error);
     }
-  }, []); // 依存配列が空なのでマウント時に一度だけ実行される
+  }, []);
 
   // QRコードスキャン用Workerの初期化
   useEffect(() => {
@@ -214,11 +215,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         } else if (data.type === 'result') {
           // QRコードが検出された
           console.log('QR Code detected:', data.rawValue);
-          setScanResult({
+          const result = {
             rawValue: data.rawValue,
             boundingBox: data.boundingBox,
             format: data.format,
-          });
+          };
+          setScanResult(result);
+          scanResultRef.current = result; // Update ref for drawing
 
           // シャッター音を再生
           if (soundEffect) {
@@ -232,6 +235,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           }
           scanTimeoutRef.current = setTimeout(() => {
             setScanResult(null); // 検出結果をクリア
+            scanResultRef.current = null; // Clear ref as well
             lastScanTimeRef.current = 0;
           }, 2000);
         }
@@ -788,10 +792,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     ctx.restore();
 
     // QRコード検出のオーバーレイを描画
-    if (scanResult && scanningEnabled) {
+    const currentScanResult = scanResultRef.current;
+    if (currentScanResult && scanningEnabled) {
       ctx.save();
       
-      const bbox = scanResult.boundingBox;
+      const bbox = currentScanResult.boundingBox;
       
       // 緑色の矩形を描画
       ctx.strokeStyle = '#00ff00';
@@ -799,7 +804,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       ctx.strokeRect(bbox.x, bbox.y, bbox.width, bbox.height);
       
       // 検出されたテキストを描画
-      const text = scanResult.rawValue;
+      const text = currentScanResult.rawValue;
       const fontSize = 16;
       ctx.font = `${fontSize}px Arial`;
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -821,7 +826,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
 
     animeRequestRef.current = requestAnimationFrame(draw);
-  }, [status, zoom, pan, renderMetrics, isDummyImageLoaded, scanResult, scanningEnabled]);
+  }, [status, zoom, pan, renderMetrics, isDummyImageLoaded, scanningEnabled]);
 
   useEffect(() => {
     if (status === 'ready') {
@@ -1391,7 +1396,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             onClick={() => setScanningEnabled(!scanningEnabled)}
             disabled={!isBarcodeDetectorSupported || isRecording}
             aria-label={scanningEnabled ? 'Disable QR Scan' : 'Enable QR Scan'}
-            title={!isBarcodeDetectorSupported ? 'BarcodeDetector not supported' : (scanningEnabled ? 'Scan ON' : 'Scan OFF')}
+            title={
+              !isBarcodeDetectorSupported 
+                ? 'BarcodeDetector not supported in this browser' 
+                : isRecording 
+                  ? 'QR scanning is disabled during recording' 
+                  : scanningEnabled 
+                    ? 'Click to disable QR code scanning' 
+                    : 'Click to enable QR code scanning'
+            }
           >
             <ScanLine size={ICON_SIZE} />
           </button>

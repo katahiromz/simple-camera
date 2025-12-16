@@ -1,4 +1,6 @@
-// barcodeWorker.ts --- Web Worker for QR code detection using BarcodeDetector and OffscreenCanvas
+// barcodeWorker.ts --- Web Worker for QR code detection using BarcodeDetector
+// Note: BarcodeDetector.detect() can work directly with ImageBitmap, so we don't need
+// to create an OffscreenCanvas unless we need to manipulate the image first.
 
 // Message types
 interface DetectionResult {
