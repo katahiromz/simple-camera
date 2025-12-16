@@ -257,3 +257,21 @@ position: absolute;
 .advanced-camera__button--switch:disabled {
     opacity: 0.3;
 }
+
+/* スキャンボタン */
+.advanced-camera__button--scan {
+  color: white;
+  background: rgba(100, 100, 255, 0.5);
+  border: 2px solid #aaa;
+}
+
+.advanced-camera__button--scan-active {
+  background: rgba(0, 200, 0, 0.6);
+  animation: scan-pulse 2s infinite;
+}
+
+@keyframes scan-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(0, 255, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); }
+}

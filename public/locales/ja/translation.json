@@ -18,5 +18,7 @@
   "ac_recording_disconnected": "録画デバイスが切断されました。",
   "ac_recording_error": "録画を中断しました: {{error}}",
   "ac_recording_cannot_start": "録画を開始できませんでした: {{error}}",
-  "ac_saving_movie_failed": "動画の保存に失敗しました: {{error}}"
+  "ac_saving_movie_failed": "動画の保存に失敗しました: {{error}}",
+  "ac_enable_scanning": "QRコードスキャンを有効化",
+  "ac_disable_scanning": "QRコードスキャンを無効化"
 }
