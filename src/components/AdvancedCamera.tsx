@@ -762,7 +762,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         // ビデオ録画完了音を再生
         playSound(videoCompleteAudioRef.current);
 
-        const fileName = generateFileName(t('ac_text_video') + '_', mimeType.includes('mp4') ? 'mp4' : 'webm');
+        const extension = mimeType.includes('mp4') ? 'mp4' : 'webm'; // 拡張子
+        const fileName = generateFileName(t('ac_text_video') + '_', extension); // ファイル名
         const blob = new Blob(chunks, { type: mimeType });
         if (isAndroidApp) {
           saveVideoToGallery(blob, fileName);
