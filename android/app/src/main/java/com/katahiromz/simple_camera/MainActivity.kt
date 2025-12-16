@@ -46,6 +46,7 @@ import com.google.android.material.snackbar.Snackbar
 import java.util.Locale
 import timber.log.Timber
 import java.io.ByteArrayInputStream
+import kotlin.math.max
 
 // 複数の翻訳版を有効にするために、任意の翻訳版のコンテキストを作成できるようにする。
 // https://qiita.com/tarumzu/items/b076c4635b38366cddee
@@ -914,9 +915,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         
         val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         // 最小でも最大音量の30%は確保する
-        val minVolume = Math.max((maxVolume * 0.3).toInt(), 3)
+        val minVolume = max((maxVolume * 0.3).toInt(), 3)
         val targetVolume = (volume * maxVolume.toDouble()).toInt()
-        val finalVolume = Math.max(targetVolume, minVolume)
+        val finalVolume = max(targetVolume, minVolume)
         
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, finalVolume, 0)
     }
