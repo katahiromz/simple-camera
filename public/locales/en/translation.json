@@ -16,7 +16,7 @@
   "ac_switching_camera": "Switching camera...",
   "ac_taking_photo_failed": "Failed to save photo.",
   "ac_recording_disconnected": "Recording device disconnected",
-  "ac_recording_error": "録画を中断しました: {{error}}",
+  "ac_recording_error": "Recording was interrupted: {{error}}",
   "ac_recording_cannot_start": "Recording could not be started: {{error}}",
   "ac_saving_movie_failed": "Failed to save the movie: {{error}}",
   "ac_enable_scanning": "Enable QR code scanning",

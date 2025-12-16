@@ -98,6 +98,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const ICON_SIZE = 32; // アイコンサイズ
   const MIN_ZOOM = 1.0; // ズーム倍率の最小値
   const MAX_ZOOM = 4.0; // ズーム倍率の最大値
+  
+  // QRコードスキャン設定
+  const SCAN_INTERVAL_MS = 300; // スキャン間隔（ミリ秒）
+  const SCAN_CENTER_REGION = 0.6; // スキャン対象の中央領域（60%）
+  const SCAN_SCALE_FACTOR = 0.5; // スキャン用の縮小率（50%）
+  const SCAN_PAUSE_DURATION_MS = 2000; // 検出後のスキャン一時停止時間（ミリ秒）
 
   // --- Refs ---
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1184,16 +1190,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         const ctx = scanCanvas.getContext('2d');
         if (!ctx) return;
 
-        // 中央60%の領域を選択
-        const centerScale = 0.6;
-        const sourceWidth = canvas.width * centerScale;
-        const sourceHeight = canvas.height * centerScale;
+        // 中央領域を選択
+        const sourceWidth = canvas.width * SCAN_CENTER_REGION;
+        const sourceHeight = canvas.height * SCAN_CENTER_REGION;
         const sourceX = (canvas.width - sourceWidth) / 2;
         const sourceY = (canvas.height - sourceHeight) / 2;
 
         // スキャン用キャンバスのサイズを設定（縮小してパフォーマンス向上）
-        const targetWidth = Math.floor(sourceWidth * 0.5); // さらに50%に縮小
-        const targetHeight = Math.floor(sourceHeight * 0.5);
+        const targetWidth = Math.floor(sourceWidth * SCAN_SCALE_FACTOR);
+        const targetHeight = Math.floor(sourceHeight * SCAN_SCALE_FACTOR);
         
         if (scanCanvas.width !== targetWidth || scanCanvas.height !== targetHeight) {
           scanCanvas.width = targetWidth;
@@ -1238,12 +1243,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           setTimeout(() => {
             scanningPausedRef.current = false;
             setScanResult(null); // 結果をクリア
-          }, 2000);
+          }, SCAN_PAUSE_DURATION_MS);
         }
       } catch (error) {
         console.warn('QR scanning failed:', error);
       }
-    }, 300); // 300msごとにスキャン
+    }, SCAN_INTERVAL_MS); // スキャン間隔
 
     return () => {
       clearInterval(scanInterval);
