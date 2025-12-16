@@ -706,7 +706,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const MOUSE_WHEEL_DELTA = 0.004;
 
   // パンの制限ロジック
-  const clampPan = (newPanX: number, newPanY: number, zoomRatio: number) => {
+  const clampPan = useCallback((newPanX: number, newPanY: number, zoomRatio: number) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
 
     const { maxPanX, maxPanY } = calculateMaxPanOffsets(
@@ -720,7 +720,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       x: Math.max(-maxPanX, Math.min(maxPanX, newPanX)),
       y: Math.max(-maxPanY, Math.min(maxPanY, newPanY))
     };
-  };
+  }, []);
 
   // パンをずらす
   const shiftPan = (dx, dy) => {
@@ -821,6 +821,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
   }, [clampPan]);
 
+  const handleTouchEnd = useCallback(() => {
+    console.log("touch end");
+    // Reset touch state when gesture ends
+    lastTouchDistanceRef.current = 0;
+    lastTouchCenterRef.current = { x: 0, y: 0 };
+  }, []);
+
   // イベントリスナーの設定
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -833,6 +840,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     window.addEventListener('mouseup', handleMouseUp, { passive: false });
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
 
     return () => {
       canvas.removeEventListener('wheel', handleWheel);
@@ -841,8 +850,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       window.removeEventListener('mouseup', handleMouseUp);
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
+      canvas.removeEventListener('touchend', handleTouchEnd);
+      canvas.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [handleMouseDown, handleMouseMove, handleMouseUp, handleTouchStart, handleTouchMove]);
+  }, [handleMouseDown, handleMouseMove, handleMouseUp, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   // フォールバック用のダウンロード関数
   const downloadFallback = (blob, fileName) => {
