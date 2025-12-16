@@ -164,8 +164,14 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                             val openIntent = Intent(Intent.ACTION_VIEW).apply {
                                 setDataAndType(uri, mimeType)
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
-                            currentActivity.startActivity(openIntent)
+                            // アプリが利用可能かチェック
+                            if (openIntent.resolveActivity(currentActivity.packageManager) != null) {
+                                currentActivity.startActivity(openIntent)
+                            } else {
+                                Timber.w("No app available to open file of type: $mimeType")
+                            }
                         } catch (e: Exception) {
                             Timber.e(e, "Failed to open file")
                         }
