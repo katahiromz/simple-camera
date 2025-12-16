@@ -259,7 +259,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   }
 
   // 効果音を再生するかどうか決める関数
-  const canPlaySound = (options = null): boolean => {
+  const mustPlaySound = (options = null): boolean => {
     if (!options || options.soundEffect === null || options.soundEffect === undefined) {
       return soundEffect;
     }
@@ -275,10 +275,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     let sourceWidth: number;
     let sourceHeight: number;
 
-    if (dummyImageSrc && dummyImageRef.current && isDummyImageLoaded) {
+    if (dummyImageSrc) {
       // ダミー画像があれば、ダミー画像のサイズを使用
-      sourceWidth = dummyImageRef.current.naturalWidth;
-      sourceHeight = dummyImageRef.current.naturalHeight;
+      if (dummyImageRef.current) {
+        sourceWidth = dummyImageRef.current.naturalWidth;
+        sourceHeight = dummyImageRef.current.naturalHeight;
+      } else {
+        sourceWidth = sourceHeight = 1;
+      }
     } else if (video) {
       // ビデオのサイズを使用
       sourceWidth = video.videoWidth;
@@ -564,7 +568,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (isRecording) return; // 録画中は切り替え不可
 
     // ダミー画像を使用している場合は切り替え不可
-    if (dummyImageSrc && dummyImageRef.current && isDummyImageLoaded) {
+    if (dummyImageSrc) {
       console.log('Camera switching is disabled when using dummy image');
       return;
     }
@@ -592,13 +596,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   }, [facingMode, initCamera]);
 
   useEffect(() => {
-    // ダミー画像が指定されている場合は、ロードを待つ
-    if (dummyImageSrc && !isDummyImageLoaded) {
-      console.log('Waiting for dummy image to load...');
-      return;
-    }
+    if (!dummyImageSrc)
+      initCamera();
 
-    initCamera();
     // クリーンアップ
     return () => {
       if (streamRef.current) {
@@ -678,11 +678,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (!canvas || status !== 'ready') return;
 
     // ダミー画像を使用するか？
-    const useDummyImage = dummyImageSrc && dummyImageRef.current && isDummyImageLoaded;
-    const dummyImage = useDummyImage ? dummyImageRef.current : null;
+    const dummyImage = dummyImageSrc ? dummyImageRef.current : null;
 
     // ビデオまたはダミー画像のいずれかが利用可能である必要がある
-    if (!useDummyImage && !video) return;
+    if (!dummyImage && !video) return;
 
     // renderMetricsが初期値(0)の場合は描画をスキップする
     // これにより、正しいメトリクスが計算されるまでの間、不正なフレームの描画を防ぐ
@@ -927,7 +926,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     const video = videoRef.current;
     if (!canvas || !video) return null;
 
-    if (canPlaySound(options)) {
+    if (mustPlaySound(options)) {
       // シャッター音再生
       playSound(shutterAudioRef.current);
     }
@@ -1039,13 +1038,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     try {
       if (!canvasRef.current) return; // キャンバスがない？
 
-      if (canPlaySound(options)) {
+      if (mustPlaySound(options)) {
         // ビデオ録画開始音を再生
         playSound(videoStartAudioRef.current);
       }
 
       // 映像ストリーム
-      const canvasStream = canvasRef.current.captureStream(30);
+      const canvasStream = canvasRef.current.captureStream(20);
       const tracks = [...canvasStream.getVideoTracks()];
 
       // 音声ストリーム
@@ -1102,7 +1101,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         setRecordingTime(0);
 
         // ビデオ録画完了音を再生
-        if (canPlaySound(options)) {
+        if (mustPlaySound(options)) {
           playSound(videoCompleteAudioRef.current);
         }
 
