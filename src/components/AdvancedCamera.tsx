@@ -44,24 +44,28 @@ type userImageProcessData = {
   pan: { x: number, y: number }, // パン(平行移動量、ピクセル単位)
 };
 
+// イメージを処理するための関数型
 type userImageProcessFn = (data: userImageProcessData) => void;
+
+// サポート済みの画像形式
+type supportedPictureFormats = 'image/png' | 'image/tiff' | 'image/webp' | 'image/bmp' | 'image/jpeg';
 
 // 便利なプロパティ
 interface AdvancedCameraProps {
-  audio?: boolean; // 音声を有効にするか?
-  showTakePhoto?: boolean; // 写真撮影ボタンを表示するか？
-  showMic?: boolean; // マイクボタンを表示するか？
-  showRecord?: boolean; // ビデオ撮影ボタンを表示するか？
-  showControls?: boolean; // コントロールパネルを表示するか？
-  photoQuality?: number; // 写真の品質(0.0～1.0)
-  photoFormat?: string; // 写真の形式
+  audio: boolean; // 音声を有効にするか?
+  showTakePhoto: boolean; // 写真撮影ボタンを表示するか？
+  showMic: boolean; // マイクボタンを表示するか？
+  showRecord: boolean; // ビデオ撮影ボタンを表示するか？
+  showControls: boolean; // コントロールパネルを表示するか？
+  photoQuality: number; // 写真の品質(0.0～1.0)
+  photoFormat: supportedPictureFormats; // 写真の形式
   onUserMedia?: userMediaFn; // ストリームを返す関数
   onImageProcess?: userImageProcessFn; // イメージを処理する関数
-  dummyImageSrc?: string | null; // ダミー画像へのパス
-  sound?: boolean; // 撮影時に音を鳴らすか？
-  shutterSoundUrl?: string; // 撮影時の音の場所
-  videoStartSoundUrl?: string; // 動画撮影開始時の音の場所
-  videoCompleteSoundUrl?: string; // 動画撮影完了時の音の場所
+  dummyImageSrc: string | null; // ダミー画像へのパス
+  sound: boolean; // 撮影時に音を鳴らすか？
+  shutterSoundUrl: string | null; // 撮影時の音の場所
+  videoStartSoundUrl: string | null; // 動画撮影開始時の音の場所
+  videoCompleteSoundUrl: string | null; // 動画撮影完了時の音の場所
 };
 
 const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
@@ -756,6 +760,17 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
   };
 
+  // 画像の形式から拡張子へ
+  const photoFormatToExtension = (format: string): string => {
+    switch (format) {
+    case 'image/png': return 'png';
+    case 'image/tiff': return 'tif';
+    case 'image/webp': return 'webp';
+    case 'image/bmp': return 'bmp';
+    case 'image/jpeg': default: return 'jpg';
+    }
+  };
+
   // 実際に写真を撮影し、ファイルに保存する
   const takePhoto = () => {
     try {
@@ -768,13 +783,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           throw new Error('Failed to create photo blob');
 
         // 拡張子を選ぶ
-        let extension;
-        switch (photoFormat) {
-        case 'image/png': extension = 'png'; break;
-        case 'image/tiff': extension = 'tif'; break;
-        case 'image/webp': extension = 'webp'; break;
-        case 'image/jpeg': default: extension = 'jpg'; break;
-        }
+        let extension = photoFormatToExtension(photoFormat);
 
         // ファイル名
         const fileName = generateFileName(t('ac_text_photo') + '_', extension);
