@@ -33,7 +33,8 @@ type userMediaFn = (MediaStream) => null;
 // イメージを処理するための型
 type userImageProcessData = {
   canvas: HTMLCanvasElement, // キャンバス
-  video: HTMLVideoElement, // ビデオ
+  video: HTMLVideoElement | null, // ビデオ
+  dummyImage: HTMLImageElement | null, // ダミー画像
   ctx: CanvasRenderingContext2D, // 描画コンテキスト
   x: number, // 転送先X座標
   y: number, // 転送先Y座標
@@ -41,7 +42,6 @@ type userImageProcessData = {
   height: number, // 転送先の高さ
   zoom: number, // ズーム倍率(0.0～1.0)
   pan: { x: number, y: number }, // パン(平行移動量、ピクセル単位)
-  dummyImage: HTMLImageElement | null, // ダミー画像
 };
 
 type userImageProcessFn = (data: userImageProcessData) => void;
@@ -935,7 +935,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   // --- アクセシビリティ (キーボード操作) ---
   //
   const KEYBOARD_PAN_DELTA = 20;
-  const KEYBOARD_ZOOM_DELTA = 0.1;
+  const KEYBOARD_ZOOM_DELTA = 0.2;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
