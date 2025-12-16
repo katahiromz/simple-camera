@@ -233,7 +233,7 @@ object TopSnackbar {
 
                 Timber.d("TopSnackbar onFling diffX=%.1f diffY=%.1f vX=%.1f vY=%.1f", diffX, diffY, velocityX, velocityY)
 
-                // 閾値は定数に合わせる
+                // Check if swipe distance exceeds threshold
                 if (abs(diffX) > SWIPE_THRESHOLD || abs(diffY) > SWIPE_THRESHOLD) {
                     if (abs(diffY) > abs(diffX)) {
                         if (diffY < 0 && abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
@@ -257,7 +257,7 @@ object TopSnackbar {
         })
 
         view.setOnTouchListener { v, event ->
-            // 子ビュー（ボタン等）のクリック可能領域なら子に処理を委譲
+            // Delegate to child views (buttons, etc.) if touch is on clickable area
             if (v is ViewGroup) {
                 for (i in 0 until v.childCount) {
                     val child = v.getChildAt(i)
@@ -273,7 +273,7 @@ object TopSnackbar {
 
             val handled = gestureDetector.onTouchEvent(event)
 
-            // ACTION_DOWN は true を返して以降のイベントを受け取るようにする
+            // Return true for ACTION_DOWN to ensure we receive subsequent events
             if (event.action == MotionEvent.ACTION_DOWN) {
                 return@setOnTouchListener true
             }
