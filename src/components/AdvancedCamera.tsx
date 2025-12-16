@@ -225,7 +225,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
   }, [dummyImageSrc]); // ダミー画像のパスが変更されたら再ロード
 
-  const VOLUME = 0.5; // 音量
+  const VOLUME = 1.0; // 音量（最大）
 
   // 音声を再生する
   const playSound = (audio: HTMLAudioElement | null) => {
