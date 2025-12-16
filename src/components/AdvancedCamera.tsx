@@ -158,9 +158,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
   }, []); // 依存配列が空なのでマウント時に一度だけ実行される
 
-  // ダミー画像の初期化（非本番環境のみ）
+  // ダミー画像の初期化
   useEffect(() => {
-    if (!IS_PRODUCTION && dummyImageSrc) {
+    if (dummyImageSrc) {
       const img = new Image();
       img.onload = () => {
         dummyImageRef.current = img;
@@ -213,8 +213,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     let sourceWidth: number;
     let sourceHeight: number;
 
-    if (!IS_PRODUCTION && dummyImageRef.current && isDummyImageLoaded) {
-      // 非本番環境ではダミー画像のサイズを使用
+    if (dummyImageSrc && dummyImageRef.current && isDummyImageLoaded) {
+      // ダミー画像のサイズを使用
       sourceWidth = dummyImageRef.current.naturalWidth;
       sourceHeight = dummyImageRef.current.naturalHeight;
     } else if (video) {
@@ -244,8 +244,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     setPanState({ x: 0, y: 0 }); // パン位置もリセット
     setZoomState(1.0); // ズームもリセット
 
-    // 非本番環境ではダミー画像を使用
-    if (!IS_PRODUCTION && dummyImageRef.current && isDummyImageLoaded) {
+    // もしあればダミー画像を使用
+    if (dummyImageSrc && dummyImageRef.current && isDummyImageLoaded) {
       console.log('Using dummy image in non-production environment');
       updateRenderMetrics('contain');
       setStatus('ready');
@@ -357,8 +357,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const switchCamera = () => {
     if (isRecording) return; // 録画中は切り替え不可
     
-    // 非本番環境でダミー画像を使用している場合は切り替え不可
-    if (!IS_PRODUCTION && dummyImageRef.current && isDummyImageLoaded) {
+    // ダミー画像を使用している場合は切り替え不可
+    if (dummyImageSrc && dummyImageRef.current && isDummyImageLoaded) {
       console.log('Camera switching is disabled when using dummy image');
       return;
     }
@@ -386,8 +386,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   }, [facingMode, initCamera]);
 
   useEffect(() => {
-    // 非本番環境でダミー画像が指定されている場合は、ロードを待つ
-    if (!IS_PRODUCTION && dummyImageSrc && !isDummyImageLoaded) {
+    // ダミー画像が指定されている場合は、ロードを待つ
+    if (dummyImageSrc && !isDummyImageLoaded) {
       console.log('Waiting for dummy image to load...');
       return;
     }
@@ -451,8 +451,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     ctx.scale(zoom, zoom);
     ctx.translate(-canvas.width / 2, -canvas.height / 2);
 
-    // 非本番環境ではダミー画像を、本番環境ではビデオを転送
-    const source = (!IS_PRODUCTION && dummyImageRef.current && isDummyImageLoaded) 
+    // ダミー画像を、本番環境ではビデオを転送
+    const source = (dummyImageSrc && dummyImageRef.current && isDummyImageLoaded) 
       ? dummyImageRef.current 
       : video;
     
@@ -466,8 +466,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     const canvas = canvasRef.current;
     if (!canvas || status !== 'ready') return;
 
-    // 非本番環境でダミー画像を使用する場合
-    const useDummyImage = !IS_PRODUCTION && dummyImageRef.current && isDummyImageLoaded;
+    // ダミー画像を使用するか？
+    const useDummyImage = dummyImageSrc && dummyImageRef.current && isDummyImageLoaded;
     
     // ビデオまたはダミー画像のいずれかが利用可能である必要がある
     if (!useDummyImage && !video) return;
@@ -1041,7 +1041,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             <button
               className={`advanced-camera__button advanced-camera__button--microphone ${hasMic && micEnabled ? 'advanced-camera__button--mic-on' : 'advanced-camera__button--mic-off'}`}
               onClick={toggleMic}
-              disabled={!hasMic || isRecording || (!IS_PRODUCTION && isDummyImageLoaded)}
+              disabled={!hasMic || isRecording || (dummyImageSrc && isDummyImageLoaded)}
               aria-label={micEnabled ? t('ac_mute_microphone') : t('ac_enable_microphone')}
             >
               {hasMic && micEnabled ? <Mic size={ICON_SIZE} /> : <MicOff size={ICON_SIZE} />}
@@ -1077,7 +1077,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         <button
           className="advanced-camera__button advanced-camera__button--switch"
           onClick={switchCamera}
-          disabled={isRecording || (!IS_PRODUCTION && isDummyImageLoaded)}
+          disabled={isRecording || (dummyImageSrc && isDummyImageLoaded)}
           aria-label={t('ac_switch_camera')}
         >
           <SwitchCamera size={ICON_SIZE} />
