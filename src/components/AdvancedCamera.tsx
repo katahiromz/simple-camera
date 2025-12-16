@@ -791,6 +791,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // --- Touch: ピンチズーム & パン ---
 
+  const TOUCH_MOVE_RATIO = 1.5;
+
   const getDistance = (t1: Touch, t2: Touch) => {
     return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
   };
@@ -819,35 +821,40 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   const handleTouchMove = useCallback((event: TouchEvent) => {
     if (event.touches.length === 2) { // 2本指操作
-      console.log("touch move");
+      console.log("touch move (panning & zooming)");
       event.preventDefault();
 
       const t1 = event.touches[0], t2 = event.touches[1];
       const currentDist = getDistance(t1, t2);
       const currentCenter = getCenter(t1, t2);
 
-      // ズーム倍率を計算（初期距離との比率）
-      // 初期距離が0の場合はズームを変更しない（ガード）
+      // --- 1. ズーム倍率を計算 ---
       let newZoom = zoomRef.current;
       if (initialTouchDistanceRef.current > 0) {
+        // 初期距離との比率に基づいて新しいズーム倍率を計算し、境界値にクランプ
         const zoomRatio = currentDist / initialTouchDistanceRef.current;
         newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, initialZoomRef.current * zoomRatio));
+        // ズームを更新
         setZoomState(newZoom);
       }
 
-      // パン量を計算（中心位置の移動量）
-      const dx = currentCenter.x - initialTouchCenterRef.current.x;
-      const dy = currentCenter.y - initialTouchCenterRef.current.y;
-      const newPanX = initialPanRef.current.x + dx;
-      const newPanY = initialPanRef.current.y + dy;
+      // --- 2. 純粋なパン量を計算 ---
+      // 前回の中心点からの移動量 (画面ピクセル単位)
+      const dx_screen = currentCenter.x - lastTouchCenterRef.current.x;
+      const dy_screen = currentCenter.y - lastTouchCenterRef.current.y;
 
-      // パンを更新
+      // ズームが適用された画像に対するパン移動量を計算
+      const newPanX = panRef.current.x + dx_screen * newZoom * TOUCH_MOVE_RATIO;
+      const newPanY = panRef.current.y + dy_screen * newZoom * TOUCH_MOVE_RATIO;
+
+      // パンを更新し、ズームと描画メトリクスに基づき境界値にクランプ
       setPanState(clampPan(newPanX, newPanY, newZoom));
 
+      // 次のフレームのために現在の値を保存
       lastTouchDistanceRef.current = currentDist;
       lastTouchCenterRef.current = currentCenter;
     }
-  }, [clampPan]);
+  }, [clampPan, zoomRef]);
 
   // イベントリスナーの設定
   useEffect(() => {
