@@ -225,30 +225,34 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
   }, [dummyImageSrc]); // ダミー画像のパスが変更されたら再ロード
 
-  const VOLUME = 1.0; // 音量（最大）
-
   // 音声を再生する
   const playSound = (audio: HTMLAudioElement | null) => {
     // 可能ならばシステム音量を変更する
     try {
-      window.android.onStartShutterSound(VOLUME);
-    } catch (error) {}
+      if (isAndroidApp)
+        android.onStartShutterSound();
+    } catch (error) {
+      alert(error);
+    }
 
     try {
       if (audio) {
+        audio.addEventListener('ended', (event) => { // 再生終了時
+          // 可能ならばシステム音量を元に戻す
+          try {
+            if (isAndroidApp)
+              android.onEndShutterSound();
+          } catch (error) {
+            alert(error);
+          }
+        });
         // 再生位置をリセットしてから再生
-        audio.volume = VOLUME;
         audio.currentTime = 0;
         audio.play();
       }
     } catch (error) {
       console.warn('sound playback failed:', error);
     }
-
-    // 可能ならばシステム音量を元に戻す
-    try {
-      window.android.onEndShutterSound();
-    } catch (error) {}
   }
 
   // 効果音を再生するかどうか決める関数

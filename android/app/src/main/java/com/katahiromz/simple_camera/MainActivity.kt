@@ -750,8 +750,8 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
                 stopVibrator()
             }
 
-            override fun onStartShutterSound(volume: Double) {
-                startShutterSound(volume)
+            override fun onStartShutterSound() {
+                startShutterSound()
             }
 
             override fun onEndShutterSound() {
@@ -906,31 +906,29 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     // region 音量の設定
 
     // 音量を変更
-    private var oldVolume: Double = -1.0
-    fun startShutterSound(volume: Double) {
-        Timber.i("onStartShutterSound")
+    private var volumeLock: Int = 0
+    private var oldVolume: Int = -1
+    fun startShutterSound() {
+        Timber.i("startShutterSound")
+        ++volumeLock
+        if (volumeLock > 1) return
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        if (oldVolume == -1.0)
-            oldVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble()
-        
+        oldVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
         val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         // 最小でも最大音量の30%は確保する
-        val minVolume = max((maxVolume * 0.3).toInt(), 3)
-        val targetVolume = (volume * maxVolume.toDouble()).toInt()
-        val finalVolume = max(targetVolume, minVolume)
-        
+        val minVolume = (maxVolume * 3) / 10
+        val finalVolume = max(oldVolume, minVolume)
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, finalVolume, 0)
     }
 
     // 音量を元に戻す。
     fun endShutterSound() {
-        Timber.i("onEndShutterSound")
+        Timber.i("endShutterSound")
+        --volumeLock
+        if (volumeLock != 0) return
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        if (oldVolume != -1.0) {
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC,
-                oldVolume.toInt(), 0)
-            oldVolume = -1.0;
-        }
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, oldVolume, 0)
+        oldVolume = -1
     }
 
     // endregion
