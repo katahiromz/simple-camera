@@ -54,6 +54,7 @@ interface AdvancedCameraProps {
   photoFormat?: string; // 写真の形式
   onUserMedia?: userMediaFn; // ストリームを返す関数
   onImageProcess?: userImageProcessFn; // イメージを処理する関数
+  dummyImageSrc?: string; // 非本番環境で使用するダミー画像のパス
 };
 
 const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
@@ -66,6 +67,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   photoFormat = 'image/jpeg',
   onUserMedia = null,
   onImageProcess = null,
+  dummyImageSrc = `${BASE_URL}dummy.jpg`,
 }) => {
   const ICON_SIZE = 32; // アイコンサイズ
   const MIN_ZOOM = 1.0; // ズーム倍率の最小値
@@ -82,6 +84,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const shutterAudioRef = useRef<HTMLAudioElement | null>(null); // シャッター音の Audio オブジェクト
   const videoStartAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画開始音の Audio オブジェクト
   const videoCompleteAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画完了音の Audio オブジェクト
+  const dummyImageRef = useRef<HTMLImageElement | null>(null); // ダミー画像の Image オブジェクト
 
   // タッチ操作用のRef
   const lastTouchDistanceRef = useRef(0);
@@ -99,6 +102,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const [micEnabled, setMicEnabled] = useState(true); // マイク有効？
   const [hasMic, setHasMic] = useState(false); // マイクがあるか？
   const [renderMetrics, setRenderMetrics] = useState<RenderMetrics>({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 }); // 描画に使う寸法情報
+  const [isDummyImageLoaded, setIsDummyImageLoaded] = useState(false); // ダミー画像がロードされたか？
 
   // カメラの種類(背面／前面)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(() => {
@@ -154,6 +158,26 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
   }, []); // 依存配列が空なのでマウント時に一度だけ実行される
 
+  // ダミー画像の初期化（非本番環境のみ）
+  useEffect(() => {
+    if (!IS_PRODUCTION) {
+      const img = new Image();
+      img.onload = () => {
+        dummyImageRef.current = img;
+        setIsDummyImageLoaded(true);
+        console.log('Dummy image loaded for non-production environment:', {
+          width: img.naturalWidth,
+          height: img.naturalHeight
+        });
+      };
+      img.onerror = (error) => {
+        console.error('Failed to load dummy image:', error);
+        setIsDummyImageLoaded(false);
+      };
+      img.src = dummyImageSrc;
+    }
+  }, [dummyImageSrc]); // ダミー画像のパスが変更されたら再ロード
+
   const VOLUME = 0.5; // 音量
 
   // 音声を再生する
@@ -184,17 +208,32 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const updateRenderMetrics = useCallback((objectFit: 'cover' | 'contain') => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    if (!canvas) return;
+
+    let sourceWidth: number;
+    let sourceHeight: number;
+
+    if (!IS_PRODUCTION && dummyImageRef.current && isDummyImageLoaded) {
+      // 非本番環境ではダミー画像のサイズを使用
+      sourceWidth = dummyImageRef.current.naturalWidth;
+      sourceHeight = dummyImageRef.current.naturalHeight;
+    } else if (video) {
+      // 本番環境ではビデオのサイズを使用
+      sourceWidth = video.videoWidth;
+      sourceHeight = video.videoHeight;
+    } else {
+      return;
+    }
 
     const metrics = calculateVideoRenderMetrics(
-      video.videoWidth,
-      video.videoHeight,
+      sourceWidth,
+      sourceHeight,
       canvas.width,
       canvas.height,
       'contain'
     );
     setRenderMetrics(metrics);
-  }, []);
+  }, [isDummyImageLoaded]);
 
   // --- 初期化 & カメラ取得フロー ---
   const initCamera = useCallback(async () => {
@@ -204,6 +243,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     setRenderMetrics({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 });
     setPanState({ x: 0, y: 0 }); // パン位置もリセット
     setZoomState(1.0); // ズームもリセット
+
+    // 非本番環境ではダミー画像を使用
+    if (!IS_PRODUCTION && dummyImageRef.current && isDummyImageLoaded) {
+      console.log('Using dummy image in non-production environment');
+      updateRenderMetrics('contain');
+      setStatus('ready');
+      setHasMic(false); // ダミー画像使用時はマイクなし
+      return;
+    }
 
     // 制約候補の構築 (理想から順に)
     const constraintsCandidates = [
@@ -298,7 +346,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         setStatus('noDevice');
       }
     }
-  }, [updateRenderMetrics, facingMode]);
+  }, [updateRenderMetrics, facingMode, isDummyImageLoaded]);
 
   // 「アプリの再起動」ボタン用
   const handleRestart = () => {
@@ -308,6 +356,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   // カメラ切り替え
   const switchCamera = () => {
     if (isRecording) return; // 録画中は切り替え不可
+    
+    // 非本番環境でダミー画像を使用している場合は切り替え不可
+    if (!IS_PRODUCTION && dummyImageRef.current && isDummyImageLoaded) {
+      console.log('Camera switching is disabled when using dummy image');
+      return;
+    }
     
     setStatus('switching');
     
@@ -332,6 +386,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   }, [facingMode, initCamera]);
 
   useEffect(() => {
+    // 非本番環境ではダミー画像のロードを待つ
+    if (!IS_PRODUCTION && !isDummyImageLoaded) {
+      console.log('Waiting for dummy image to load...');
+      return;
+    }
+    
     initCamera();
     // クリーンアップ
     return () => {
@@ -342,7 +402,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         cancelAnimationFrame(animeRequestRef.current);
       }
     };
-  }, [initCamera]);
+  }, [initCamera, isDummyImageLoaded]);
 
   // --- サイズ監視とレンダリング ---
 
@@ -391,15 +451,26 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     ctx.scale(zoom, zoom);
     ctx.translate(-canvas.width / 2, -canvas.height / 2);
 
+    // 非本番環境ではダミー画像を、本番環境ではビデオを転送
+    const source = (!IS_PRODUCTION && dummyImageRef.current && isDummyImageLoaded) 
+      ? dummyImageRef.current 
+      : video;
+    
     // イメージを転送
-    ctx.drawImage(video, x, y, width, height);
+    ctx.drawImage(source, x, y, width, height);
   };
 
   // requestAnimationFrameによる描画ループ
   const draw = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || status !== 'ready') return;
+    if (!canvas || status !== 'ready') return;
+
+    // 非本番環境でダミー画像を使用する場合
+    const useDummyImage = !IS_PRODUCTION && dummyImageRef.current && isDummyImageLoaded;
+    
+    // ビデオまたはダミー画像のいずれかが利用可能である必要がある
+    if (!useDummyImage && !video) return;
 
     // renderMetricsが初期値(0)の場合は描画をスキップする
     // これにより、正しいメトリクスが計算されるまでの間、不正なフレームの描画を防ぐ
@@ -427,7 +498,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     ctx.restore();
 
     animeRequestRef.current = requestAnimationFrame(draw);
-  }, [status, zoom, pan, renderMetrics]);
+  }, [status, zoom, pan, renderMetrics, isDummyImageLoaded]);
 
   useEffect(() => {
     if (status === 'ready') {
@@ -1006,7 +1077,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         <button
           className="advanced-camera__button advanced-camera__button--switch"
           onClick={switchCamera}
-          disabled={isRecording}
+          disabled={isRecording || (!IS_PRODUCTION && isDummyImageLoaded)}
           aria-label={t('ac_switch_camera')}
         >
           <SwitchCamera size={ICON_SIZE} />
