@@ -1,0 +1,20 @@
+{
+  "ac_text_photo": "写真",
+  "ac_text_video": "動画",
+  "ac_start_recording": "録画を開始",
+  "ac_stop_recording": "録画を停止",
+  "ac_switch_camera": "カメラ切り替え",
+  "ac_take_photo": "写真を撮影",
+  "ac_enable_microphone": "マイクを有効化",
+  "ac_mute_microphone": "マイクをミュート",
+  "ac_no_camera_found": "カメラが見つかりません",
+  "ac_restart_app": "アプリの再起動",
+  "ac_no_camera_permission": "カメラ権限がありません。アプリ設定でカメラ権限を許可してアプリを再起動してください。",
+  "ac_starting_camera": "カメラ起動中...",
+  "ac_switching_camera": "カメラ切り替え中...",
+  "ac_taking_photo_failed": "写真の保存に失敗しました。",
+  "ac_recording_disconnected": "録画デバイスが切断されました。",
+  "ac_recording_error": "録画を中断しました: {{error}}",
+  "ac_recording_cannot_start": "録画を開始できませんでした: {{error}}",
+  "ac_saving_movie_failed": "動画の保存に失敗しました: {{error}}"
+}
