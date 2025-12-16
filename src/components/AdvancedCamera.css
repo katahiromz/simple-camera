@@ -237,6 +237,26 @@ position: absolute;
   opacity: 0.8;
 }
 
+/* QRスキャンボタン */
+.advanced-camera__button--scan {
+  color: white;
+  background: rgba(0, 100, 255, 0.3);
+  border: 2px solid #0066ff;
+}
+
+/* スキャンON時のスタイル */
+.advanced-camera__button--scan-on {
+  background: rgba(0, 200, 0, 0.5);
+  border: 2px solid #00ff00;
+  animation: scan-pulse 2s infinite;
+}
+
+@keyframes scan-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(0, 255, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); }
+}
+
 /* カメラ切り替えボタン (右下端のフローティング配置) */
 .advanced-camera__button--switch {
   position: absolute;
