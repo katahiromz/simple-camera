@@ -1,0 +1,371 @@
+// TopSnackbar: A custom view that displays notifications at the top of the screen.
+// Copyright (c) 2023-2025 Katayama Hirofumi MZ. All Rights Reserved.
+
+package com.katahiromz.simple_camera
+
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.app.Activity
+import android.graphics.Color
+import android.view.GestureDetector
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import timber.log.Timber
+import kotlin.math.abs
+
+/**
+ * TopSnackbar displays a Snackbar-like notification at the top of the screen.
+ * 
+ * Features:
+ * - Displays at the top of the screen with slide-in animation
+ * - Respects safe area (status bar, notch) using WindowInsets
+ * - Auto-dismisses after specified duration with fade-out animation
+ * - Supports optional action button with callback
+ * - Replaces existing TopSnackbar when show() is called multiple times
+ * - Accessibility support with contentDescription
+ * - Swipe to dismiss (up, left, or right)
+ */
+object TopSnackbar {
+    // Constants
+    private const val SLIDE_DISTANCE = -500f
+    private const val SNACKBAR_BACKGROUND_COLOR = "#323232"
+    private const val ACTION_BUTTON_COLOR = "#64B5F6"
+    private const val ANIMATION_DURATION_SHOW = 300L
+    private const val ANIMATION_DURATION_HIDE = 200L
+    private const val SWIPE_THRESHOLD = 100f
+    private const val SWIPE_VELOCITY_THRESHOLD = 100f
+    
+    @Volatile
+    private var currentSnackbarView: View? = null
+    @Volatile
+    private var currentAnimator: AnimatorSet? = null
+    @Volatile
+    private var dismissRunnable: Runnable? = null
+    
+    /**
+     * Show a TopSnackbar notification.
+     * 
+     * @param activity The activity to display the snackbar in
+     * @param message The message text to display
+     * @param actionLabel Optional action button label
+     * @param action Optional action button callback
+     * @param durationMillis Duration to display the snackbar (default: 3000ms)
+     */
+    fun show(
+        activity: Activity,
+        message: String,
+        actionLabel: String? = null,
+        action: (() -> Unit)? = null,
+        durationMillis: Int = 3000
+    ) {
+        activity.runOnUiThread {
+            try {
+                // Dismiss any existing snackbar first
+                dismiss()
+                
+                // Get the root view
+                val rootView = activity.findViewById<ViewGroup>(android.R.id.content)
+                
+                // Create the snackbar container
+                val snackbarView = createSnackbarView(activity, message, actionLabel, action)
+                
+                // Set initial position (hidden above screen)
+                snackbarView.translationY = SLIDE_DISTANCE
+                snackbarView.alpha = 0f
+                
+                // Add swipe gesture support
+                setupSwipeGesture(snackbarView)
+                
+                // Add to root view
+                rootView.addView(snackbarView)
+                
+                // Apply window insets to respect safe area
+                ViewCompat.setOnApplyWindowInsetsListener(snackbarView) { view, insets ->
+                    val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                    val topInset = systemBars.top
+                    
+                    // Apply top margin to avoid status bar/notch
+                    val layoutParams = view.layoutParams as FrameLayout.LayoutParams
+                    layoutParams.topMargin = topInset
+                    view.layoutParams = layoutParams
+                    
+                    insets
+                }
+                
+                // Request insets to be applied
+                ViewCompat.requestApplyInsets(snackbarView)
+                
+                // Store reference
+                currentSnackbarView = snackbarView
+                
+                // Animate slide-in from top
+                val slideIn = ObjectAnimator.ofFloat(snackbarView, "translationY", SLIDE_DISTANCE, 0f)
+                val fadeIn = ObjectAnimator.ofFloat(snackbarView, "alpha", 0f, 1f)
+                
+                val showAnimator = AnimatorSet().apply {
+                    playTogether(slideIn, fadeIn)
+                    duration = ANIMATION_DURATION_SHOW
+                }
+                
+                currentAnimator = showAnimator
+                showAnimator.start()
+                
+                // Schedule auto-dismiss
+                dismissRunnable = Runnable {
+                    dismissWithAnimation()
+                }
+                dismissRunnable?.let { snackbarView.postDelayed(it, durationMillis.toLong()) }
+                
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to show TopSnackbar")
+            }
+        }
+    }
+    
+    /**
+     * Dismiss the current TopSnackbar immediately without animation.
+     */
+    fun dismiss() {
+        currentAnimator?.cancel()
+        currentAnimator = null
+        
+        currentSnackbarView?.let { view ->
+            // Cancel any pending dismiss callback
+            dismissRunnable?.let { view.removeCallbacks(it) }
+            dismissRunnable = null
+            
+            val parent = view.parent as? ViewGroup
+            parent?.removeView(view)
+        }
+        currentSnackbarView = null
+    }
+    
+    /**
+     * Dismiss the current TopSnackbar with fade-out animation.
+     */
+    private fun dismissWithAnimation() {
+        val view = currentSnackbarView ?: return
+        
+        currentAnimator?.cancel()
+        
+        // Cancel any pending dismiss callback
+        dismissRunnable?.let { view.removeCallbacks(it) }
+        dismissRunnable = null
+        
+        val slideOut = ObjectAnimator.ofFloat(view, "translationY", 0f, SLIDE_DISTANCE)
+        val fadeOut = ObjectAnimator.ofFloat(view, "alpha", 1f, 0f)
+        
+        val hideAnimator = AnimatorSet().apply {
+            playTogether(slideOut, fadeOut)
+            duration = ANIMATION_DURATION_HIDE
+        }
+        
+        hideAnimator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                dismiss()
+            }
+        })
+        
+        currentAnimator = hideAnimator
+        hideAnimator.start()
+    }
+    
+    /**
+     * Dismiss with swipe animation in the specified direction.
+     */
+    private fun dismissWithSwipe(view: View, direction: SwipeDirection) {
+        currentAnimator?.cancel()
+        
+        // Cancel any pending dismiss callback
+        dismissRunnable?.let { view.removeCallbacks(it) }
+        dismissRunnable = null
+        
+        val (translationXEnd, translationYEnd) = when (direction) {
+            SwipeDirection.UP -> 0f to SLIDE_DISTANCE
+            SwipeDirection.LEFT -> -view.width.toFloat() to 0f
+            SwipeDirection.RIGHT -> view.width.toFloat() to 0f
+        }
+        
+        val slideOutX = ObjectAnimator.ofFloat(view, "translationX", view.translationX, translationXEnd)
+        val slideOutY = ObjectAnimator.ofFloat(view, "translationY", view.translationY, translationYEnd)
+        val fadeOut = ObjectAnimator.ofFloat(view, "alpha", view.alpha, 0f)
+        
+        val hideAnimator = AnimatorSet().apply {
+            playTogether(slideOutX, slideOutY, fadeOut)
+            duration = ANIMATION_DURATION_HIDE
+        }
+        
+        hideAnimator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                dismiss()
+            }
+        })
+        
+        currentAnimator = hideAnimator
+        hideAnimator.start()
+    }
+    
+    /**
+     * Setup swipe gesture detection for dismiss.
+     */
+    private fun setupSwipeGesture(view: View) {
+        val gestureDetector = GestureDetector(view.context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float
+            ): Boolean {
+                // Handle null e1 gracefully (can happen in some Android versions)
+                val startEvent = e1 ?: return false
+                
+                val diffX = e2.x - startEvent.x
+                val diffY = e2.y - startEvent.y
+                
+                // Check if it's a significant swipe
+                if (abs(diffX) > SWIPE_THRESHOLD || abs(diffY) > SWIPE_THRESHOLD) {
+                    // Determine swipe direction
+                    if (abs(diffY) > abs(diffX)) {
+                        // Vertical swipe
+                        if (diffY < 0 && abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
+                            // Swipe up
+                            dismissWithSwipe(view, SwipeDirection.UP)
+                            return true
+                        }
+                    } else {
+                        // Horizontal swipe
+                        if (abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                            if (diffX < 0) {
+                                // Swipe left
+                                dismissWithSwipe(view, SwipeDirection.LEFT)
+                                return true
+                            } else {
+                                // Swipe right
+                                dismissWithSwipe(view, SwipeDirection.RIGHT)
+                                return true
+                            }
+                        }
+                    }
+                }
+                return false
+            }
+        })
+        
+        // Use a touch listener that doesn't consume all events to allow button clicks
+        view.setOnTouchListener { v, event ->
+            // Let the gesture detector handle the event
+            val handled = gestureDetector.onTouchEvent(event)
+            // Return false to allow child views (like buttons) to also receive events
+            handled && event.action == MotionEvent.ACTION_UP
+        }
+    }
+    
+    /**
+     * Swipe direction enum.
+     */
+    private enum class SwipeDirection {
+        UP, LEFT, RIGHT
+    }
+    
+    /**
+     * Create the snackbar view layout programmatically.
+     */
+    private fun createSnackbarView(
+        activity: Activity,
+        message: String,
+        actionLabel: String?,
+        action: (() -> Unit)?
+    ): View {
+        // Container with dark background (similar to Snackbar)
+        val container = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.parseColor(SNACKBAR_BACKGROUND_COLOR))
+            elevation = 8f
+            setPadding(
+                dpToPx(activity, 16),
+                dpToPx(activity, 12),
+                dpToPx(activity, 8),
+                dpToPx(activity, 12)
+            )
+            
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.TOP
+            }
+        }
+        
+        // Message text
+        val messageText = TextView(activity).apply {
+            text = message
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            ).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            contentDescription = message // Accessibility support
+        }
+        
+        container.addView(messageText)
+        
+        // Optional action button
+        if (actionLabel != null && action != null) {
+            val actionButton = Button(activity).apply {
+                text = actionLabel
+                setTextColor(Color.parseColor(ACTION_BUTTON_COLOR)) // Light blue
+                background = null // Borderless button
+                textSize = 14f
+                isAllCaps = true
+                setPadding(
+                    dpToPx(activity, 16),
+                    dpToPx(activity, 8),
+                    dpToPx(activity, 16),
+                    dpToPx(activity, 8)
+                )
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                contentDescription = actionLabel // Accessibility support
+                
+                setOnClickListener {
+                    try {
+                        action.invoke()
+                        dismissWithAnimation()
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error executing TopSnackbar action")
+                    }
+                }
+            }
+            
+            container.addView(actionButton)
+        }
+        
+        return container
+    }
+    
+    /**
+     * Convert dp to pixels.
+     */
+    private fun dpToPx(activity: Activity, dp: Int): Int {
+        val density = activity.resources.displayMetrics.density
+        return (dp * density).toInt()
+    }
+}
