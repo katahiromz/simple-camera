@@ -62,7 +62,7 @@ interface AdvancedCameraProps {
   onUserMedia?: userMediaFn; // ストリームを返す関数
   onImageProcess?: userImageProcessFn; // イメージを処理する関数
   dummyImageSrc: string | null; // ダミー画像へのパス
-  sound: boolean; // 撮影時に音を鳴らすか？
+  soundEffect: boolean; // 撮影時に音を鳴らすか？
   shutterSoundUrl: string | null; // 撮影時の音の場所
   videoStartSoundUrl: string | null; // 動画撮影開始時の音の場所
   videoCompleteSoundUrl: string | null; // 動画撮影完了時の音の場所
@@ -224,6 +224,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       window.android.onEndShutterSound();
     } catch (error) {}
   }
+
+  // 効果音を再生するかどうか決める関数
+  const canPlaySound = (options = null): boolean => {
+    if (!options || options.soundEffect === null || options.soundEffect === undefined) {
+      return soundEffect;
+    }
+    return options.soundEffect;
+  };
 
   // --- 描画メトリクスを計算・設定する関数を分離 ---
   const updateRenderMetrics = useCallback((objectFit: 'cover' | 'contain') => {
@@ -712,12 +720,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   // --- 写真撮影ロジック ---
 
   // スクリーンショットをHTMLCanvasElementとして取得
-  const getScreenshot = (options = {}) => {
+  const getScreenshot = (options = null) => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
     if (!canvas || !video) return null;
 
-    if (options && options.soundEffect) {
+    if (canPlaySound(options)) {
       // シャッター音再生
       playSound(shutterAudioRef.current);
     }
@@ -772,9 +780,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   };
 
   // 実際に写真を撮影し、ファイルに保存する
-  const takePhoto = () => {
+  const takePhoto = (options = null) => {
     try {
-      const photoCanvas = getScreenshot({soundEffect});
+      const photoCanvas = getScreenshot(options);
       console.assert(photoCanvas);
 
       // 新しいキャンバスを Blob (JPEG) として保存
@@ -831,11 +839,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   };
 
   // 録画開始
-  const startRecording = async (options = {}) => {
+  const startRecording = async (options = null) => {
     try {
       if (!canvasRef.current) return; // キャンバスがない？
 
-      if (options && options.soundEffect) {
+      if (canPlaySound(options)) {
         // ビデオ録画開始音を再生
         playSound(videoStartAudioRef.current);
       }
@@ -878,7 +886,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         setRecordingTime(0);
 
         // ビデオ録画完了音を再生
-        if (options && options.soundEffect) {
+        if (canPlaySound(options)) {
           playSound(videoCompleteAudioRef.current);
         }
 
@@ -925,7 +933,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (isRecording) {
       stopRecording();
     } else {
-      startRecording({soundEffect});
+      startRecording();
     }
   };
 
