@@ -56,7 +56,7 @@ interface AdvancedCameraProps {
   showTakePhoto: boolean; // 写真撮影ボタンを表示するか？
   showMic: boolean; // マイクボタンを表示するか？
   showRecord: boolean; // ビデオ撮影ボタンを表示するか？
-  showControls: boolean; // コントロールパネルを表示するか？
+  showControls: boolean; // コントロールボタン群を表示するか？
   photoQuality: number; // 写真の品質(0.0～1.0)
   photoFormat: supportedPictureFormats; // 写真の形式
   onUserMedia?: userMediaFn; // ストリームを返す関数
