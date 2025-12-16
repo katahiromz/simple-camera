@@ -57,7 +57,11 @@ interface AdvancedCameraProps {
   photoFormat?: string; // 写真の形式
   onUserMedia?: userMediaFn; // ストリームを返す関数
   onImageProcess?: userImageProcessFn; // イメージを処理する関数
-  dummyImageSrc?: string | null; // 非本番環境で使用するダミー画像のパス
+  dummyImageSrc?: string | null; // ダミー画像へのパス
+  sound?: boolean; // 撮影時に音を鳴らすか？
+  shutterSoundUrl?: string; // 撮影時の音の場所
+  videoStartSoundUrl?: string; // 動画撮影開始時の音の場所
+  videoCompleteSoundUrl?: string; // 動画撮影完了時の音の場所
 };
 
 const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
@@ -71,6 +75,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   onUserMedia = null,
   onImageProcess = null,
   dummyImageSrc = null,
+  soundEffect = true,
+  shutterSoundUrl = `${BASE_URL}ac-camera-shutter-sound.mp3`,
+  videoStartSoundUrl = `${BASE_URL}ac-video-started.mp3`,
+  videoCompleteSoundUrl = `${BASE_URL}ac-video-completed.mp3`,
 }) => {
   const ICON_SIZE = 32; // アイコンサイズ
   const MIN_ZOOM = 1.0; // ズーム倍率の最小値
@@ -150,12 +158,18 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   useEffect(() => {
     // Audioオブジェクトを作成し、Refに保持
     try {
-      shutterAudioRef.current = new Audio(`${BASE_URL}camera-shutter-sound.mp3`);
-      shutterAudioRef.current.load(); 
-      videoStartAudioRef.current = new Audio(`${BASE_URL}video-started.mp3`);
-      videoStartAudioRef.current.load(); 
-      videoCompleteAudioRef.current = new Audio(`${BASE_URL}video-completed.mp3`);
-      videoCompleteAudioRef.current.load(); 
+      if (shutterSoundUrl) {
+        shutterAudioRef.current = new Audio(shutterSoundUrl);
+        shutterAudioRef.current.load();
+      }
+      if (videoStartSoundUrl) {
+        videoStartAudioRef.current = new Audio(videoStartSoundUrl);
+        videoStartAudioRef.current.load();
+      }
+      if (videoCompleteSoundUrl) {
+        videoCompleteAudioRef.current = new Audio(videoCompleteSoundUrl);
+        videoCompleteAudioRef.current.load();
+      }
     } catch (error) {
       console.error('Failed to initialize shutter audio:', error);
     }
@@ -217,14 +231,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     let sourceHeight: number;
 
     if (dummyImageSrc && dummyImageRef.current && isDummyImageLoaded) {
-      // ダミー画像のサイズを使用
+      // ダミー画像があれば、ダミー画像のサイズを使用
       sourceWidth = dummyImageRef.current.naturalWidth;
       sourceHeight = dummyImageRef.current.naturalHeight;
     } else if (video) {
-      // 本番環境ではビデオのサイズを使用
+      // ビデオのサイズを使用
       sourceWidth = video.videoWidth;
       sourceHeight = video.videoHeight;
     } else {
+      console.assert(false);
       return;
     }
 
@@ -359,25 +374,25 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   // カメラ切り替え
   const switchCamera = () => {
     if (isRecording) return; // 録画中は切り替え不可
-    
+
     // ダミー画像を使用している場合は切り替え不可
     if (dummyImageSrc && dummyImageRef.current && isDummyImageLoaded) {
       console.log('Camera switching is disabled when using dummy image');
       return;
     }
-    
+
     setStatus('switching');
-    
+
     // 現在のストリームを停止
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-    
+
     // facing mode を切り替え
     const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
     setFacingMode(newFacingMode);
-    
+
     // 新しいカメラで初期化（initCameraは facingMode の変更を検知して自動実行される）
   };
 
@@ -394,7 +409,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       console.log('Waiting for dummy image to load...');
       return;
     }
-    
+
     initCamera();
     // クリーンアップ
     return () => {
@@ -573,14 +588,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (!isDraggingRef.current) return;
     console.log("mouse dragging");
     event.preventDefault();
-    
+
     const dx = event.clientX - lastMousePosRef.current.x;
     const dy = event.clientY - lastMousePosRef.current.y;
-    
-    setPanState(prevPan => 
+
+    setPanState(prevPan =>
       clampPan(prevPan.x + dx, prevPan.y + dy, zoom)
     );
-    
+
     lastMousePosRef.current = { x: event.clientX, y: event.clientY };
   }, [clampPan, zoom]);
 
@@ -691,22 +706,26 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   };
 
   // --- 写真撮影ロジック ---
-  const takePhoto = () => {
+
+  // スクリーンショットをHTMLCanvasElementとして取得
+  const getScreenshot = (options = {}) => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
-    if (!canvas || !video) return;
+    if (!canvas || !video) return null;
 
-    // シャッター音再生
-    playSound(shutterAudioRef.current);
+    if (options && options.soundEffect) {
+      // シャッター音再生
+      playSound(shutterAudioRef.current);
+    }
 
     try {
       // 映像が実際に描画されている領域を計算
       const { renderWidth, renderHeight, offsetX, offsetY } = renderMetrics;
-      
+
       // ズームとパンを考慮した描画領域を計算
       const zoomedWidth = renderWidth * zoom;
       const zoomedHeight = renderHeight * zoom;
-      
+
       // 切り取り領域の計算（キャンバス座標系）
       const cropX = Math.max(0, (canvas.width - zoomedWidth) / 2 - pan.x);
       const cropY = Math.max(0, (canvas.height - zoomedHeight) / 2 - pan.y);
@@ -718,7 +737,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       photoCanvas.width = cropWidth;
       photoCanvas.height = cropHeight;
       const photoCtx = photoCanvas.getContext('2d');
-      
+
       if (!photoCtx) {
         console.error('Failed to get photo canvas context');
         alert(t('ac_taking_photo_failed'));
@@ -729,18 +748,26 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       photoCtx.drawImage(
         canvas,
         cropX, cropY, cropWidth, cropHeight,  // 元のキャンバスの切り取り領域
-        0, 0, cropWidth, cropHeight            // 新しいキャンバスの描画領域
+        0, 0, cropWidth, cropHeight           // 新しいキャンバスの描画領域
       );
+      return photoCanvas;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  // 実際に写真を撮影し、ファイルに保存する
+  const takePhoto = () => {
+    try {
+      const photoCanvas = getScreenshot({soundEffect});
+      console.assert(photoCanvas);
 
       // 新しいキャンバスを Blob (JPEG) として保存
       photoCanvas.toBlob((blob) => {
-        if (!blob) {
-          console.error('Failed to create photo blob');
-          alert(t('ac_taking_photo_failed'));
-          return;
-        }
+        if (!blob)
+          throw new Error('Failed to create photo blob');
 
-        // 拡張子
+        // 拡張子を選ぶ
         let extension;
         switch (photoFormat) {
         case 'image/png': extension = 'png'; break;
@@ -752,12 +779,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         // ファイル名
         const fileName = generateFileName(t('ac_text_photo') + '_', extension);
 
+        // ファイルに保存
         if (isAndroidApp) {
           saveImageToGallery(blob, fileName);
         } else {
           downloadFallback(blob, fileName);
         }
-      }, photoFormat, photoQuality); // JPEG形式
+      }, photoFormat, photoQuality);
     } catch (error) {
       console.error('Photo capture failed', error);
       alert(t('ac_taking_photo_failed'));
@@ -794,12 +822,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   };
 
   // 録画開始
-  const startRecording = async () => {
+  const startRecording = async (options = {}) => {
     try {
       if (!canvasRef.current) return; // キャンバスがない？
 
-      // ビデオ録画開始音を再生
-      playSound(videoStartAudioRef.current);
+      if (options && options.soundEffect) {
+        // ビデオ録画開始音を再生
+        playSound(videoStartAudioRef.current);
+      }
 
       // 映像ストリーム
       const canvasStream = canvasRef.current.captureStream(30);
@@ -839,7 +869,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         setRecordingTime(0);
 
         // ビデオ録画完了音を再生
-        playSound(videoCompleteAudioRef.current);
+        if (options && options.soundEffect) {
+          playSound(videoCompleteAudioRef.current);
+        }
 
         const extension = mimeType.includes('mp4') ? 'mp4' : 'webm'; // 拡張子
         const fileName = generateFileName(t('ac_text_video') + '_', extension); // ファイル名
@@ -884,7 +916,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (isRecording) {
       stopRecording();
     } else {
-      startRecording();
+      startRecording({soundEffect});
     }
   };
 
@@ -1041,7 +1073,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           {zoom.toFixed(1)}x
         </div>
       )}
-
 
       {/* コントロールパネル */}
       {status === 'ready' && showControls && (
