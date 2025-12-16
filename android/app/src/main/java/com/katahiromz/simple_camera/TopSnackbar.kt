@@ -214,11 +214,14 @@ object TopSnackbar {
         currentAnimator = hideAnimator
         hideAnimator.start()
     }
-    
+
     /**
      * Setup swipe gesture detection for dismiss.
      */
     private fun setupSwipeGesture(view: View) {
+        var hasMoved = false
+        var downX = 0f
+        var downY = 0f
         val gestureDetector = GestureDetector(view.context, object : GestureDetector.SimpleOnGestureListener() {
             override fun onFling(
                 e1: MotionEvent?,
@@ -235,17 +238,23 @@ object TopSnackbar {
 
                 // Check if swipe distance exceeds threshold
                 if (abs(diffX) > SWIPE_THRESHOLD || abs(diffY) > SWIPE_THRESHOLD) {
+                    // Check if it's primarily a vertical swipe (UP)
                     if (abs(diffY) > abs(diffX)) {
                         if (diffY < 0 && abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
+                            // Swipe Up
                             dismissWithSwipe(view, SwipeDirection.UP)
                             return true
                         }
-                    } else {
+                    } 
+                    // Check if it's primarily a horizontal swipe (LEFT or RIGHT)
+                    else {
                         if (abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
                             if (diffX < 0) {
+                                // Swipe Left
                                 dismissWithSwipe(view, SwipeDirection.LEFT)
                                 return true
                             } else {
+                                // Swipe Right
                                 dismissWithSwipe(view, SwipeDirection.RIGHT)
                                 return true
                             }
@@ -254,34 +263,66 @@ object TopSnackbar {
                 }
                 return false
             }
+            
+            // onDownを追加: ACTION_DOWNで必ずtrueを返し、ジェスチャー検知の初期化と後続イベントの処理を保証する
+            override fun onDown(e: MotionEvent): Boolean {
+                return true
+            }
         })
-
-        view.setOnTouchListener { v, event ->
-            // Delegate to child views (buttons, etc.) if touch is on clickable area
+        
+        fun isTouchOnClickableChild(v: View, event: MotionEvent): Boolean {
             if (v is ViewGroup) {
                 for (i in 0 until v.childCount) {
                     val child = v.getChildAt(i)
                     if (child.visibility == View.VISIBLE && child.isClickable) {
                         val sx = event.x.toInt()
                         val sy = event.y.toInt()
-                        if (sx >= child.left && sx <= child.right && sy >= child.top && sy <= child.bottom) {
-                            return@setOnTouchListener false
+                        if (sx >= child.left && sx <= child.right &&
+                            sy >= child.top && sy <= child.bottom) {
+                            // 「移動していない」タップのみ子ビューに任せる
+                            return event.action == MotionEvent.ACTION_UP && !hasMoved
                         }
                     }
                 }
             }
+            return false
+        }
 
-            val handled = gestureDetector.onTouchEvent(event)
+        view.setOnTouchListener { v, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.x
+                    downY = event.y
+                    hasMoved = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (abs(event.x - downX) > SWIPE_THRESHOLD ||
+                        abs(event.y - downY) > SWIPE_THRESHOLD) {
+                        hasMoved = true
+                    }
+                }
+            }
 
-            // Return true for ACTION_DOWN to ensure we receive subsequent events
-            if (event.action == MotionEvent.ACTION_DOWN) {
+            // クリック可能な子ビュー上での ACTION_UP であれば、子ビューに処理を任せる（falseを返す）
+            if (isTouchOnClickableChild(v, event)) {
+                return@setOnTouchListener false
+            }
+            
+            // 上記以外（スワイプの開始、途中、アクションボタン以外の場所でのタッチ）はジェスチャーディテクターに渡す
+            val handledByGesture = gestureDetector.onTouchEvent(event)
+            
+            // ACTION_DOWN、またはジェスチャーディテクターが処理した場合は、trueを返してイベントを消費する
+            // onDownで常にtrueを返すようにしたため、ここでは handledByGesture の結果をそのまま返すだけでOKだが、
+            // 確実性のために ACTION_DOWN のチェックを残しておく
+            if (event.action == MotionEvent.ACTION_DOWN || handledByGesture) {
                 return@setOnTouchListener true
             }
 
-            handled
+            // それ以外の場合はジェスチャーディテクターの結果に依存
+            handledByGesture
         }
     }
-    
+
     /**
      * Swipe direction enum.
      */
