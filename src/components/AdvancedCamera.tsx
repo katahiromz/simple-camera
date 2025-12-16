@@ -101,6 +101,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const ICON_SIZE = 32; // アイコンサイズ
   const MIN_ZOOM = 1.0; // ズーム倍率の最小値
   const MAX_ZOOM = 4.0; // ズーム倍率の最大値
+  const BUFFER_FLUSH_DELAY_MS = 100; // MediaRecorderバッファフラッシュ待機時間(ミリ秒)
 
   // --- Refs ---
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1069,7 +1070,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       // 停止時・エラー時のダウンロード処理
       recorder.onstop = async () => {
         // MediaRecorderの内部バッファフラッシュを待つため、少し遅延
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, BUFFER_FLUSH_DELAY_MS));
         
         // トラック停止
         combinedStream.getTracks().forEach(t => t.stop());
