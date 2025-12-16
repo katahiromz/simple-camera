@@ -68,17 +68,15 @@ export const calculateMaxPanOffsets = (
 
 /**
  * ダウンロードファイル名の生成
- * 拡張子はドット付き・ドット無し両方に対応
  */
 export const generateFileName = (prefix: 'video_' | 'photo_', extension: string): string => {
+  // 日時文字列を取得
   const now = new Date();
-  // ISO 8601 形式の日付
   let timestamp = now.toLocaleDateString() + " " + now.toLocaleTimeString();
   // 空白文字やファイル名に使用できない文字を _ に置き換える
   timestamp = timestamp.replace(/[:\.\\\/]/g, '_');
-  // 拡張子が既にドットで始まっている場合はそのまま、そうでない場合はドットを追加
-  const ext = extension.startsWith('.') ? extension : `.${extension}`;
-  return `${prefix}${timestamp}${ext}`;
+  console.assert(extension[0] == '.');
+  return `${prefix}${timestamp}${extension}`;
 };
 
 /**
@@ -108,16 +106,15 @@ export const photoFormatToExtension = (format: string): string => {
 
 /**
  * 拡張子から画像の形式へ（バリデーション用）
- * 拡張子はドット付き・ドット無しの両方に対応
  */
 export const extensionToPhotoFormat = (extension: string): string => {
-  const ext = extension.toLowerCase().replace(/^\./, ''); // ドットを削除して正規化
-  switch (ext) {
-  case 'png': return 'image/png';
-  case 'tif': case 'tiff': return 'image/tiff';
-  case 'webp': return 'image/webp';
-  case 'bmp': return 'image/bmp';
-  case 'jpg': case 'jpeg': default: return 'image/jpeg';
+  console.assert(extension[0] == '.');
+  switch (extension) {
+  case '.png': return 'image/png';
+  case '.tif': case '.tiff': return 'image/tiff';
+  case '.webp': return 'image/webp';
+  case '.bmp': return 'image/bmp';
+  case '.jpg': case 'jpeg': default: return 'image/jpeg';
   }
 };
 
@@ -144,13 +141,12 @@ export const videoFormatToExtension = (format: string): string => {
 
 /**
  * 拡張子から動画の形式へ（バリデーション用）
- * 拡張子はドット付き・ドット無しの両方に対応
  */
 export const extensionToVideoFormat = (extension: string): string => {
-  const ext = extension.toLowerCase().replace(/^\./, ''); // ドットを削除して正規化
-  switch (ext) {
-  case 'mp4': return 'video/mp4';
-  case 'webm': default: return 'video/webm';
+  console.assert(extension[0] == '.');
+  switch (extension) {
+  case '.mp4': return 'video/mp4';
+  case '.webm': default: return 'video/webm';
   }
 };
 
