@@ -1044,7 +1044,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       }
 
       // 映像ストリーム
-      const canvasStream = canvasRef.current.captureStream(20);
+      const canvasStream = canvasRef.current.captureStream(10);
       const tracks = [...canvasStream.getVideoTracks()];
 
       // 音声ストリーム

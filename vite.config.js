@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   // 【重要】本番環境でのデプロイ先サブディレクトリを指定
   // 例: アプリケーションが example.com/camera/ にデプロイされる場合
   base: '/camera/',
@@ -42,4 +42,9 @@ export default defineConfig({
       }
     })
   ],
-})
+
+  // 製品版では、コンソール出力とデバッグ出力をしない
+  esbuild: {
+    drop: ((mode === 'production') ? ['console', 'debugger'] : [])
+  }
+}));
