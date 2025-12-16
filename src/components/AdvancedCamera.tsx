@@ -1,6 +1,6 @@
 // AdvancedCamera.tsx --- Reactコンポーネント「AdvancedCamera」のTypeScriptソース
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Camera, Mic, MicOff, Video, VideoOff, RefreshCw, SwitchCamera, CameraOff} from 'lucide-react'; // lucide-reactを使用
+import { Camera, Mic, MicOff, Video, VideoOff, RefreshCw, SwitchCamera, CameraOff, ScanLine} from 'lucide-react'; // lucide-reactを使用
 import './AdvancedCamera.css';
 
 // 汎用関数群
@@ -11,6 +11,9 @@ import {
   formatTime,
   RenderMetrics
 } from './utils';
+
+// QR code scanner
+import { detectFromImageData, QRDetectionResult } from '../utils/jsqrScanner';
 
 // 国際化(i18n)
 import './i18n.ts';
@@ -100,6 +103,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const scanCanvasRef = useRef<HTMLCanvasElement>(null); // QR scanning用の小サイズキャンバス
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animeRequestRef = useRef<number>(); // アニメーションの要求
@@ -125,6 +129,19 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const [hasMic, setHasMic] = useState(false); // マイクがあるか？
   const [renderMetrics, setRenderMetrics] = useState<RenderMetrics>({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 }); // 描画に使う寸法情報
   const [isDummyImageLoaded, setIsDummyImageLoaded] = useState(false); // ダミー画像がロードされたか？
+  
+  // QR code scanning state
+  const [scanningEnabled, setScanningEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('AdvancedCamera_scanningEnabled');
+      return saved === 'true';
+    } catch (error) {
+      console.warn('Failed to load scanningEnabled from localStorage:', error);
+      return false;
+    }
+  });
+  const [scanResult, setScanResult] = useState<QRDetectionResult | null>(null);
+  const scanningPausedRef = useRef<boolean>(false); // スキャン一時停止フラグ
 
   // カメラの種類(背面／前面)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(() => {
@@ -146,6 +163,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       console.warn('Failed to save facingMode to localStorage:', error);
     }
   }, [facingMode]);
+
+  // scanningEnabledが変更されたらlocalStorageに保存
+  useEffect(() => {
+    try {
+      localStorage.setItem('AdvancedCamera_scanningEnabled', String(scanningEnabled));
+    } catch (error) {
+      console.warn('Failed to save scanningEnabled to localStorage:', error);
+    }
+  }, [scanningEnabled]);
 
   // renderMetricsのRefを追加（パフォーマンス最適化用）
   const renderMetricsRef = useRef<RenderMetrics>(renderMetrics);
@@ -664,8 +690,50 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     ctx.restore();
 
+    // QRコード検出結果のオーバーレイ描画
+    if (scanResult) {
+      ctx.save();
+      
+      // 緑色の矩形を描画
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(
+        scanResult.boundingBox.x,
+        scanResult.boundingBox.y,
+        scanResult.boundingBox.width,
+        scanResult.boundingBox.height
+      );
+
+      // デコード結果のテキストを表示
+      const text = scanResult.rawValue;
+      const padding = 8;
+      const fontSize = 16;
+      ctx.font = `${fontSize}px monospace`;
+      
+      // テキストの幅を測定
+      const textMetrics = ctx.measureText(text);
+      const textWidth = textMetrics.width;
+      const textHeight = fontSize;
+      
+      // 背景矩形の位置（検出ボックスの上部）
+      const bgX = scanResult.boundingBox.x;
+      const bgY = scanResult.boundingBox.y - textHeight - padding * 2 - 5;
+      const bgWidth = textWidth + padding * 2;
+      const bgHeight = textHeight + padding * 2;
+      
+      // 半透明の黒背景
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+      
+      // 白文字でテキスト描画
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(text, bgX + padding, bgY + padding + fontSize * 0.8);
+      
+      ctx.restore();
+    }
+
     animeRequestRef.current = requestAnimationFrame(draw);
-  }, [status, zoom, pan, renderMetrics, isDummyImageLoaded]);
+  }, [status, zoom, pan, renderMetrics, isDummyImageLoaded, scanResult]);
 
   useEffect(() => {
     if (status === 'ready') {
@@ -954,6 +1022,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     localStorage.setItem('AdvancedCamera_micEnabled', String(newState));
   };
 
+  // QRコードスキャン切り替え
+  const toggleScanning = () => {
+    setScanningEnabled(prev => !prev);
+    // スキャン結果をクリア
+    setScanResult(null);
+    scanningPausedRef.current = false;
+  };
+
   // ビデオをギャラリーに保存(Android専用)
   const saveVideoToGallery = (blob, fileName) => {
     console.assert(isAndroidApp);
@@ -1082,6 +1158,97 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
     return () => clearInterval(interval);
   }, [isRecording]);
+
+  // QRコードスキャンループ
+  useEffect(() => {
+    if (!scanningEnabled || status !== 'ready' || isRecording) {
+      return;
+    }
+
+    // スキャン用キャンバスを初期化
+    if (!scanCanvasRef.current) {
+      scanCanvasRef.current = document.createElement('canvas');
+    }
+
+    const scanInterval = setInterval(() => {
+      // スキャン一時停止中はスキップ
+      if (scanningPausedRef.current) {
+        return;
+      }
+
+      const canvas = canvasRef.current;
+      const scanCanvas = scanCanvasRef.current;
+      if (!canvas || !scanCanvas) return;
+
+      try {
+        const ctx = scanCanvas.getContext('2d');
+        if (!ctx) return;
+
+        // 中央60%の領域を選択
+        const centerScale = 0.6;
+        const sourceWidth = canvas.width * centerScale;
+        const sourceHeight = canvas.height * centerScale;
+        const sourceX = (canvas.width - sourceWidth) / 2;
+        const sourceY = (canvas.height - sourceHeight) / 2;
+
+        // スキャン用キャンバスのサイズを設定（縮小してパフォーマンス向上）
+        const targetWidth = Math.floor(sourceWidth * 0.5); // さらに50%に縮小
+        const targetHeight = Math.floor(sourceHeight * 0.5);
+        
+        if (scanCanvas.width !== targetWidth || scanCanvas.height !== targetHeight) {
+          scanCanvas.width = targetWidth;
+          scanCanvas.height = targetHeight;
+        }
+
+        // 中央領域を縮小コピー
+        ctx.drawImage(
+          canvas,
+          sourceX, sourceY, sourceWidth, sourceHeight,
+          0, 0, targetWidth, targetHeight
+        );
+
+        // ImageDataを取得してQRコード検出
+        const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+        const result = detectFromImageData(imageData);
+
+        if (result) {
+          // 検出座標を元のキャンバス座標系に変換
+          const scaleX = sourceWidth / targetWidth;
+          const scaleY = sourceHeight / targetHeight;
+          
+          const originalResult: QRDetectionResult = {
+            rawValue: result.rawValue,
+            boundingBox: {
+              x: result.boundingBox.x * scaleX + sourceX,
+              y: result.boundingBox.y * scaleY + sourceY,
+              width: result.boundingBox.width * scaleX,
+              height: result.boundingBox.height * scaleY,
+            },
+          };
+
+          setScanResult(originalResult);
+          
+          // シャッター音を再生
+          if (soundEffect) {
+            playSound(shutterAudioRef.current);
+          }
+
+          // 2秒間スキャンを一時停止
+          scanningPausedRef.current = true;
+          setTimeout(() => {
+            scanningPausedRef.current = false;
+            setScanResult(null); // 結果をクリア
+          }, 2000);
+        }
+      } catch (error) {
+        console.warn('QR scanning failed:', error);
+      }
+    }, 300); // 300msごとにスキャン
+
+    return () => {
+      clearInterval(scanInterval);
+    };
+  }, [scanningEnabled, status, isRecording, soundEffect]);
 
 
   // --- アクセシビリティ (キーボード操作) ---
@@ -1229,6 +1396,16 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       {/* コントロールパネル */}
       {status === 'ready' && showControls && (
         <div className={`advanced-camera__controls ${isRecording ? 'advanced-camera__controls--recording' : ''}`}>
+          {/* 0. QRコードスキャン ON/OFF ボタン */}
+          <button
+            className={`advanced-camera__button advanced-camera__button--scan ${scanningEnabled ? 'advanced-camera__button--scan-active' : ''}`}
+            onClick={toggleScanning}
+            disabled={isRecording || status !== 'ready' || !streamRef.current}
+            aria-label={scanningEnabled ? t('ac_disable_scanning') : t('ac_enable_scanning')}
+          >
+            <ScanLine size={ICON_SIZE} />
+          </button>
+
           {/* 1. マイクON/OFF ボタン */}
           {showMic && (
             <button
