@@ -136,6 +136,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const [renderMetrics, setRenderMetrics] = useState<RenderMetrics>({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 }); // 描画に使う寸法情報
   const [isDummyImageLoaded, setIsDummyImageLoaded] = useState(false); // ダミー画像がロードされたか？
 
+  // 現在のzoomとpanの値を常にrefに保持（タッチイベントで使用）
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+  useEffect(() => {
+    zoomRef.current = zoom;
+    panRef.current = pan;
+  }, [zoom, pan]);
+
   // カメラの種類(背面／前面)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(() => {
     try {
@@ -804,15 +812,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       // ピンチ開始時の状態を記録
       initialTouchDistanceRef.current = distance;
       initialTouchCenterRef.current = center;
-      // Use state setter function to get current values without adding to dependencies
-      setPanState(currentPan => {
-        initialPanRef.current = currentPan;
-        return currentPan;
-      });
-      setZoomState(currentZoom => {
-        initialZoomRef.current = currentZoom;
-        return currentZoom;
-      });
+      initialPanRef.current = panRef.current;
+      initialZoomRef.current = zoomRef.current;
     }
   }, []);
 
@@ -827,9 +828,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       // ズーム倍率を計算（初期距離との比率）
       // 初期距離が0の場合はズームを変更しない（ガード）
+      let newZoom = zoomRef.current;
       if (initialTouchDistanceRef.current > 0) {
         const zoomRatio = currentDist / initialTouchDistanceRef.current;
-        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, initialZoomRef.current * zoomRatio));
+        newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, initialZoomRef.current * zoomRatio));
         setZoomState(newZoom);
       }
 
@@ -839,11 +841,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const newPanX = initialPanRef.current.x + dx;
       const newPanY = initialPanRef.current.y + dy;
 
-      // パンを更新（ズームは上で既に更新済み）
-      setZoomState(prevZoom => {
-        setPanState(clampPan(newPanX, newPanY, prevZoom));
-        return prevZoom;
-      });
+      // パンを更新
+      setPanState(clampPan(newPanX, newPanY, newZoom));
 
       lastTouchDistanceRef.current = currentDist;
       lastTouchCenterRef.current = currentCenter;
