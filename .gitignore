@@ -13,6 +13,9 @@ dist-ssr
 *.local
 a.*
 
+# Test files (for manual testing only)
+src/test-camera-component.tsx
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
