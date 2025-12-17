@@ -263,7 +263,14 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         val currentActivity = activity ?: return false
         
         return try {
-            val videoBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            // カンマが含まれている場合、それ以降のデータのみを抽出する修正
+            val pureBase64 = if (base64Data.contains(",")) {
+                base64Data.substring(base64Data.indexOf(",") + 1)
+            } else {
+                base64Data
+            }
+
+            val videoBytes = android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
             
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Android 10以降: MediaStore APIを使用
