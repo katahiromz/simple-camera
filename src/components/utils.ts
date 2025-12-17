@@ -105,35 +105,10 @@ export const photoFormatToExtension = (format: string): string => {
 };
 
 /**
- * 拡張子から画像の形式へ
- */
-export const extensionToPhotoFormat = (extension: string): string => {
-  console.assert(extension[0] == '.');
-  switch (extension) {
-  case '.png': return 'image/png';
-  case '.tif': case '.tiff': return 'image/tiff';
-  case '.webp': return 'image/webp';
-  case '.bmp': return 'image/bmp';
-  case '.jpg': case 'jpeg': default: return 'image/jpeg';
-  }
-};
-
-/**
  * 動画の形式から拡張子へ（ドット付き）
  */
 export const videoFormatToExtension = (format: string): string => {
   if (format.includes('mp4')) return '.mp4';
   if (format.includes('webm')) return '.webm';
   return '.webm'; // default
-};
-
-/**
- * 拡張子から動画の形式へ（バリデーション用）
- */
-export const extensionToVideoFormat = (extension: string): string => {
-  console.assert(extension[0] == '.');
-  switch (extension) {
-  case '.mp4': return 'video/mp4';
-  case '.webm': default: return 'video/webm';
-  }
 };

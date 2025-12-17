@@ -10,11 +10,7 @@ import {
   generateFileName,
   formatTime,
   photoFormatToExtension,
-  extensionToPhotoFormat,
-  validateMimeTypeAndExtension,
   videoFormatToExtension,
-  extensionToVideoFormat,
-  validateVideoMimeTypeAndExtension,
   RenderMetrics
 } from './utils';
 
