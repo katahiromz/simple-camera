@@ -104,13 +104,14 @@ export const supportedVideoCodecs = getSupportedMediaFormats(
   'video'
 );
 
-const videoContainer = supportedVideoCodecs.container[0];
-const videoCodec = supportedVideoCodecs.codec[0];
+// デフォルトコーデックを安全に構築
+const videoContainer = supportedVideoCodecs.container[0] || 'webm';
+const videoCodec = supportedVideoCodecs.codec[0] || 'vp8';
 const audioCodec = supportedAudioCodecs?.codec?.[0];
 
-export const defaultCodec = `video/${videoContainer};codecs=${videoCodec}${
-  audioCodec ? `,${audioCodec}` : ''
-}`;
+export const defaultCodec = videoContainer && videoCodec
+  ? `video/${videoContainer};codecs=${videoCodec}${audioCodec ? `,${audioCodec}` : ''}`
+  : 'video/webm'; // 最終的なフォールバック
 
 /**
  * 最適なコーデックを選択する
@@ -125,7 +126,7 @@ export function selectBestCodec(candidates: string[]): string {
     }
   }
   // フォールバック: デフォルトコーデックを返す
-  return defaultCodec;
+  return defaultCodec || 'video/webm'; // 追加の安全性チェック
 }
 
 /**
