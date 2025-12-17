@@ -11,6 +11,9 @@ React+Vita製のシンプルなカメラアプリです。PWAとAndroidに対応
 
 ## 機能
 
+- **2つのカメラコンポーネント**
+  - **AdvancedCamera** - フル機能版（既存）
+  - **CameraComponent** - react-webcam版（新規追加）
 - 写真撮影と録画
   - **高品質ビデオ録画**（マイク音声付き）
   - **録画の一時停止/再開機能**（MediaRecorder API）
@@ -26,6 +29,54 @@ React+Vita製のシンプルなカメラアプリです。PWAとAndroidに対応
   - プリセットフィルター（鮮やか、クール、暖かい、白黒、ビンテージ、高コントラスト）
   - レスポンシブデザイン対応（デスクトップ、タブレット、モバイル）
   - 設定の自動保存（localStorage）
+
+## 新機能: react-webcam ベースのCameraComponent
+
+シンプルで再利用可能な `CameraComponent` を追加しました。`react-webcam` ライブラリを使用した軽量なカメラコンポーネントです。
+
+### CameraComponent の特徴
+
+- ✅ 前面/背面カメラの切り替え
+- ✅ 写真撮影機能
+- ✅ 解像度切り替え（720p / 480p / 360p）
+- ✅ TypeScript完全対応
+- ✅ レスポンシブデザイン
+- ✅ キーボードショートカット対応
+
+### 基本的な使用方法
+
+```typescript
+import CameraComponent from './components/CameraComponent';
+
+function MyApp() {
+  const handleCapture = (imageSrc: string) => {
+    console.log('Photo captured:', imageSrc);
+  };
+
+  return (
+    <CameraComponent
+      onCapture={handleCapture}
+      initialFacingMode="environment"
+      initialResolution="720p"
+    />
+  );
+}
+```
+
+詳細は [CAMERA_COMPONENT_README.md](./CAMERA_COMPONENT_README.md) をご覧ください。
+
+### コンポーネントの比較
+
+| 機能 | CameraComponent | AdvancedCamera |
+|------|-----------------|----------------|
+| 写真撮影 | ✅ | ✅ |
+| カメラ切り替え | ✅ | ✅ |
+| 解像度変更 | ✅ | ✅ |
+| ビデオ録画 | ❌ | ✅ |
+| ズーム/パン | ❌ | ✅ |
+| 画像処理 | ❌ | ✅ |
+| セットアップ | 簡単 | 複雑 |
+| 推奨用途 | シンプルなアプリ | 高度な機能が必要な場合 |
 
 ## 画像処理機能の使い方
 
