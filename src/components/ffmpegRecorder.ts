@@ -8,6 +8,10 @@ interface RecorderOptions {
   videoBitrate?: string;
 }
 
+// Constants for recording
+const AUDIO_CHUNK_INTERVAL_MS = 100; // Collect audio data every 100ms
+const AUDIO_BUFFER_FLUSH_DELAY_MS = 200; // Wait for final audio chunks to be collected
+
 class FFmpegRecorder {
   private ffmpeg: FFmpeg;
   private isLoaded: boolean = false;
@@ -102,7 +106,7 @@ class FFmpegRecorder {
           }
         };
 
-        this.mediaRecorder.start(100); // Collect data every 100ms
+        this.mediaRecorder.start(AUDIO_CHUNK_INTERVAL_MS); // Collect data at regular intervals
         console.log('Audio recording started');
       } catch (error) {
         console.warn('Failed to start audio recording:', error);
@@ -158,7 +162,7 @@ class FFmpegRecorder {
         }
       });
       
-      await new Promise(resolve => setTimeout(resolve, 200)); // Buffer flush time
+      await new Promise(resolve => setTimeout(resolve, AUDIO_BUFFER_FLUSH_DELAY_MS));
     }
 
     console.log(`Captured ${this.frameCount} frames and ${this.audioChunks.length} audio chunks`);

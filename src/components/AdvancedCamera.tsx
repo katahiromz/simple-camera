@@ -1210,9 +1210,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   // 録画開始・停止の切り替え
   const toggleRecording = async () => {
     if (isRecording) {
-      stopRecording();
+      await stopRecording();
     } else {
-      startRecording();
+      await startRecording();
     }
   };
 
