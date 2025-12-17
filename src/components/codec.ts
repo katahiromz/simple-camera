@@ -17,7 +17,7 @@ export function checkRecordingCodecSupport(codec: string): boolean {
 export function checkVideoCodecPlaybackSupport(codec: string): boolean {
   const video = document.createElement('video');
   const canPlay = video.canPlayType(codec);
-  return canPlay === 'maybe' || canPlay === 'probably' ? true : false;
+  return canPlay === 'maybe' || canPlay === 'probably';
 }
 
 /**
@@ -28,7 +28,7 @@ export function checkVideoCodecPlaybackSupport(codec: string): boolean {
 export function checkAudioCodecPlaybackSupport(codec: string): boolean {
   const audio = document.createElement('audio');
   const canPlay = audio.canPlayType(codec);
-  return canPlay === 'maybe' || canPlay === 'probably' ? true : false;
+  return canPlay === 'maybe' || canPlay === 'probably';
 }
 
 type MediaType = 'audio' | 'video';

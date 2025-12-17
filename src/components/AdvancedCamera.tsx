@@ -1370,6 +1370,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   };
 
   // 録画の一時停止
+  // 注: UI未実装（将来の拡張用）
   const pauseRecording = async () => {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state !== 'recording') return;
@@ -1385,6 +1386,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   };
 
   // 録画の再開
+  // 注: UI未実装（将来の拡張用）
   const resumeRecording = async () => {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state !== 'paused') return;
