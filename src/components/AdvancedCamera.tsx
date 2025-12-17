@@ -29,6 +29,20 @@ const BASE_URL = import.meta.env.BASE_URL;
 // フラグ
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isAndroidApp = typeof window.android !== 'undefined';
+const isDeepDebug = true;
+
+const doWarn = (...args) => {
+  if (isDeepDebug) {
+    alert(...args);
+  }
+  console.warn(...args);
+};
+const doError = (...args) => {
+  if (isDeepDebug) {
+    alert(...args);
+  }
+  console.error(...args);
+};
 
 // ステータス定義
 type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice' | 'switching';
@@ -154,7 +168,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         return saved;
       }
     } catch (error) {
-      console.warn('Failed to load facingMode from localStorage:', error);
+      doWarn('Failed to load facingMode from localStorage:', error);
     }
     return 'environment'; // デフォルト値
   });
@@ -163,7 +177,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     try {
       localStorage.setItem('AdvancedCamera_facingMode', facingMode);
     } catch (error) {
-      console.warn('Failed to save facingMode to localStorage:', error);
+      doWarn('Failed to save facingMode to localStorage:', error);
     }
   }, [facingMode]);
 
@@ -205,7 +219,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         videoCompleteAudioRef.current.load();
       }
     } catch (error) {
-      console.error('Failed to initialize shutter audio:', error);
+      doError('Failed to initialize shutter audio:', error);
     }
   }, []); // 依存配列が空なのでマウント時に一度だけ実行される
 
@@ -222,7 +236,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         });
       };
       img.onerror = (error) => {
-        console.error('Failed to load dummy image:', error);
+        doError('Failed to load dummy image:', error);
         setIsDummyImageLoaded(false);
       };
       img.src = dummyImageSrc;
@@ -258,7 +272,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         audio.play();
       }
     } catch (error) {
-      console.warn('sound playback failed:', error);
+      doWarn('sound playback failed:', error);
     }
   }
 
@@ -361,7 +375,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           });
           if (videoStream) break;
         } catch (error) {
-          console.warn('Constraint failed:', constraint);
+          doWarn('Constraint failed:', constraint);
           continue;
         }
       }
@@ -390,7 +404,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             }
           }
         } catch (error) {
-          console.warn('Failed to get camera facing mode:', error);
+          doWarn('Failed to get camera facing mode:', error);
         }
 
         // readyへの遷移を onloadedmetadata に委ねる (Promiseで待機)
@@ -425,7 +439,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       setStatus('ready');
     } catch (error: any) {
-      console.error('Camera Init Error:', error);
+      doError('Camera Init Error:', error);
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
         setStatus('noPermission');
       } else {
@@ -457,7 +471,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           micPermissionRef.current = null;
         }
       } catch (e) {
-        console.warn('cleanupPermissionListeners failed', e);
+        doWarn('cleanupPermissionListeners failed', e);
       }
     };
 
@@ -483,7 +497,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           }
         }
       } catch (e) {
-        console.warn('handleCameraPermissionChange failed', e);
+        doWarn('handleCameraPermissionChange failed', e);
       }
     };
 
@@ -499,7 +513,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           setHasMic(true);
         }
       } catch (e) {
-        console.warn('handleMicPermissionChange failed', e);
+        doWarn('handleMicPermissionChange failed', e);
       }
     };
 
@@ -525,7 +539,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         handleCameraPermissionChange();
         handleMicPermissionChange();
       } catch (error) {
-        console.warn('setupPermissions failed', error);
+        doWarn('setupPermissions failed', error);
       }
     };
 
@@ -562,7 +576,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           (navigator.mediaDevices as any).ondevicechange = null;
         }
       } catch (e) {
-        console.warn('failed to cleanup devicechange listener', e);
+        doWarn('failed to cleanup devicechange listener', e);
       }
     };
   }, [initCamera, status]);
@@ -717,7 +731,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         onDefaultImageProcess({canvas, video, ctx, x:offsetX, y:offsetY, width:renderWidth, height:renderHeight, zoom, pan, dummyImage});
       }
     } catch (error) {
-      console.warn('image processing failed', error);
+      doWarn('image processing failed', error);
     }
 
     ctx.restore();
@@ -922,7 +936,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           console.log('Saved image:', fileName);
         } catch (error) {
           console.assert(false);
-          console.error('android インタフェース呼び出しエラー:', error);
+          doError('android インタフェース呼び出しエラー:', error);
           downloadFallback(blob, fileName);
         }
       } else {
@@ -967,7 +981,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const photoCtx = photoCanvas.getContext('2d');
 
       if (!photoCtx) {
-        console.error('Failed to get photo canvas context');
+        doError('Failed to get photo canvas context');
         alert(t('ac_taking_photo_failed'));
         return;
       }
@@ -1006,7 +1020,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         }
       }, photoFormat, photoQuality);
     } catch (error) {
-      console.error('Photo capture failed', error);
+      doError('Photo capture failed', error);
       alert(t('ac_taking_photo_failed'));
     }
   };
@@ -1033,7 +1047,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         window.android.saveVideoToGallery(base64Data, fileName, mimeType);
         console.log('保存完了:' + fileName);
       } catch (error) {
-        console.error('android インタフェース呼び出しエラー:', error);
+        doError('android インタフェース呼び出しエラー:', error);
         alert(t('ac_saving_movie_failed', { error: error }));
       }
     };
@@ -1048,7 +1062,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       // キャンバスが実際にレンダリングされているか確認
       const ctx = canvasRef.current.getContext('2d');
       if (!ctx || renderMetrics.renderWidth === 0) {
-        console.error('Canvas not ready for recording');
+        doError('Canvas not ready for recording');
         alert(t('ac_recording_cannot_start', { error: 'Canvas not ready' }));
         return;
       }
@@ -1089,10 +1103,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
               readyState: audioTracks[0].readyState
             });
           } else {
-            console.warn('No audio tracks found in audio stream');
+            doWarn('No audio tracks found in audio stream');
           }
         } catch (error) {
-          console.error('Mic access failed during record start:', error);
+          doError('Mic access failed during record start:', error);
         }
       }
 
@@ -1155,7 +1169,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             totalChunks: chunks.length
           });
         } else {
-          console.warn('Received empty or invalid chunk');
+          doWarn('Received empty or invalid chunk');
         }
       };
 
@@ -1196,7 +1210,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
         // Blobが空でないか確認
         if (blob.size === 0) {
-          console.error('Generated video blob is empty!');
+          doError('Generated video blob is empty!');
           alert(t('ac_recording_error', { error: 'Video file is empty' }));
           return;
         }
@@ -1217,7 +1231,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       // エラー時の処理
       recorder.onerror = (error) => {
-        console.error('MediaRecorder Error', error);
+        doError('MediaRecorder Error', error);
         // クリーンアップも実行
         combinedStream.getTracks().forEach(t => t.stop());
         recorder.stop();
@@ -1228,7 +1242,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
     } catch (error) {
-      console.error('Recording start failed', error);
+      doError('Recording start failed', error);
       alert(t('ac_recording_cannot_start', { error }));
     }
   };
@@ -1243,7 +1257,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       recorder.requestData();
       await new Promise(resolve => setTimeout(resolve, 50));  // 少し待つ
     } catch (error) {
-      console.warn('requestData failed:', error);
+      doWarn('requestData failed:', error);
     }
 
     recorder.stop();
