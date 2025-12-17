@@ -235,6 +235,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // 音声を再生する
   const playSound = (audio: HTMLAudioElement | null) => {
+    if (!audio) {
+      console.assert(false);
+    }
     // 可能ならばシステム音量を変更する
     try {
       if (isAndroidApp)
@@ -1054,6 +1057,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     try {
       if (!canvasRef.current) return; // キャンバスがない？
 
+      // キャンバスが実際にレンダリングされているか確認
+      const ctx = canvasRef.current.getContext('2d');
+      if (!ctx || renderMetrics.renderWidth === 0) {
+        console.error('Canvas not ready for recording');
+        alert(t('ac_recording_cannot_start', { error: 'Canvas not ready' }));
+        return;
+      }
+
       if (mustPlaySound(options)) {
         // ビデオ録画開始音を再生
         playSound(videoStartAudioRef.current);
@@ -1061,15 +1072,41 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       // 映像ストリーム
       const canvasStream = canvasRef.current.captureStream(RECORDING_FPS);
-      const tracks = [...canvasStream.getVideoTracks()];
+
+      // ストリームが有効か確認
+      const videoTracks = canvasStream.getVideoTracks();
+      if (videoTracks.length === 0) {
+        throw new Error('No video tracks available from canvas');
+      }
+
+      const tracks = [...videoTracks];
 
       // 音声ストリーム
       if (hasMic && micEnabled) {
         try {
-          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          tracks.push(...audioStream.getAudioTracks());
+          const audioStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              sampleRate: 48000
+            }
+          });
+          const audioTracks = audioStream.getAudioTracks();
+          if (audioTracks.length > 0) {
+            tracks.push(...audioTracks);
+            console.log('Audio track added:', {
+              label: audioTracks[0].label,
+              enabled: audioTracks[0].enabled,
+              muted: audioTracks[0].muted,
+              readyState: audioTracks[0].readyState
+            });
+          } else {
+            console.warn('No audio tracks found in audio stream');
+          }
         } catch (error) {
-          console.warn('Mic access failed during record start', error);
+          console.error('Mic access failed during record start:', error);
+          // ユーザーに通知
+          alert(t('ac_mic_access_failed', 'マイクへのアクセスに失敗しました。音声なしで録画を続けます。'));
         }
       }
 
@@ -1077,20 +1114,28 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const combinedStream = new MediaStream(tracks);
 
       // フォーマット確認
+      const hasAudio = hasMic && micEnabled;
       const mimeTypes = isMobile ? [
         'video/webm; codecs=vp8', // VP8の方が軽い
         'video/webm; codecs=vp9',
         'video/webm',
         'video/mp4',
-      ] : [
-        'video/mp4', // MP4を優先
+      ] : (hasAudio ? [
         'video/webm; codecs=vp9', // 品質を重視
         'video/webm; codecs=vp8',
         'video/webm',
-      ];
+        'video/mp4',
+      ] : [
+        // 音声なしの場合: MP4も選択肢に
+        'video/mp4',
+        'video/webm; codecs=vp9',
+        'video/webm; codecs=vp8',
+        'video/webm',
+      ]);
       let mimeType = 'video/webm';
       for (let type of mimeTypes) {
         if (MediaRecorder.isTypeSupported(type)) {
+          console.log(`Selected MIME type: ${type})`);
           mimeType = type;
           break;
         }
@@ -1102,6 +1147,19 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       const recorder = new MediaRecorder(combinedStream, recorderOptions);
       const chunks: BlobPart[] = [];
+
+      // トラック情報をログ出力(デバッグ用)
+      console.log('MediaRecorder created with tracks:', {
+        videoTracks: combinedStream.getVideoTracks().length,
+        audioTracks: combinedStream.getAudioTracks().length,
+        mimeType: mimeType,
+        audioTrackDetails: combinedStream.getAudioTracks().map(t => ({
+          label: t.label,
+          enabled: t.enabled,
+          muted: t.muted,
+          readyState: t.readyState
+        }))
+      });
 
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -1117,11 +1175,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       // 停止時・エラー時のダウンロード処理
       recorder.onstop = async () => {
-        // MediaRecorderの内部バッファフラッシュを待つため、少し遅延
-        await new Promise(resolve => setTimeout(resolve, BUFFER_FLUSH_DELAY_MS));
-
         // トラック停止
-        combinedStream.getTracks().forEach(t => t.stop());
+        const allTracks = combinedStream.getTracks();
+        console.log('Stopping tracks:', {
+          total: allTracks.length,
+          video: allTracks.filter(t => t.kind === 'video').length,
+          audio: allTracks.filter(t => t.kind === 'audio').length
+        });
+        allTracks.forEach(t => t.stop());
+
         setIsRecording(false);
         setRecordingTime(0);
 
@@ -1129,6 +1191,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         if (mustPlaySound(options)) {
           playSound(videoCompleteAudioRef.current);
         }
+
+        // MediaRecorderの内部バッファフラッシュを待つため、少し遅延
+        await new Promise(resolve => setTimeout(resolve, BUFFER_FLUSH_DELAY_MS));
 
         const extension = videoFormatToExtension(mimeType); // 拡張子
 
