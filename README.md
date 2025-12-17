@@ -71,6 +71,20 @@ import {
   ImageProcessingParams 
 } from './components/ImageProcessingUtils';
 
+// userImageProcessData インターフェース
+interface userImageProcessData {
+  canvas: HTMLCanvasElement;           // キャンバス要素
+  video: HTMLVideoElement | null;      // ビデオ要素（またはnull）
+  dummyImage: HTMLImageElement | null; // ダミー画像（またはnull）
+  ctx: CanvasRenderingContext2D;       // 2D描画コンテキスト
+  x: number;                           // 転送先X座標
+  y: number;                           // 転送先Y座標
+  width: number;                       // 転送先の幅
+  height: number;                      // 転送先の高さ
+  zoom: number;                        // ズーム倍率 (1.0～4.0)
+  pan: { x: number, y: number };       // パン（平行移動量）
+}
+
 // onImageProcess コールバックで使用
 const customImageProcess = (data: userImageProcessData) => {
   const { ctx, canvas, video, x, y, width, height, zoom, pan } = data;
@@ -80,7 +94,12 @@ const customImageProcess = (data: userImageProcessData) => {
     brightness: 20,
     contrast: 15,
     saturation: 10,
-    // ... その他のパラメータ
+    hue: 0,
+    blur: 0,
+    sharpen: 0,
+    grayscale: false,
+    sepia: false,
+    invert: false,
   };
   
   applyCSSFilters(ctx, customParams);

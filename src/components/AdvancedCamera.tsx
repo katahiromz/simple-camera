@@ -659,17 +659,19 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   }, [facingMode, initCamera]);
 
   // Determine if camera should be initialized based on dummy image state
+  // This helper function encapsulates the initialization logic to handle both
+  // real camera and dummy image scenarios consistently
   const shouldInitializeCamera = useCallback((): boolean => {
-    // If using dummy image, wait for it to load
+    // If using dummy image, wait for it to load before initializing
     if (dummyImageSrc) {
       return isDummyImageLoaded;
     }
-    // If not using dummy image, initialize immediately
+    // If not using dummy image, initialize immediately when dependencies change
     return true;
   }, [dummyImageSrc, isDummyImageLoaded]);
 
   useEffect(() => {
-    // Initialize camera when conditions are met
+    // Initialize camera when conditions are met (either dummy image loaded or real camera ready)
     if (shouldInitializeCamera()) {
       initCamera();
     }

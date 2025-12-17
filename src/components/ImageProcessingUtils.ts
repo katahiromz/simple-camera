@@ -4,6 +4,9 @@
 /**
  * Image processing parameters interface
  * Defines all adjustable image processing settings
+ * 
+ * Note: The 'sharpen' parameter is reserved for future use with the applySharpen() function.
+ * It is not applied by applyCSSFilters() as CSS filters do not support sharpening.
  */
 export interface ImageProcessingParams {
   brightness: number;    // -100 to +100, default: 0
@@ -11,7 +14,7 @@ export interface ImageProcessingParams {
   saturation: number;    // -100 to +100, default: 0
   hue: number;           // 0 to 360, default: 0
   blur: number;          // 0 to 10, default: 0
-  sharpen: number;       // 0 to 1, default: 0
+  sharpen: number;       // 0 to 1, default: 0 (reserved for applySharpen function)
   grayscale: boolean;    // true/false, default: false
   sepia: boolean;        // true/false, default: false
   invert: boolean;       // true/false, default: false
