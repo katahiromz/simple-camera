@@ -1146,22 +1146,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const combinedStream = new MediaStream(tracks);
 
       // RecordRTC用のMIMEタイプを決定
-      let mimeType = 'video/webm';
-      
       // RecordRTCはブラウザの互換性を自動的に処理
       // WebM (VP8/VP9) が推奨され、フォールバックも内蔵されている
-      if (isMobile) {
-        // モバイルでは軽量なVP8を優先
-        mimeType = 'video/webm;codecs=vp8';
-      } else {
-        // デスクトップでは品質を優先
-        mimeType = 'video/webm';
-      }
+      const mimeType = isMobile ? 'video/webm;codecs=vp8' : 'video/webm';
 
       // RecordRTCオプション
       const recordRTCOptions = {
         type: 'video',
-        mimeType: mimeType,
+        mimeType,
         disableLogs: IS_PRODUCTION,
         frameRate: RECORDING_FPS,
         videoBitsPerSecond: isMobile ? 2500000 : undefined,
@@ -1214,64 +1206,78 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (!recorder) return;
 
     try {
-      // RecordRTCで録画を停止
-      recorder.stopRecording(async () => {
-        // 録画が完全に停止するまで少し待つ
-        await new Promise(resolve => setTimeout(resolve, BUFFER_FLUSH_DELAY_MS));
+      // RecordRTCで録画を停止（コールバックは同期関数であるべき）
+      recorder.stopRecording(() => {
+        // 少し遅延してから処理を実行（非同期処理はPromiseで包む）
+        setTimeout(async () => {
+          try {
+            // 録画されたBlobを取得
+            const blob = recorder.getBlob();
+            const mimeType = blob.type || 'video/webm';
 
-        // 録画されたBlobを取得
-        const blob = recorder.getBlob();
-        const mimeType = blob.type || 'video/webm';
+            // ストリームとトラックを停止
+            const stream = recorder.stream;
+            if (stream) {
+              const allTracks = stream.getTracks();
+              doLog('Stopping tracks:', {
+                total: allTracks.length,
+                video: allTracks.filter(t => t.kind === 'video').length,
+                audio: allTracks.filter(t => t.kind === 'audio').length
+              });
+              allTracks.forEach(t => t.stop());
+            }
 
-        // ストリームとトラックを停止
-        const stream = recorder.stream;
-        if (stream) {
-          const allTracks = stream.getTracks();
-          doLog('Stopping tracks:', {
-            total: allTracks.length,
-            video: allTracks.filter(t => t.kind === 'video').length,
-            audio: allTracks.filter(t => t.kind === 'audio').length
-          });
-          allTracks.forEach(t => t.stop());
-        }
+            setIsRecording(false);
+            setRecordingTime(0);
 
-        setIsRecording(false);
-        setRecordingTime(0);
+            // ビデオ録画完了音を再生
+            if (mustPlaySound(options)) {
+              playSound(videoCompleteAudioRef.current);
+            }
 
-        // ビデオ録画完了音を再生
-        if (mustPlaySound(options)) {
-          playSound(videoCompleteAudioRef.current);
-        }
+            const extension = videoFormatToExtension(mimeType); // 拡張子
+            const fileName = generateFileName(t('ac_text_video') + '_', extension); // ファイル名
 
-        const extension = videoFormatToExtension(mimeType); // 拡張子
-        const fileName = generateFileName(t('ac_text_video') + '_', extension); // ファイル名
+            // Blobの検証とログ出力
+            doLog('Video recording completed:', {
+              fileName,
+              mimeType,
+              blobSize: blob.size,
+              isValidBlob: blob.size > 0
+            });
 
-        // Blobの検証とログ出力
-        doLog('Video recording completed:', {
-          fileName,
-          mimeType,
-          blobSize: blob.size,
-          isValidBlob: blob.size > 0
-        });
+            // Blobが空でないか確認
+            if (blob.size === 0) {
+              doError('Generated video blob is empty!');
+              alert(t('ac_recording_error', { error: 'Video file is empty' }));
+              return;
+            }
 
-        // Blobが空でないか確認
-        if (blob.size === 0) {
-          doError('Generated video blob is empty!');
-          alert(t('ac_recording_error', { error: 'Video file is empty' }));
-          return;
-        }
+            if (isAndroidApp) {
+              saveVideoToGallery(blob, fileName, mimeType);
+            } else {
+              downloadFallback(blob, fileName);
+            }
 
-        if (isAndroidApp) {
-          saveVideoToGallery(blob, fileName, mimeType);
-        } else {
-          downloadFallback(blob, fileName);
-        }
+            // RecordRTCインスタンスをクリーンアップ
+            recorder.destroy();
+            recordRTCRef.current = null;
 
-        // RecordRTCインスタンスをクリーンアップ
-        recorder.destroy();
-        recordRTCRef.current = null;
-
-        doLog('RecordRTC recording stopped and cleaned up');
+            doLog('RecordRTC recording stopped and cleaned up');
+          } catch (error) {
+            doError('Error processing recording:', error);
+            setIsRecording(false);
+            setRecordingTime(0);
+            if (recordRTCRef.current) {
+              try {
+                recordRTCRef.current.destroy();
+              } catch (e) {
+                doWarn('Failed to destroy RecordRTC instance:', e);
+              }
+              recordRTCRef.current = null;
+            }
+          }
+        }, BUFFER_FLUSH_DELAY_MS);
       });
     } catch (error) {
       doError('Recording stop failed:', error);
