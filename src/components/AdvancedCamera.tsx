@@ -147,7 +147,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const ICON_SIZE = 32; // アイコンサイズ
   const MIN_ZOOM = 1.0; // ズーム倍率の最小値
   const MAX_ZOOM = 4.0; // ズーム倍率の最大値
-  const BUFFER_FLUSH_DELAY_MS = 100; // RecordRTCバッファフラッシュ待機時間(ミリ秒)
+  const BUFFER_FLUSH_DELAY_MS = 300; // RecordRTCバッファフラッシュ待機時間(ミリ秒)
 
   // --- Refs ---
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1118,7 +1118,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       // 音声ストリーム
       if (hasMic && micEnabled) {
         try {
-          const audioStream = await navigator.mediaDevices.getUserMedia({ 
+          const audioStream = await navigator.mediaDevices.getUserMedia({
             audio: {
               echoCancellation: true,
               noiseSuppression: true,
@@ -1192,7 +1192,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       recorder.startRecording();
       recordRTCRef.current = recorder;
       setIsRecording(true);
-      
+
       doLog('RecordRTC recording started');
     } catch (error) {
       doError('Recording start failed', error);
@@ -1206,13 +1206,23 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (!recorder) return;
 
     try {
-      // RecordRTCで録画を停止（コールバックは同期関数であるべき）
-      recorder.stopRecording(() => {
-        // 少し遅延してから処理を実行（非同期処理はPromiseで包む）
-        setTimeout(async () => {
+      // RecordRTCで録画を停止(Promiseでラップして確実に完了を待つ)
+      await new Promise<void>((resolve, reject) => {
+        recorder.stopRecording(async () => {
           try {
-            // 録画されたBlobを取得
-            const blob = recorder.getBlob();
+            // バッファのフラッシュを待つ
+            await new Promise(r => setTimeout(r, BUFFER_FLUSH_DELAY_MS));
+
+            // 録画されたBlobを取得(空の場合は再試行)
+            let blob = recorder.getBlob();
+
+            // Blobが正しく生成されるまで追加で待機
+            if (blob.size === 0) {
+              doWarn('Blob is empty, waiting additional time...');
+              await new Promise(r => setTimeout(r, 500));
+              blob = recorder.getBlob();
+            }
+
             const mimeType = blob.type || 'video/webm';
 
             // ストリームとトラックを停止
@@ -1250,6 +1260,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             if (blob.size === 0) {
               doError('Generated video blob is empty!');
               alert(t('ac_recording_error', { error: 'Video file is empty' }));
+              reject(new Error('Video blob is empty'));
               return;
             }
 
@@ -1264,6 +1275,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             recordRTCRef.current = null;
 
             doLog('RecordRTC recording stopped and cleaned up');
+            resolve();
           } catch (error) {
             doError('Error processing recording:', error);
             setIsRecording(false);
@@ -1276,8 +1288,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
               }
               recordRTCRef.current = null;
             }
+            reject(error);
           }
-        }, BUFFER_FLUSH_DELAY_MS);
+        });
       });
     } catch (error) {
       doError('Recording stop failed:', error);
