@@ -102,7 +102,7 @@ const ImageProcessingControls: React.FC<ImageProcessingControlsProps> = ({
         aria-label={isExpanded ? t('ip_close_controls') : t('ip_open_controls')}
         title={isExpanded ? t('ip_close_controls') : t('ip_open_controls')}
       >
-        <Settings size={24} />
+        <Settings size={32} />
       </button>
 
       {/* Controls panel */}

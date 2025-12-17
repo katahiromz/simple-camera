@@ -2,14 +2,14 @@
 
 .image-processing-controls {
   position: absolute;
-  right: 10px;
+  left: 10px;
   top: 50%;
   transform: translateY(-50%);
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(10px);
   border-radius: 12px;
   padding: 16px;
-  max-height: 90vh;
+  max-height: 80vh;
   overflow-y: auto;
   z-index: 100;
   color: white;
@@ -20,7 +20,7 @@
 }
 
 .image-processing-controls--collapsed {
-  transform: translateY(-50%) translateX(calc(100% + 10px));
+  transform: translateY(-50%) translateX(calc(-100% - 10px));
   opacity: 0;
   pointer-events: none;
 }
@@ -28,22 +28,22 @@
 /* Toggle button */
 .image-processing-controls__toggle {
   position: absolute;
-  right: 10px;
   top: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(10px);
+  left: 10px;
+  width: 72px;
+  height: 72px;
+  background: rgba(255, 255, 255, 0.2);
   border: none;
   border-radius: 50%;
-  width: 48px;
-  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   color: white;
-  z-index: 101;
-  transition: background 0.2s ease, transform 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+  flex-shrink: 0;
+  pointer-events: auto; /* ボタン自体はクリック可能に */
 }
 
 .image-processing-controls__toggle:hover {
@@ -278,10 +278,6 @@
   }
 
   .image-processing-controls__toggle {
-    right: 50%;
-    transform: translateX(50%);
-    top: auto;
-    bottom: 80px;
   }
 
   .image-processing-controls__presets {
