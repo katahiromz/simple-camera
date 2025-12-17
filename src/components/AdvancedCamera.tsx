@@ -233,7 +233,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     // 可能ならばシステム音量を変更する
     try {
       if (isAndroidApp)
-        android.onStartShutterSound();
+        window.android.onStartShutterSound();
     } catch (error) {
       alert(error);
     }
@@ -244,7 +244,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           // 可能ならばシステム音量を元に戻す
           try {
             if (isAndroidApp)
-              android.onEndShutterSound();
+              window.android.onEndShutterSound();
           } catch (error) {
             alert(error);
           }
