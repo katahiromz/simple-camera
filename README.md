@@ -131,10 +131,10 @@ simple-cameraは、以下の機能を備えた堅牢な録画機能を提供し�
 
 1. `video/webm;codecs=vp9,opus` - VP9 + Opus（最高品質）
 2. `video/webm;codecs=vp8,opus` - VP8 + Opus（広くサポート）
-3. `video/webm;codecs=h264,opus` - H.264 + Opus
-4. `video/webm;codecs=vp8` - VP8のみ
-5. `video/webm` - WebMコンテナのデフォルト
-6. `video/mp4;codecs=h264,aac` - H.264 + AAC（Safari用）
+3. `video/webm;codecs=vp8` - VP8のみ
+4. `video/webm` - WebMコンテナのデフォルト
+5. `video/mp4;codecs=h264,aac` - H.264 + AAC（Safari用）
+6. `video/mp4;codecs=avc1,mp4a` - AVC1 + MP4A
 7. `video/mp4` - MP4コンテナのデフォルト
 
 ブラウザがサポートしていない場合、最適なフォールバックコーデックが自動的に選択されます。

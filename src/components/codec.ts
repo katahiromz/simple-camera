@@ -124,6 +124,11 @@ export { defaultCodec };
  * @returns {string | null} - サポートされているコーデック、またはnull（ブラウザにデフォルトを使わせる）
  */
 export function selectBestCodec(candidates: string[]): string | null {
+  // 入力検証
+  if (!candidates || !Array.isArray(candidates) || candidates.length === 0) {
+    return checkRecordingCodecSupport(defaultCodec) ? defaultCodec : null;
+  }
+
   for (const codec of candidates) {
     if (checkRecordingCodecSupport(codec)) {
       return codec;

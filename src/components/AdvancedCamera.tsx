@@ -1136,13 +1136,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     try {
       if (!canvasRef.current) {
-        throw new Error('Canvas not available');
+        throw new Error('Canvas element is not available for recording');
       }
 
       // キャンバスが実際にレンダリングされているか確認
       const ctx = canvasRef.current.getContext('2d');
       if (!ctx || renderMetrics.renderWidth === 0) {
-        throw new Error('Canvas not ready for recording');
+        throw new Error('Canvas context unavailable or render dimensions are zero');
       }
 
       // 録画ステータスを更新
