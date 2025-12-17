@@ -1088,6 +1088,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // 録画開始
   const startRecording = async (options = null) => {
+    // 少なくとも1フレーム描画されていることを保証
+    await new Promise(r => requestAnimationFrame(() => r(null)));
+
     try {
       if (!canvasRef.current) return; // キャンバスがない？
 
@@ -1157,10 +1160,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         disableLogs: IS_PRODUCTION,
         frameRate: RECORDING_FPS,
         videoBitsPerSecond: isMobile ? 2500000 : undefined,
-        // 音声とビデオの同期を保証
-        timeSlice: 1000,
-        // Android WebViewでの互換性を向上
-        recorderType: isMobile ? RecordRTC.MediaStreamRecorder : undefined
+        recorderType: undefined
       };
 
       // トラック情報をログ出力(デバッグ用)
@@ -1178,15 +1178,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       // RecordRTCインスタンスを作成
       const recorder = new RecordRTC(combinedStream, recordRTCOptions);
-
-      // ストリーム切断検知
-      combinedStream.getVideoTracks()[0].onended = () => {
-        if (recordRTCRef.current) {
-          recordRTCRef.current.stopRecording();
-        }
-        setStatus('noDevice');
-        alert(t('ac_recording_disconnected'));
-      };
 
       // 録画開始
       recorder.startRecording();
@@ -1225,16 +1216,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
             const mimeType = blob.type || 'video/webm';
 
-            // ストリームとトラックを停止
             const stream = recorder.stream;
             if (stream) {
-              const allTracks = stream.getTracks();
-              doLog('Stopping tracks:', {
-                total: allTracks.length,
-                video: allTracks.filter(t => t.kind === 'video').length,
-                audio: allTracks.filter(t => t.kind === 'audio').length
-              });
-              allTracks.forEach(t => t.stop());
+              // audio track のみ stop（canvas video は生かす）
+              stream.getAudioTracks().forEach(t => t.stop());
             }
 
             setIsRecording(false);
