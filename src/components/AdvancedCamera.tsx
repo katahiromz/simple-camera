@@ -24,6 +24,8 @@ const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
 
 const NORMAL_FPS = 30; // 通常のFPS
 const RECORDING_FPS = 12; // 録画用のFPS
+const DATA_COLLECTION_INTERVAL_MS = 100; // MediaRecorderのデータ収集間隔(ミリ秒)
+const MOBILE_VIDEO_BITRATE = 2500000; // モバイル端末用のビデオビットレート
 
 // アプリケーションのベースパスを取得
 const BASE_URL = import.meta.env.BASE_URL;
@@ -1161,7 +1163,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       // MediaRecorderオプション
       const mediaRecorderOptions: MediaRecorderOptions = {
         mimeType: mimeType || undefined,
-        videoBitsPerSecond: isMobile ? 2500000 : undefined,
+        videoBitsPerSecond: isMobile ? MOBILE_VIDEO_BITRATE : undefined,
       };
 
       // トラック情報をログ出力(デバッグ用)
@@ -1191,7 +1193,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       };
 
       // 録画開始
-      recorder.start(100); // 100ms毎にデータを取得
+      recorder.start(DATA_COLLECTION_INTERVAL_MS); // データ収集間隔を設定
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
 
