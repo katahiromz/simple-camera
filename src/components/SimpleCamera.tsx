@@ -1,5 +1,5 @@
 // SimpleCamera.tsx --- New camera implementation using react-webcam and react-zoom-pan-pinch
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Webcam from 'react-webcam';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { Camera, Mic, MicOff, Video, VideoOff, Square, SwitchCamera, RefreshCw, Settings } from 'lucide-react';
@@ -11,7 +11,6 @@ import ImageProcessingControls from './ImageProcessingControls';
 import {
   ImageProcessingParams,
   getDefaultImageProcessingParams,
-  applyCSSFilters,
   loadImageProcessingParams,
 } from './ImageProcessingUtils';
 
@@ -70,8 +69,6 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
   const shutterAudioRef = useRef<HTMLAudioElement | null>(null);
   const videoStartAudioRef = useRef<HTMLAudioElement | null>(null);
   const videoCompleteAudioRef = useRef<HTMLAudioElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const processingIntervalRef = useRef<number | null>(null);
 
   // State
   const [status, setStatus] = useState<CameraStatus>('initializing');
@@ -347,6 +344,23 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     setShowImageControls((prev) => !prev);
   }, []);
 
+  // Memoize style objects to prevent unnecessary re-renders
+  const wrapperStyle = useMemo(() => ({
+    width: '100%',
+    height: '100%',
+  }), []);
+
+  const contentStyle = useMemo(() => ({
+    width: '100%',
+    height: '100%',
+  }), []);
+
+  const webcamStyle = useMemo(() => ({
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover' as const,
+  }), []);
+
   return (
     <div className="simple-camera-container">
       <div className="simple-camera-viewport">
@@ -360,14 +374,8 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
           doubleClick={{ disabled: false }}
         >
           <TransformComponent
-            wrapperStyle={{
-              width: '100%',
-              height: '100%',
-            }}
-            contentStyle={{
-              width: '100%',
-              height: '100%',
-            }}
+            wrapperStyle={wrapperStyle}
+            contentStyle={contentStyle}
           >
             <Webcam
               ref={webcamRef}
@@ -377,11 +385,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
               videoConstraints={videoConstraints}
               onUserMedia={handleUserMedia}
               onUserMediaError={handleUserMediaError}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-              }}
+              style={webcamStyle}
             />
           </TransformComponent>
         </TransformWrapper>
