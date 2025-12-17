@@ -1,0 +1,326 @@
+/* ImageProcessingControls.css --- Styles for image processing controls panel */
+
+.image-processing-controls {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 16px;
+  max-height: 90vh;
+  overflow-y: auto;
+  z-index: 100;
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  min-width: 280px;
+}
+
+.image-processing-controls--collapsed {
+  transform: translateY(-50%) translateX(calc(100% + 10px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Toggle button */
+.image-processing-controls__toggle {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: white;
+  z-index: 101;
+  transition: background 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.image-processing-controls__toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.image-processing-controls__toggle:active {
+  transform: scale(0.95);
+}
+
+/* Header */
+.image-processing-controls__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.image-processing-controls__title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.image-processing-controls__close {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+  border-radius: 4px;
+}
+
+.image-processing-controls__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Tabs */
+.image-processing-controls__tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.image-processing-controls__tab {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s ease, border-color 0.2s ease;
+  border-bottom: 2px solid transparent;
+  flex: 1;
+}
+
+.image-processing-controls__tab:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.image-processing-controls__tab--active {
+  color: white;
+  border-bottom-color: #4a9eff;
+}
+
+/* Slider group */
+.image-processing-controls__group {
+  margin-bottom: 20px;
+}
+
+.image-processing-controls__slider-group {
+  margin-bottom: 16px;
+}
+
+.image-processing-controls__label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.image-processing-controls__value {
+  font-weight: 600;
+  color: #4a9eff;
+  min-width: 40px;
+  text-align: right;
+}
+
+.image-processing-controls__slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.image-processing-controls__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4a9eff;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.image-processing-controls__slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.image-processing-controls__slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4a9eff;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.image-processing-controls__slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* Presets */
+.image-processing-controls__presets {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.image-processing-controls__preset {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 12px 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: white;
+  transition: all 0.2s ease;
+  text-align: center;
+  font-weight: 500;
+}
+
+.image-processing-controls__preset:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.image-processing-controls__preset--active {
+  background: rgba(74, 158, 255, 0.3);
+  border-color: #4a9eff;
+}
+
+/* Checkboxes */
+.image-processing-controls__checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.image-processing-controls__checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
+}
+
+.image-processing-controls__checkbox {
+  margin-right: 8px;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Reset button */
+.image-processing-controls__reset {
+  width: 100%;
+  background: rgba(255, 59, 48, 0.2);
+  border: 1px solid rgba(255, 59, 48, 0.5);
+  border-radius: 8px;
+  padding: 10px;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: 16px;
+  transition: all 0.2s ease;
+}
+
+.image-processing-controls__reset:hover {
+  background: rgba(255, 59, 48, 0.3);
+  transform: translateY(-1px);
+}
+
+.image-processing-controls__reset:active {
+  transform: translateY(0);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .image-processing-controls {
+    right: 0;
+    left: 0;
+    top: auto;
+    bottom: 0;
+    transform: translateY(0);
+    border-radius: 16px 16px 0 0;
+    max-height: 60vh;
+    min-width: auto;
+    width: 100%;
+  }
+
+  .image-processing-controls--collapsed {
+    transform: translateY(100%);
+  }
+
+  .image-processing-controls__toggle {
+    right: 50%;
+    transform: translateX(50%);
+    top: auto;
+    bottom: 80px;
+  }
+
+  .image-processing-controls__presets {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .image-processing-controls {
+    padding: 12px;
+  }
+
+  .image-processing-controls__presets {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tablet landscape */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .image-processing-controls {
+    min-width: 260px;
+  }
+}
+
+/* Scrollbar styling */
+.image-processing-controls::-webkit-scrollbar {
+  width: 6px;
+}
+
+.image-processing-controls::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.image-processing-controls::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.image-processing-controls::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
