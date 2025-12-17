@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import CameraComponent from './CameraComponent';
 import { X } from 'lucide-react';
 import './SimpleCameraDemo.css';
+import './i18n.ts'; // Import i18n configuration
 
 /**
  * SimpleCameraDemo - Demonstrates how to use the CameraComponent

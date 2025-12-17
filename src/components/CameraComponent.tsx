@@ -3,6 +3,7 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { Camera, SwitchCamera, Settings } from 'lucide-react';
 import './CameraComponent.css';
+import './i18n.ts'; // Import i18n configuration
 import { useTranslation } from 'react-i18next';
 
 // Supported resolutions
@@ -133,10 +134,9 @@ const CameraComponent: React.FC<CameraComponentProps> = ({
     setIsCapturing(true);
     try {
       // Capture screenshot from webcam
-      const imageSrc = webcamRef.current.getScreenshot({
-        width: RESOLUTION_CONFIG[resolution].width,
-        height: RESOLUTION_CONFIG[resolution].height,
-      });
+      // Note: react-webcam's getScreenshot returns the image at the video's current resolution
+      // The width/height parameters may not work as documented in all browsers
+      const imageSrc = webcamRef.current.getScreenshot();
 
       if (imageSrc && onCapture) {
         onCapture(imageSrc);
