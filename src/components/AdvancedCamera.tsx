@@ -29,7 +29,6 @@ import {
 import {
   selectBestCodec,
   recommendedCodecs,
-  checkRecordingCodecSupport,
 } from './codec';
 
 // 国際化(i18n)
@@ -1197,18 +1196,18 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const combinedStream = new MediaStream(tracks);
 
       // 最適なコーデックを選択
-      const mimeType = selectBestCodec(recommendedCodecs);
+      const selectedCodec = selectBestCodec(recommendedCodecs);
       
-      // コーデックがサポートされているか確認
-      if (!checkRecordingCodecSupport(mimeType)) {
-        doWarn('Selected codec not supported, using browser default:', mimeType);
+      // コーデックがサポートされているか確認してログ出力
+      if (selectedCodec) {
+        doLog('Using codec:', selectedCodec);
       } else {
-        doLog('Using codec:', mimeType);
+        doLog('Using browser default codec (no supported codec found)');
       }
 
       // MediaRecorderオプション
       const mediaRecorderOptions: MediaRecorderOptions = {
-        mimeType: mimeType || undefined,
+        mimeType: selectedCodec || undefined, // nullの場合はブラウザのデフォルトを使用
         videoBitsPerSecond: isMobile ? MOBILE_VIDEO_BITRATE : undefined,
         audioBitsPerSecond: 128000,
       };
@@ -1217,7 +1216,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       doLog('MediaRecorder created with tracks:', {
         videoTracks: combinedStream.getVideoTracks().length,
         audioTracks: combinedStream.getAudioTracks().length,
-        mimeType: mimeType || 'default',
+        mimeType: selectedCodec || 'browser default',
         audioTrackDetails: combinedStream.getAudioTracks().map(t => ({
           label: t.label,
           enabled: t.enabled,

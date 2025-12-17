@@ -105,28 +105,36 @@ export const supportedVideoCodecs = getSupportedMediaFormats(
 );
 
 // デフォルトコーデックを安全に構築
-const videoContainer = supportedVideoCodecs.container[0] || 'webm';
-const videoCodec = supportedVideoCodecs.codec[0] || 'vp8';
-const audioCodec = supportedAudioCodecs?.codec?.[0];
+// 空の配列の場合は、基本的なフォールバックを使用
+let defaultCodec = 'video/webm'; // 最終フォールバック
 
-export const defaultCodec = videoContainer && videoCodec
-  ? `video/${videoContainer};codecs=${videoCodec}${audioCodec ? `,${audioCodec}` : ''}`
-  : 'video/webm'; // 最終的なフォールバック
+if (supportedVideoCodecs.container.length > 0 && supportedVideoCodecs.codec.length > 0) {
+  const videoContainer = supportedVideoCodecs.container[0];
+  const videoCodec = supportedVideoCodecs.codec[0];
+  const audioCodec = supportedAudioCodecs?.codec?.[0];
+  defaultCodec = `video/${videoContainer};codecs=${videoCodec}${audioCodec ? `,${audioCodec}` : ''}`;
+}
+
+export { defaultCodec };
 
 /**
  * 最適なコーデックを選択する
  * コーデック候補のリストから、サポートされている最初のコーデックを返す
  * @param {string[]} candidates - コーデック候補のリスト
- * @returns {string} - サポートされているコーデック、またはデフォルトコーデック
+ * @returns {string | null} - サポートされているコーデック、またはnull（ブラウザにデフォルトを使わせる）
  */
-export function selectBestCodec(candidates: string[]): string {
+export function selectBestCodec(candidates: string[]): string | null {
   for (const codec of candidates) {
     if (checkRecordingCodecSupport(codec)) {
       return codec;
     }
   }
-  // フォールバック: デフォルトコーデックを返す
-  return defaultCodec || 'video/webm'; // 追加の安全性チェック
+  // フォールバック: デフォルトコーデックがサポートされていればそれを返す
+  if (checkRecordingCodecSupport(defaultCodec)) {
+    return defaultCodec;
+  }
+  // すべて失敗した場合はnullを返し、ブラウザにデフォルトを使わせる
+  return null;
 }
 
 /**
@@ -135,9 +143,9 @@ export function selectBestCodec(candidates: string[]): string {
 export const recommendedCodecs = [
   'video/webm;codecs=vp9,opus',
   'video/webm;codecs=vp8,opus',
-  'video/webm;codecs=h264,opus',
   'video/webm;codecs=vp8',
   'video/webm',
   'video/mp4;codecs=h264,aac',
+  'video/mp4;codecs=avc1,mp4a',
   'video/mp4',
 ];
