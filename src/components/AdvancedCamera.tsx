@@ -25,6 +25,13 @@ import {
   loadImageProcessingParams,
 } from './ImageProcessingUtils';
 
+// コーデックサポート
+import {
+  selectBestCodec,
+  recommendedCodecs,
+  checkRecordingCodecSupport,
+} from './codec';
+
 // 国際化(i18n)
 import './i18n.ts';
 import { useTranslation } from 'react-i18next';
@@ -86,6 +93,9 @@ const doError = (...args) => {
 
 // ステータス定義
 type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice' | 'switching';
+
+// 録画ステータス定義
+type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopping' | 'error';
 
 // ストリームを渡すための関数型
 type userMediaFn = (MediaStream) => null;
@@ -186,6 +196,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const [zoom, setZoomState] = useState(1.0); // ズーム倍率
   const [pan, setPanState] = useState({ x: 0, y: 0 }); // パン（平行移動量）
   const [isRecording, setIsRecording] = useState(false); // 録画中？
+  const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>('idle'); // 録画ステータス
   const [recordingTime, setRecordingTime] = useState(0); // 録画時間量
   const [micEnabled, setMicEnabled] = useState(true); // マイク有効？
   const [hasMic, setHasMic] = useState(false); // マイクがあるか？
@@ -1125,15 +1136,18 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     await new Promise(r => requestAnimationFrame(() => r(null)));
 
     try {
-      if (!canvasRef.current) return; // キャンバスがない？
+      if (!canvasRef.current) {
+        throw new Error('Canvas not available');
+      }
 
       // キャンバスが実際にレンダリングされているか確認
       const ctx = canvasRef.current.getContext('2d');
       if (!ctx || renderMetrics.renderWidth === 0) {
-        doError('Canvas not ready for recording');
-        alert(t('ac_recording_cannot_start', { error: 'Canvas not ready' }));
-        return;
+        throw new Error('Canvas not ready for recording');
       }
+
+      // 録画ステータスを更新
+      setRecordingStatus('recording');
 
       if (mustPlaySound(options)) {
         // ビデオ録画開始音を再生
@@ -1175,29 +1189,28 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           }
         } catch (error) {
           doError('Mic access failed during record start:', error);
+          // 音声なしで録画を続行
         }
       }
 
       // 結合
       const combinedStream = new MediaStream(tracks);
 
-      // MediaRecorder用のMIMEタイプを決定
-      // ブラウザがサポートしているMIMEタイプを選択
-      let mimeType = 'video/webm;codecs=vp8';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        if (MediaRecorder.isTypeSupported('video/webm')) {
-          mimeType = 'video/webm';
-        } else if (MediaRecorder.isTypeSupported('video/mp4')) {
-          mimeType = 'video/mp4';
-        } else {
-          mimeType = ''; // ブラウザのデフォルトを使用
-        }
+      // 最適なコーデックを選択
+      const mimeType = selectBestCodec(recommendedCodecs);
+      
+      // コーデックがサポートされているか確認
+      if (!checkRecordingCodecSupport(mimeType)) {
+        doWarn('Selected codec not supported, using browser default:', mimeType);
+      } else {
+        doLog('Using codec:', mimeType);
       }
 
       // MediaRecorderオプション
       const mediaRecorderOptions: MediaRecorderOptions = {
         mimeType: mimeType || undefined,
         videoBitsPerSecond: isMobile ? MOBILE_VIDEO_BITRATE : undefined,
+        audioBitsPerSecond: 128000,
       };
 
       // トラック情報をログ出力(デバッグ用)
@@ -1226,14 +1239,24 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         }
       };
 
+      // エラーハンドラを追加
+      recorder.onerror = (event: any) => {
+        doError('MediaRecorder error:', event.error);
+        setRecordingStatus('error');
+        setIsRecording(false);
+      };
+
       // 録画開始
       recorder.start(DATA_COLLECTION_INTERVAL_MS); // データ収集間隔を設定
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
+      setRecordingStatus('recording');
 
       doLog('MediaRecorder recording started');
     } catch (error) {
       doError('Recording start failed', error);
+      setRecordingStatus('error');
+      setIsRecording(false);
       alert(t('ac_recording_cannot_start', { error }));
     }
   };
@@ -1242,6 +1265,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const stopRecording = async (options = null) => {
     const recorder = mediaRecorderRef.current;
     if (!recorder) return;
+
+    // 停止中フラグを設定
+    setRecordingStatus('stopping');
 
     try {
       // MediaRecorderで録画を停止(Promiseでラップして確実に完了を待つ)
@@ -1260,6 +1286,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             }
 
             setIsRecording(false);
+            setRecordingStatus('idle');
             setRecordingTime(0);
 
             // ビデオ録画完了音を再生
@@ -1281,6 +1308,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             // Blobが空でないか確認
             if (blob.size === 0) {
               doError('Generated video blob is empty!');
+              setRecordingStatus('error');
               alert(t('ac_recording_error', { error: 'Video file is empty' }));
               reject(new Error('Video blob is empty'));
               return;
@@ -1301,6 +1329,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           } catch (error) {
             doError('Error processing recording:', error);
             setIsRecording(false);
+            setRecordingStatus('error');
             setRecordingTime(0);
             mediaRecorderRef.current = null;
             recordedChunksRef.current = [];
@@ -1312,6 +1341,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         recorder.onerror = (event: any) => {
           doError('MediaRecorder error:', event.error);
           setIsRecording(false);
+          setRecordingStatus('error');
           setRecordingTime(0);
           mediaRecorderRef.current = null;
           recordedChunksRef.current = [];
@@ -1323,17 +1353,50 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           recorder.stop();
         } else {
           // 既に停止している場合
+          setIsRecording(false);
+          setRecordingStatus('idle');
           resolve();
         }
       });
     } catch (error) {
       doError('Recording stop failed:', error);
       setIsRecording(false);
+      setRecordingStatus('error');
       setRecordingTime(0);
       if (mediaRecorderRef.current) {
         mediaRecorderRef.current = null;
       }
       recordedChunksRef.current = [];
+    }
+  };
+
+  // 録画の一時停止
+  const pauseRecording = async () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state !== 'recording') return;
+
+    try {
+      recorder.pause();
+      setRecordingStatus('paused');
+      doLog('Recording paused');
+    } catch (error) {
+      doError('Recording pause failed:', error);
+      setRecordingStatus('error');
+    }
+  };
+
+  // 録画の再開
+  const resumeRecording = async () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state !== 'paused') return;
+
+    try {
+      recorder.resume();
+      setRecordingStatus('recording');
+      doLog('Recording resumed');
+    } catch (error) {
+      doError('Recording resume failed:', error);
+      setRecordingStatus('error');
     }
   };
 
