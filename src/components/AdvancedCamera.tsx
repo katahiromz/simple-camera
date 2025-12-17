@@ -5,6 +5,9 @@ import './AdvancedCamera.css';
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera, Mic, MicOff, Video, VideoOff, RefreshCw, SwitchCamera, CameraOff, Square } from 'lucide-react';
 
+// RecordRTCをインポート
+import RecordRTC from 'recordrtc';
+
 // 汎用関数群
 import {
   calculateVideoRenderMetrics,
@@ -144,13 +147,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const ICON_SIZE = 32; // アイコンサイズ
   const MIN_ZOOM = 1.0; // ズーム倍率の最小値
   const MAX_ZOOM = 4.0; // ズーム倍率の最大値
-  const BUFFER_FLUSH_DELAY_MS = 100; // MediaRecorderバッファフラッシュ待機時間(ミリ秒)
+  const BUFFER_FLUSH_DELAY_MS = 100; // RecordRTCバッファフラッシュ待機時間(ミリ秒)
 
   // --- Refs ---
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordRTCRef = useRef<RecordRTC | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animeRequestRef = useRef<number>(); // アニメーションの要求
   const shutterAudioRef = useRef<HTMLAudioElement | null>(null); // シャッター音の Audio オブジェクト
@@ -515,8 +518,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             streamRef.current.getTracks().forEach(t => t.stop());
             streamRef.current = null;
           }
-          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-            mediaRecorderRef.current.stop();
+          if (recordRTCRef.current && recordRTCRef.current.getState() === 'recording') {
+            recordRTCRef.current.stopRecording();
           }
           setStatus('noPermission');
         } else if (state === 'granted') {
@@ -1142,43 +1145,36 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       // 結合
       const combinedStream = new MediaStream(tracks);
 
-      // フォーマット確認
+      // RecordRTC用のMIMEタイプを決定
       const hasAudio = hasMic && micEnabled;
-      const mimeTypes = isMobile ? [
-        'video/webm; codecs=vp8', // VP8の方が軽い
-        'video/webm; codecs=vp9',
-        'video/webm',
-        'video/mp4',
-      ] : (hasAudio ? [
-        'video/webm; codecs=vp9', // 品質を重視
-        'video/webm; codecs=vp8',
-        'video/webm',
-        'video/mp4',
-      ] : [
-        // 音声なしの場合: MP4も選択肢に
-        'video/mp4',
-        'video/webm; codecs=vp9',
-        'video/webm; codecs=vp8',
-        'video/webm',
-      ]);
       let mimeType = 'video/webm';
-      for (let type of mimeTypes) {
-        if (MediaRecorder.isTypeSupported(type)) {
-          doLog(`Selected MIME type: ${type}`);
-          mimeType = type;
-          break;
-        }
+      let recorderType = 'video';
+      
+      // RecordRTCはブラウザの互換性を自動的に処理
+      // WebM (VP8/VP9) が推奨され、フォールバックも内蔵されている
+      if (isMobile) {
+        // モバイルでは軽量なVP8を優先
+        mimeType = 'video/webm;codecs=vp8';
+      } else {
+        // デスクトップでは品質を優先
+        mimeType = 'video/webm';
       }
 
-      const recorderOptions = isMobile ?
-        { mimeType, videoBitsPerSecond: 2500000 } :
-        { mimeType };
-
-      const recorder = new MediaRecorder(combinedStream, recorderOptions);
-      const chunks: BlobPart[] = [];
+      // RecordRTCオプション
+      const recordRTCOptions = {
+        type: recorderType,
+        mimeType: mimeType,
+        disableLogs: IS_PRODUCTION,
+        frameRate: RECORDING_FPS,
+        videoBitsPerSecond: isMobile ? 2500000 : undefined,
+        // 音声とビデオの同期を保証
+        timeSlice: 1000,
+        // Android WebViewでの互換性を向上
+        recorderType: isMobile ? RecordRTC.MediaStreamRecorder : undefined
+      };
 
       // トラック情報をログ出力(デバッグ用)
-      doLog('MediaRecorder created with tracks:', {
+      doLog('RecordRTC created with tracks:', {
         videoTracks: combinedStream.getVideoTracks().length,
         audioTracks: combinedStream.getAudioTracks().length,
         mimeType: mimeType,
@@ -1190,28 +1186,56 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         }))
       });
 
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          chunks.push(event.data);
-          console.log('Video chunk received:', {
-            size: event.data.size,
-            totalChunks: chunks.length
-          });
-        } else {
-          doWarn('Received empty or invalid chunk');
+      // RecordRTCインスタンスを作成
+      const recorder = new RecordRTC(combinedStream, recordRTCOptions);
+
+      // ストリーム切断検知
+      combinedStream.getVideoTracks()[0].onended = () => {
+        if (recordRTCRef.current) {
+          recordRTCRef.current.stopRecording();
         }
+        setStatus('noDevice');
+        alert(t('ac_recording_disconnected'));
       };
 
-      // 停止時・エラー時のダウンロード処理
-      recorder.onstop = async () => {
-        // トラック停止
-        const allTracks = combinedStream.getTracks();
-        doLog('Stopping tracks:', {
-          total: allTracks.length,
-          video: allTracks.filter(t => t.kind === 'video').length,
-          audio: allTracks.filter(t => t.kind === 'audio').length
-        });
-        allTracks.forEach(t => t.stop());
+      // 録画開始
+      recorder.startRecording();
+      recordRTCRef.current = recorder;
+      setIsRecording(true);
+      
+      doLog('RecordRTC recording started');
+    } catch (error) {
+      doError('Recording start failed', error);
+      alert(t('ac_recording_cannot_start', { error }));
+    }
+  };
+
+  // 録画停止
+  const stopRecording = async (options = null) => {
+    const recorder = recordRTCRef.current;
+    if (!recorder) return;
+
+    try {
+      // RecordRTCで録画を停止
+      recorder.stopRecording(async () => {
+        // 録画が完全に停止するまで少し待つ
+        await new Promise(resolve => setTimeout(resolve, BUFFER_FLUSH_DELAY_MS));
+
+        // 録画されたBlobを取得
+        const blob = recorder.getBlob();
+        const mimeType = recorder.getBlob().type || 'video/webm';
+
+        // ストリームとトラックを停止
+        const stream = recorder.stream;
+        if (stream) {
+          const allTracks = stream.getTracks();
+          doLog('Stopping tracks:', {
+            total: allTracks.length,
+            video: allTracks.filter(t => t.kind === 'video').length,
+            audio: allTracks.filter(t => t.kind === 'audio').length
+          });
+          allTracks.forEach(t => t.stop());
+        }
 
         setIsRecording(false);
         setRecordingTime(0);
@@ -1221,19 +1245,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           playSound(videoCompleteAudioRef.current);
         }
 
-        // MediaRecorderの内部バッファフラッシュを待つため、少し遅延
-        await new Promise(resolve => setTimeout(resolve, BUFFER_FLUSH_DELAY_MS));
-
         const extension = videoFormatToExtension(mimeType); // 拡張子
         const fileName = generateFileName(t('ac_text_video') + '_', extension); // ファイル名
-        const blob = new Blob(chunks, { type: mimeType });
 
         // Blobの検証とログ出力
         doLog('Video recording completed:', {
           fileName,
           mimeType,
           blobSize: blob.size,
-          chunksCount: chunks.length,
           isValidBlob: blob.size > 0
         });
 
@@ -1249,47 +1268,26 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         } else {
           downloadFallback(blob, fileName);
         }
-      };
 
-      // ストリーム切断検知
-      combinedStream.getVideoTracks()[0].onended = () => {
-        recorder.stop();
-        setStatus('noDevice');
-        alert(t('ac_recording_disconnected'));
-      };
+        // RecordRTCインスタンスをクリーンアップ
+        recorder.destroy();
+        recordRTCRef.current = null;
 
-      // エラー時の処理
-      recorder.onerror = (error) => {
-        doError('MediaRecorder Error', error);
-        // クリーンアップも実行
-        combinedStream.getTracks().forEach(t => t.stop());
-        recorder.stop();
-        alert(t('ac_recording_error', { error }));
-      };
-
-      recorder.start(1000); // 1秒ごとにチャンク作成
-      mediaRecorderRef.current = recorder;
-      setIsRecording(true);
+        doLog('RecordRTC recording stopped and cleaned up');
+      });
     } catch (error) {
-      doError('Recording start failed', error);
-      alert(t('ac_recording_cannot_start', { error }));
+      doError('Recording stop failed:', error);
+      setIsRecording(false);
+      setRecordingTime(0);
+      if (recordRTCRef.current) {
+        try {
+          recordRTCRef.current.destroy();
+        } catch (e) {
+          doWarn('Failed to destroy RecordRTC instance:', e);
+        }
+        recordRTCRef.current = null;
+      }
     }
-  };
-
-  // 録画停止
-  const stopRecording = async () => {
-    const recorder = mediaRecorderRef.current;
-    if (!recorder) return;
-
-    // 最後のチャンクを明示的にフラッシュ
-    try {
-      recorder.requestData();
-      await new Promise(resolve => setTimeout(resolve, 50));  // 少し待つ
-    } catch (error) {
-      doWarn('requestData failed:', error);
-    }
-
-    recorder.stop();
   };
 
   // 録画開始・停止の切り替え
