@@ -24,10 +24,14 @@ import { useTranslation } from 'react-i18next';
 
 const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
 
+const NORMAL_FPS = 30; // 通常のFPS
+const RECORDING_FPS = 12; // 録画用のFPS
+
 // アプリケーションのベースパスを取得
 const BASE_URL = import.meta.env.BASE_URL;
 
-// Androidアプリ内で実行されているか確認
+// フラグ
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isAndroidApp = typeof window.android !== 'undefined';
 
 // ステータス定義
@@ -114,6 +118,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const videoStartAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画開始音の Audio オブジェクト
   const videoCompleteAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画完了音の Audio オブジェクト
   const dummyImageRef = useRef<HTMLImageElement | null>(null); // ダミー画像の Image オブジェクト
+  const lastFrameTimeRef = useRef<number>(0);
 
   // タッチ操作用のRef
   const lastTouchDistanceRef = useRef(0);
@@ -677,6 +682,17 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     const canvas = canvasRef.current;
     if (!canvas || status !== 'ready') return;
 
+    // 録画中は描画頻度を下げる
+    const targetFPS = isRecording ? RECORDING_FPS : NORMAL_FPS;
+    const frameInterval = 1000 / targetFPS;
+    const now = performance.now();
+    const elapsed = now - (lastFrameTimeRef.current || 0);
+    if (elapsed < frameInterval) {
+      animeRequestRef.current = requestAnimationFrame(draw);
+      return;
+    }
+    lastFrameTimeRef.current = now;
+
     // ダミー画像を使用するか？
     const dummyImage = dummyImageSrc ? dummyImageRef.current : null;
 
@@ -708,7 +724,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     ctx.restore();
 
     animeRequestRef.current = requestAnimationFrame(draw);
-  }, [status, zoom, pan, renderMetrics, isDummyImageLoaded]);
+  }, [status, isRecording, zoom, pan, renderMetrics]);
 
   useEffect(() => {
     if (status === 'ready') {
@@ -1044,7 +1060,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       }
 
       // 映像ストリーム
-      const canvasStream = canvasRef.current.captureStream(10);
+      const canvasStream = canvasRef.current.captureStream(RECORDING_FPS);
       const tracks = [...canvasStream.getVideoTracks()];
 
       // 音声ストリーム
@@ -1061,11 +1077,16 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const combinedStream = new MediaStream(tracks);
 
       // フォーマット確認
-      const mimeTypes = [
+      const mimeTypes = isMobile ? [
+        'video/webm; codecs=vp8', // VP8の方が軽い
         'video/webm; codecs=vp9',
-        'video/webm; codecs=vp8',
         'video/webm',
         'video/mp4',
+      ] : [
+        'video/mp4', // MP4を優先
+        'video/webm; codecs=vp9', // 品質を重視
+        'video/webm; codecs=vp8',
+        'video/webm',
       ];
       let mimeType = 'video/webm';
       for (let type of mimeTypes) {
@@ -1075,7 +1096,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         }
       }
 
-      const recorder = new MediaRecorder(combinedStream, { mimeType });
+      const recorderOptions = isMobile ?
+        { mimeType, videoBitsPerSecond: 2500000 } :
+        { mimeType };
+
+      const recorder = new MediaRecorder(combinedStream, recorderOptions);
       const chunks: BlobPart[] = [];
 
       recorder.ondataavailable = (event) => {
@@ -1148,6 +1173,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       // エラー時の処理
       recorder.onerror = (error) => {
         console.error('MediaRecorder Error', error);
+        // クリーンアップも実行
+        combinedStream.getTracks().forEach(t => t.stop());
         recorder.stop();
         alert(t('ac_recording_error', error.toString()));
       };
@@ -1157,7 +1184,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       setIsRecording(true);
     } catch (error) {
       console.error('Recording start failed', error);
-      alert(t('ac_recording_cannot_start', error));
+      alert(t('ac_recording_cannot_start', { error }));
     }
   };
 
@@ -1169,6 +1196,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     // 最後のチャンクを明示的にフラッシュ
     try {
       recorder.requestData();
+      await new Promise(resolve => setTimeout(resolve, 50));  // 少し待つ
     } catch (error) {
       console.warn('requestData failed:', error);
     }
