@@ -261,6 +261,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         doLog('FFmpeg recorder initialized successfully');
       } catch (error) {
         doError('Failed to initialize FFmpeg recorder:', error);
+        // FFmpeg failed to load, but camera can still work for photos
+        doWarn('Video recording will not be available. Photo capture will still work.');
       }
     };
     initFFmpeg();
@@ -1104,8 +1106,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const startRecording = async (options = null) => {
     try {
       if (!canvasRef.current) return; // キャンバスがない？
-      if (!ffmpegRecorderRef.current) {
-        throw new Error('FFmpeg recorder not initialized');
+      if (!ffmpegRecorderRef.current || !ffmpegRecorderRef.current.isFFmpegLoaded()) {
+        throw new Error('FFmpeg recorder not available. Video recording is not supported in this environment.');
       }
 
       // キャンバスが実際にレンダリングされているか確認

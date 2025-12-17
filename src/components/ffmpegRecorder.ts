@@ -30,16 +30,32 @@ class FFmpegRecorder {
     if (this.isLoaded) return;
 
     try {
+      // Try to use CDN version first (works in most environments)
       const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm';
-      await this.ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-      });
-      this.isLoaded = true;
-      console.log('FFmpeg loaded successfully');
+      
+      try {
+        await this.ffmpeg.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+        this.isLoaded = true;
+        console.log('FFmpeg loaded successfully from CDN');
+        return;
+      } catch (cdnError) {
+        console.warn('Failed to load FFmpeg from CDN, trying alternative...', cdnError);
+        
+        // Fallback: Try jsdelivr CDN
+        const altBaseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm';
+        await this.ffmpeg.load({
+          coreURL: await toBlobURL(`${altBaseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${altBaseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+        this.isLoaded = true;
+        console.log('FFmpeg loaded successfully from alternative CDN');
+      }
     } catch (error) {
       console.error('Failed to load FFmpeg:', error);
-      throw error;
+      throw new Error('Failed to initialize FFmpeg. This feature may not be available in your environment.');
     }
   }
 
