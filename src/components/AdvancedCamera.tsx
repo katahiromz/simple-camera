@@ -1105,8 +1105,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           }
         } catch (error) {
           console.error('Mic access failed during record start:', error);
-          // ユーザーに通知
-          alert(t('ac_mic_access_failed', 'マイクへのアクセスに失敗しました。音声なしで録画を続けます。'));
         }
       }
 
@@ -1217,7 +1215,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         // Blobが空でないか確認
         if (blob.size === 0) {
           console.error('Generated video blob is empty!');
-          alert(t('ac_recording_error', 'Video file is empty'));
+          alert(t('ac_recording_error', { error: 'Video file is empty') });
           return;
         }
 
@@ -1241,7 +1239,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         // クリーンアップも実行
         combinedStream.getTracks().forEach(t => t.stop());
         recorder.stop();
-        alert(t('ac_recording_error', error.toString()));
+        alert(t('ac_recording_error', , { error: error.toString() }));
       };
 
       recorder.start(1000); // 1秒ごとにチャンク作成
