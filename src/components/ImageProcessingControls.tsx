@@ -74,10 +74,23 @@ const ImageProcessingControls: React.FC<ImageProcessingControlsProps> = ({
 
   const presets = getFilterPresets();
 
-  // Check if current params match a preset
-  const activePreset = presets.find(
-    (preset) => JSON.stringify(preset.params) === JSON.stringify(localParams)
-  );
+  // Check if current params match a preset using a simple equality check
+  // Compare all numeric and boolean properties
+  const isPresetMatch = (p1: ImageProcessingParams, p2: ImageProcessingParams): boolean => {
+    return (
+      p1.brightness === p2.brightness &&
+      p1.contrast === p2.contrast &&
+      p1.saturation === p2.saturation &&
+      p1.hue === p2.hue &&
+      p1.blur === p2.blur &&
+      p1.sharpen === p2.sharpen &&
+      p1.grayscale === p2.grayscale &&
+      p1.sepia === p2.sepia &&
+      p1.invert === p2.invert
+    );
+  };
+
+  const activePreset = presets.find((preset) => isPresetMatch(preset.params, localParams));
 
   return (
     <>

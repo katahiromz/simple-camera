@@ -658,13 +658,19 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
   }, [facingMode, initCamera]);
 
-  useEffect(() => {
-    // Call initCamera when dummy image is loaded or when not using dummy image
+  // Determine if camera should be initialized based on dummy image state
+  const shouldInitializeCamera = useCallback((): boolean => {
+    // If using dummy image, wait for it to load
     if (dummyImageSrc) {
-      if (isDummyImageLoaded) {
-        initCamera();
-      }
-    } else {
+      return isDummyImageLoaded;
+    }
+    // If not using dummy image, initialize immediately
+    return true;
+  }, [dummyImageSrc, isDummyImageLoaded]);
+
+  useEffect(() => {
+    // Initialize camera when conditions are met
+    if (shouldInitializeCamera()) {
       initCamera();
     }
 
@@ -677,7 +683,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         cancelAnimationFrame(animeRequestRef.current);
       }
     };
-  }, [initCamera, isDummyImageLoaded, dummyImageSrc]);
+  }, [initCamera, shouldInitializeCamera]);
 
   // --- サイズ監視とレンダリング ---
 
