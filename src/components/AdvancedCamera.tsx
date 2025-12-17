@@ -16,6 +16,15 @@ import {
   RenderMetrics
 } from './utils';
 
+// 画像処理関連
+import ImageProcessingControls from './ImageProcessingControls';
+import {
+  ImageProcessingParams,
+  getDefaultImageProcessingParams,
+  applyCSSFilters,
+  loadImageProcessingParams,
+} from './ImageProcessingUtils';
+
 // 国際化(i18n)
 import './i18n.ts';
 import { useTranslation } from 'react-i18next';
@@ -182,6 +191,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const [hasMic, setHasMic] = useState(false); // マイクがあるか？
   const [renderMetrics, setRenderMetrics] = useState<RenderMetrics>({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 }); // 描画に使う寸法情報
   const [isDummyImageLoaded, setIsDummyImageLoaded] = useState(false); // ダミー画像がロードされたか？
+  
+  // 画像処理パラメータの状態管理
+  const [imageProcessingParams, setImageProcessingParams] = useState<ImageProcessingParams>(() => {
+    return loadImageProcessingParams('AdvancedCamera_imageProcessing');
+  });
 
   // 現在のzoomとpanの値を常にrefに保持（タッチイベントで使用）
   const zoomRef = useRef(zoom);
@@ -645,8 +659,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   }, [facingMode, initCamera]);
 
   useEffect(() => {
-    if (!dummyImageSrc)
+    // Call initCamera when dummy image is loaded or when not using dummy image
+    if (dummyImageSrc) {
+      if (isDummyImageLoaded) {
+        initCamera();
+      }
+    } else {
       initCamera();
+    }
 
     // クリーンアップ
     return () => {
@@ -709,6 +729,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     // 画面クリア
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // 画像処理フィルタを適用
+    applyCSSFilters(ctx, imageProcessingParams);
+
     // ズームとパンの適用(object-fit: cover/contain再現)
     // 中心を基準にスケーリングするために translate -> scale -> translate back
     ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
@@ -718,6 +741,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     // イメージを転送
     const source = data.dummyImage ? data.dummyImage : video;
     ctx.drawImage(source, x, y, width, height);
+
+    // フィルタをリセット（次回の描画に影響しないように）
+    ctx.filter = 'none';
   };
 
   // requestAnimationFrameによる描画ループ
@@ -768,7 +794,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     ctx.restore();
 
     animeRequestRef.current = requestAnimationFrame(draw);
-  }, [status, isRecording, zoom, pan, renderMetrics]);
+  }, [status, isRecording, zoom, pan, renderMetrics, imageProcessingParams]);
 
   useEffect(() => {
     if (status === 'ready') {
@@ -1515,6 +1541,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         >
           <SwitchCamera size={ICON_SIZE} />
         </button>
+      )}
+
+      {/* 画像処理コントロール */}
+      {status === 'ready' && showControls && (
+        <ImageProcessingControls
+          params={imageProcessingParams}
+          onChange={setImageProcessingParams}
+          disabled={false}
+        />
       )}
     </div>
   );
