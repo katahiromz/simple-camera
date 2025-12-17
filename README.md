@@ -11,14 +11,20 @@ React+Vita製のシンプルなカメラアプリです。PWAとAndroidに対応
 
 ## 機能
 
-- 写真撮影と録画
+- **写真撮影と録画**
   - **高品質ビデオ録画**（マイク音声付き）
   - **録画の一時停止/再開機能**（MediaRecorder API）
   - **自動コーデック選択**（VP9、VP8、H.264対応）
   - **堅牢なエラー処理**（録画状態管理）
-- ピンチ操作または「Ctrl+ホイール」によるズーム
-- ズーム時に二本指またはマウスの中央ボタンで表示位置の移動が可能
-- 前面カメラ・背面カメラの切り替えが可能
+- **ズーム・パン機能** (react-zoom-pan-pinch)
+  - ピンチ操作によるズーム
+  - マウスホイールでのズーム
+  - ダブルクリックでズーム
+  - スムーズなパン（移動）操作
+- **カメラコントロール** (react-webcam)
+  - 前面カメラ・背面カメラの切り替え
+  - 高品質な写真撮影
+  - ビデオストリームのキャプチャ
 - **リアルタイム画像処理機能**
   - 明るさ、コントラスト、彩度、色相の調整
   - ぼかし効果
@@ -48,70 +54,49 @@ React+Vita製のシンプルなカメラアプリです。PWAとAndroidに対応
 
 ### TypeScriptでの統合方法
 
-画像処理機能を別のプロジェクトで使用する場合:
+カメラ機能を別のプロジェクトで使用する場合:
 
 ```typescript
-import AdvancedCamera from './components/AdvancedCamera';
-import ImageProcessingControls from './components/ImageProcessingControls';
-import { ImageProcessingParams } from './components/ImageProcessingUtils';
+import SimpleCamera from './components/SimpleCamera';
 
 function MyApp() {
   return (
-    <AdvancedCamera 
+    <SimpleCamera 
+      audio={true}
+      showTakePhoto={true}
+      showMic={true}
+      showRecord={true}
       showControls={true}
-      // その他のプロパティ...
+      photoQuality={0.92}
+      soundEffect={true}
+      showStatus={true}
+      showTimer={true}
     />
   );
 }
 ```
 
-### カスタム画像処理の実装
+### 使用しているライブラリ
 
-独自の画像処理ロジックを追加する場合:
+新しい実装では、以下のライブラリを使用しています：
 
-```typescript
-import { 
-  applyCSSFilters, 
-  ImageProcessingParams 
-} from './components/ImageProcessingUtils';
+- **react-webcam**: カメラアクセスと写真撮影機能を提供
+  - Webcamコンポーネントによる簡単なカメラ統合
+  - 高品質な写真撮影（screenshotメソッド）
+  - ビデオストリームへの直接アクセス
+  - フロント/リアカメラの切り替え対応
 
-// userImageProcessData インターフェース
-interface userImageProcessData {
-  canvas: HTMLCanvasElement;           // キャンバス要素
-  video: HTMLVideoElement | null;      // ビデオ要素（またはnull）
-  dummyImage: HTMLImageElement | null; // ダミー画像（またはnull）
-  ctx: CanvasRenderingContext2D;       // 2D描画コンテキスト
-  x: number;                           // 転送先X座標
-  y: number;                           // 転送先Y座標
-  width: number;                       // 転送先の幅
-  height: number;                      // 転送先の高さ
-  zoom: number;                        // ズーム倍率 (1.0～4.0)
-  pan: { x: number, y: number };       // パン（平行移動量）
-}
+- **react-zoom-pan-pinch**: スムーズなズーム・パン機能を提供
+  - マウスホイールでのズーム（`wheel.step: 0.1`）
+  - ピンチジェスチャーでのズーム（`pinch.step: 5`）
+  - ダブルクリックでズームイン/アウト
+  - スムーズなパン（ドラッグ）操作
+  - ズーム範囲: 1倍～4倍
 
-// onImageProcess コールバックで使用
-const customImageProcess = (data: userImageProcessData) => {
-  const { ctx, canvas, video, x, y, width, height, zoom, pan } = data;
-  
-  // カスタムフィルターを適用
-  const customParams: ImageProcessingParams = {
-    brightness: 20,
-    contrast: 15,
-    saturation: 10,
-    hue: 0,
-    blur: 0,
-    sharpen: 0,
-    grayscale: false,
-    sepia: false,
-    invert: false,
-  };
-  
-  applyCSSFilters(ctx, customParams);
-  
-  // 画像を描画
-  ctx.drawImage(video, x, y, width, height);
-};
-```
+- **MediaRecorder API**: ビデオ録画とオーディオキャプチャ（ブラウザ標準API）
+  - Webcamストリームからの録画
+  - オーディオトラックの統合
+  - 一時停止/再開機能
 
 ## 録画機能の詳細
 
@@ -119,7 +104,7 @@ const customImageProcess = (data: userImageProcessData) => {
 
 simple-cameraは、以下の機能を備えた堅牢な録画機能を提供します：
 
-- **ビデオ録画**: 高品質なビデオ録画（キャンバスからのストリームキャプチャ）
+- **ビデオ録画**: 高品質なビデオ録画（react-webcamストリームからのキャプチャ）
 - **オーディオ録画**: マイク音声のキャプチャとビデオへの統合
 - **一時停止/再開**: 録画の一時停止と再開（MediaRecorder.pause/resume APIを使用）
 - **コーデックの自動選択**: ブラウザがサポートする最適なコーデックを自動検出
@@ -143,7 +128,6 @@ simple-cameraは、以下の機能を備えた堅牢な録画機能を提供し�
 
 - **ビデオビットレート**: モバイル端末では2.5Mbps、デスクトップではブラウザのデフォルト
 - **オーディオビットレート**: 128kbps
-- **フレームレート**: 録画中は12fps（パフォーマンス最適化）
 - **オーディオ設定**:
   - エコーキャンセレーション: 有効
   - ノイズ抑制: 有効
@@ -154,9 +138,11 @@ simple-cameraは、以下の機能を備えた堅牢な録画機能を提供し�
 - **言語**: TypeScript
 - **フレームワーク**: React 19
 - **ビルドツール**: Vite 7
-- **画像処理**: Canvas API + CSS Filters
-- **録画**: MediaRecorder API with Canvas Stream Capture
-- **コーデック検出**: カスタム実装（react-record-webcamを参考）
+- **カメラライブラリ**: react-webcam
+- **ズーム・パンライブラリ**: react-zoom-pan-pinch
+- **画像処理**: CSS Filters
+- **録画**: MediaRecorder API with MediaStream Capture
+- **コーデック検出**: カスタム実装（VP9、VP8、H.264対応）
 - **国際化**: i18next (日本語・英語対応)
 - **アイコン**: lucide-react
 - **レスポンシブ対応**: CSS Media Queries
