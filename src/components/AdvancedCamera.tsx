@@ -999,16 +999,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         if (!blob)
           throw new Error('Failed to create photo blob');
 
-        // 拡張子を選ぶ
-        let extension = photoFormatToExtension(photoFormat);
-
-        if (!IS_PRODUCTION) {
-          // MIME typeと拡張子の整合性を検証
-          validateMimeTypeAndExtension(photoFormat, extension);
-        }
-
-        // ファイル名
-        const fileName = generateFileName(t('ac_text_photo') + '_', extension);
+        let extension = photoFormatToExtension(photoFormat); // 拡張子を選ぶ
+        const fileName = generateFileName(t('ac_text_photo') + '_', extension); // ファイル名
 
         // ファイルに保存
         if (isAndroidApp) {
@@ -1194,12 +1186,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         await new Promise(resolve => setTimeout(resolve, BUFFER_FLUSH_DELAY_MS));
 
         const extension = videoFormatToExtension(mimeType); // 拡張子
-
-        if (!IS_PRODUCTION) {
-          // MIME typeと拡張子の整合性を検証
-          validateVideoMimeTypeAndExtension(mimeType, extension);
-        }
-
         const fileName = generateFileName(t('ac_text_video') + '_', extension); // ファイル名
         const blob = new Blob(chunks, { type: mimeType });
 
@@ -1215,7 +1201,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         // Blobが空でないか確認
         if (blob.size === 0) {
           console.error('Generated video blob is empty!');
-          alert(t('ac_recording_error', { error: 'Video file is empty') });
+          alert(t('ac_recording_error', { error: 'Video file is empty' }));
           return;
         }
 

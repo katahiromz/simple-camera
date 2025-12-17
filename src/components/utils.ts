@@ -105,7 +105,7 @@ export const photoFormatToExtension = (format: string): string => {
 };
 
 /**
- * 拡張子から画像の形式へ（バリデーション用）
+ * 拡張子から画像の形式へ
  */
 export const extensionToPhotoFormat = (extension: string): string => {
   console.assert(extension[0] == '.');
@@ -116,18 +116,6 @@ export const extensionToPhotoFormat = (extension: string): string => {
   case '.bmp': return 'image/bmp';
   case '.jpg': case 'jpeg': default: return 'image/jpeg';
   }
-};
-
-/**
- * MIME typeと拡張子の整合性を検証
- */
-export const validateMimeTypeAndExtension = (mimeType: string, extension: string): boolean => {
-  const expectedMimeType = extensionToPhotoFormat(extension);
-  const valid = expectedMimeType === mimeType;
-  if (!valid) {
-    console.warn(`MIME type mismatch: expected ${expectedMimeType} for extension ${extension}, but got ${mimeType}`);
-  }
-  return valid;
 };
 
 /**
@@ -148,16 +136,4 @@ export const extensionToVideoFormat = (extension: string): string => {
   case '.mp4': return 'video/mp4';
   case '.webm': default: return 'video/webm';
   }
-};
-
-/**
- * 動画のMIME typeと拡張子の整合性を検証
- */
-export const validateVideoMimeTypeAndExtension = (mimeType: string, extension: string): boolean => {
-  const expectedMimeType = extensionToVideoFormat(extension);
-  const valid = expectedMimeType === mimeType;
-  if (!valid) {
-    console.warn(`Video MIME type mismatch: expected ${expectedMimeType} for extension ${extension}, but got ${mimeType}`);
-  }
-  return valid;
 };
