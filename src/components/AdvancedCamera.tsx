@@ -1146,9 +1146,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const combinedStream = new MediaStream(tracks);
 
       // RecordRTC用のMIMEタイプを決定
-      const hasAudio = hasMic && micEnabled;
       let mimeType = 'video/webm';
-      let recorderType = 'video';
       
       // RecordRTCはブラウザの互換性を自動的に処理
       // WebM (VP8/VP9) が推奨され、フォールバックも内蔵されている
@@ -1162,7 +1160,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       // RecordRTCオプション
       const recordRTCOptions = {
-        type: recorderType,
+        type: 'video',
         mimeType: mimeType,
         disableLogs: IS_PRODUCTION,
         frameRate: RECORDING_FPS,
@@ -1223,7 +1221,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
         // 録画されたBlobを取得
         const blob = recorder.getBlob();
-        const mimeType = recorder.getBlob().type || 'video/webm';
+        const mimeType = blob.type || 'video/webm';
 
         // ストリームとトラックを停止
         const stream = recorder.stream;
