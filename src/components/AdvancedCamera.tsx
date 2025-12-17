@@ -1,7 +1,9 @@
 // AdvancedCamera.tsx --- Reactコンポーネント「AdvancedCamera」のTypeScriptソース
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Camera, Mic, MicOff, Video, VideoOff, RefreshCw, SwitchCamera, CameraOff} from 'lucide-react'; // lucide-reactを使用
 import './AdvancedCamera.css';
+
+/* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
+import { Camera, Mic, MicOff, Video, VideoOff, RefreshCw, SwitchCamera, CameraOff, Square } from 'lucide-react';
 
 // 汎用関数群
 import {
@@ -29,17 +31,44 @@ const BASE_URL = import.meta.env.BASE_URL;
 // フラグ
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isAndroidApp = typeof window.android !== 'undefined';
-const isDeepDebug = true;
 
+// デバッグ
+const isDeepDebug = false;
+const getStack = () => {
+  try { throw Error('') } catch(err) { return err.stack; }
+};
+const expandArgs = (...args): string => {
+  let str: string = '';
+  for (let item of args) {
+    str += item.toString();
+  }
+  return str;
+};
+const getTraceString = (str, stack, what) => {
+  let stack_str = stack.toString();
+  let i0 = stack_str.search(/\bat\b/m);
+  stack_str = stack_str.substr(i0 + 2);
+  let i1 = stack_str.search(/\bat\b/m);
+  stack_str = stack_str.substr(i1 + 2);
+  let i2 = stack_str.search(/\bat\b/m);
+  stack_str = stack_str.substr(i2);
+  return str + " " + stack_str;
+};
+const doLog = (...args) => {
+  if (isDeepDebug) {
+    alert(getTraceString(expandArgs(args), getStack(), "Log"));
+  }
+  console.log(...args);
+};
 const doWarn = (...args) => {
   if (isDeepDebug) {
-    alert(...args);
+    alert(getTraceString(expandArgs(args), getStack(), "Warning"));
   }
   console.warn(...args);
 };
 const doError = (...args) => {
   if (isDeepDebug) {
-    alert(...args);
+    alert(getTraceString(expandArgs(args), getStack(), "Error"));
   }
   console.error(...args);
 };
@@ -519,7 +548,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     const setupPermissions = async () => {
       if (!navigator.permissions || !navigator.permissions.query) {
-        console.log('Permissions API not supported in this browser');
+        doLog('Permissions API not supported in this browser');
         return;
       }
 
@@ -545,7 +574,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     // devicechange をフォールバックとして監視（権限やデバイスの変更を検出できることがある）
     const onDeviceChange = () => {
-      console.log('mediaDevices devicechange detected — reinitializing or checking permissions');
+      doLog('mediaDevices devicechange detected — reinitializing or checking permissions');
       // 少し遅延して再初期化 (デバイスリストが更新されるのを待つ)
       setTimeout(() => {
         // 権限が denied になっていれば initCamera は no-op となる
@@ -587,7 +616,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     // ダミー画像を使用している場合は切り替え不可
     if (dummyImageSrc) {
-      console.log('Camera switching is disabled when using dummy image');
+      doLog('Camera switching is disabled when using dummy image');
       return;
     }
 
@@ -933,7 +962,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       if (typeof window.android.saveImageToGallery === 'function') {
         try {
           window.android.saveImageToGallery(base64data, fileName, mimeType);
-          console.log('Saved image:', fileName);
+          doLog('Saved image:', fileName);
         } catch (error) {
           console.assert(false);
           doError('android インタフェース呼び出しエラー:', error);
@@ -1045,7 +1074,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       // Kotlin側の関数を呼び出す
       try {
         window.android.saveVideoToGallery(base64Data, fileName, mimeType);
-        console.log('保存完了:' + fileName);
+        doLog('Saved video:', fileName);
       } catch (error) {
         doError('android インタフェース呼び出しエラー:', error);
         alert(t('ac_saving_movie_failed', { error: error }));
@@ -1096,7 +1125,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           const audioTracks = audioStream.getAudioTracks();
           if (audioTracks.length > 0) {
             tracks.push(...audioTracks);
-            console.log('Audio track added:', {
+            doLog('Audio track added:', {
               label: audioTracks[0].label,
               enabled: audioTracks[0].enabled,
               muted: audioTracks[0].muted,
@@ -1135,7 +1164,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       let mimeType = 'video/webm';
       for (let type of mimeTypes) {
         if (MediaRecorder.isTypeSupported(type)) {
-          console.log(`Selected MIME type: ${type})`);
+          doLog(`Selected MIME type: ${type}`);
           mimeType = type;
           break;
         }
@@ -1149,7 +1178,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const chunks: BlobPart[] = [];
 
       // トラック情報をログ出力(デバッグ用)
-      console.log('MediaRecorder created with tracks:', {
+      doLog('MediaRecorder created with tracks:', {
         videoTracks: combinedStream.getVideoTracks().length,
         audioTracks: combinedStream.getAudioTracks().length,
         mimeType: mimeType,
@@ -1177,7 +1206,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       recorder.onstop = async () => {
         // トラック停止
         const allTracks = combinedStream.getTracks();
-        console.log('Stopping tracks:', {
+        doLog('Stopping tracks:', {
           total: allTracks.length,
           video: allTracks.filter(t => t.kind === 'video').length,
           audio: allTracks.filter(t => t.kind === 'audio').length
@@ -1200,7 +1229,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         const blob = new Blob(chunks, { type: mimeType });
 
         // Blobの検証とログ出力
-        console.log('Video recording completed:', {
+        doLog('Video recording completed:', {
           fileName,
           mimeType,
           blobSize: blob.size,
@@ -1235,7 +1264,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         // クリーンアップも実行
         combinedStream.getTracks().forEach(t => t.stop());
         recorder.stop();
-        alert(t('ac_recording_error', { error: error.toString() }));
+        alert(t('ac_recording_error', { error }));
       };
 
       recorder.start(1000); // 1秒ごとにチャンク作成
@@ -1459,7 +1488,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
               onClick={toggleRecording}
               aria-label={isRecording ? t('ac_stop_recording') : t('ac_start_recording')}
             >
-              <Video size={ICON_SIZE} />
+              {isRecording ? <Square size={ICON_SIZE} /> : <Video size={ICON_SIZE} />}
             </button>
           )}
           </div>
