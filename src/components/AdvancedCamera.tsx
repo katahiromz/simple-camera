@@ -1239,7 +1239,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         // クリーンアップも実行
         combinedStream.getTracks().forEach(t => t.stop());
         recorder.stop();
-        alert(t('ac_recording_error', , { error: error.toString() }));
+        alert(t('ac_recording_error', { error: error.toString() }));
       };
 
       recorder.start(1000); // 1秒ごとにチャンク作成

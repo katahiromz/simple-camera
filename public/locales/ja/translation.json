@@ -16,7 +16,7 @@
   "ac_switching_camera": "カメラ切り替え中...",
   "ac_taking_photo_failed": "写真の保存に失敗しました。",
   "ac_recording_disconnected": "録画デバイスが切断されました。",
-  "ac_recording_error": "録画を中断しました: {{error}}",
+  "ac_recording_error": "録画エラー: {{error}}",
   "ac_recording_cannot_start": "録画を開始できませんでした: {{error}}",
   "ac_saving_movie_failed": "動画の保存に失敗しました: {{error}}"
 }
