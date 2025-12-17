@@ -44,7 +44,7 @@ const ImageProcessingControls: React.FC<ImageProcessingControlsProps> = ({
       setLocalParams(newParams);
       onChange(newParams);
       // Save to localStorage
-      saveImageProcessingParams('AdvancedCamera_imageProcessing', newParams);
+      saveImageProcessingParams('SimpleCamera_imageProcessing', newParams);
     },
     [localParams, onChange]
   );
@@ -54,7 +54,7 @@ const ImageProcessingControls: React.FC<ImageProcessingControlsProps> = ({
     (presetParams: ImageProcessingParams) => {
       setLocalParams(presetParams);
       onChange(presetParams);
-      saveImageProcessingParams('AdvancedCamera_imageProcessing', presetParams);
+      saveImageProcessingParams('SimpleCamera_imageProcessing', presetParams);
     },
     [onChange]
   );
@@ -64,7 +64,7 @@ const ImageProcessingControls: React.FC<ImageProcessingControlsProps> = ({
     const defaults = getDefaultImageProcessingParams();
     setLocalParams(defaults);
     onChange(defaults);
-    saveImageProcessingParams('AdvancedCamera_imageProcessing', defaults);
+    saveImageProcessingParams('SimpleCamera_imageProcessing', defaults);
   }, [onChange]);
 
   // Toggle panel expansion
