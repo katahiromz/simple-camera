@@ -1,7 +1,7 @@
-// SimpleCamera-Native.tsx --- React Native camera implementation using expo-camera
+// SimpleCamera-Native.tsx --- React Native camera implementation using react-native-vision-camera
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
-import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import { Camera, useCameraDevice, useCameraPermission, useMicrophonePermission, useCameraFormat } from 'react-native-vision-camera';
 import * as MediaLibrary from 'expo-media-library';
 import { Audio } from 'expo-av';
 import { useTranslation } from 'react-i18next';
@@ -19,7 +19,7 @@ const Icons = {
 };
 
 // Constants
-const ZOOM_SENSITIVITY = 0.5; // Adjust zoom gesture sensitivity
+const ZOOM_SENSITIVITY = 0.02; // Adjust zoom gesture sensitivity for vision-camera (0-1 range)
 
 // Camera status
 type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice';
@@ -51,21 +51,25 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
   const { t } = useTranslation();
 
   // Refs
-  const cameraRef = useRef<CameraView>(null);
+  const cameraRef = useRef<Camera>(null);
+
+  // Camera device selection
+  const [cameraPosition, setCameraPosition] = useState<'back' | 'front'>('back');
+  const device = useCameraDevice(cameraPosition);
 
   // Permissions
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [micPermission, requestMicPermission] = useMicrophonePermissions();
+  const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
+  const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } = useMicrophonePermission();
   const [mediaLibraryPermission, setMediaLibraryPermission] = useState<any>(null);
 
   // State
   const [status, setStatus] = useState<CameraStatus>('initializing');
-  const [facing, setFacing] = useState<CameraType>('back');
   const [micEnabled, setMicEnabled] = useState(audio);
   const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>('idle');
   const [recordingTime, setRecordingTime] = useState(0);
-  const [zoom, setZoom] = useState(0);
-  const baseZoomRef = useRef(0);
+  const [zoom, setZoom] = useState(1);
+  const baseZoomRef = useRef(1);
+  const [isActive, setIsActive] = useState(true);
 
   // Audio refs for sound effects
   const shutterSoundRef = useRef<Audio.Sound | null>(null);
@@ -76,12 +80,12 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
   useEffect(() => {
     (async () => {
       // Request camera permission
-      if (!cameraPermission?.granted) {
+      if (!hasCameraPermission) {
         await requestCameraPermission();
       }
 
       // Request microphone permission if audio is enabled
-      if (audio && !micPermission?.granted) {
+      if (audio && !hasMicPermission) {
         await requestMicPermission();
       }
 
@@ -90,13 +94,15 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       setMediaLibraryPermission(status);
 
       // Check final status
-      if (cameraPermission?.granted) {
+      if (hasCameraPermission && device) {
         setStatus('ready');
-      } else if (cameraPermission?.canAskAgain === false) {
+      } else if (hasCameraPermission && !device) {
+        setStatus('noDevice');
+      } else {
         setStatus('noPermission');
       }
     })();
-  }, []);
+  }, [hasCameraPermission, hasMicPermission, device]);
 
   // Load sound effects
   useEffect(() => {
@@ -161,15 +167,18 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     if (!cameraRef.current) return;
 
     try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: photoQuality,
-        skipProcessing: false,
+      const photo = await cameraRef.current.takePhoto({
+        qualityPrioritization: 'quality',
+        flash: 'off',
       });
 
       if (photo) {
+        // photo.path contains the file path
+        const photoUri = `file://${photo.path}`;
+        
         // Save to media library
         if (mediaLibraryPermission === 'granted') {
-          await MediaLibrary.saveToLibraryAsync(photo.uri);
+          await MediaLibrary.saveToLibraryAsync(photoUri);
           Alert.alert(t('success'), t('photoSaved'));
         } else {
           Alert.alert(t('error'), t('noMediaLibraryPermission'));
@@ -182,11 +191,11 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       console.error('Error capturing photo:', error);
       Alert.alert(t('error'), t('photoCaptureFailed'));
     }
-  }, [photoQuality, mediaLibraryPermission, playSound, t]);
+  }, [mediaLibraryPermission, playSound, t]);
 
   // Toggle camera facing
   const toggleCameraFacing = useCallback(() => {
-    setFacing((current) => (current === 'back' ? 'front' : 'back'));
+    setCameraPosition((current) => (current === 'back' ? 'front' : 'back'));
   }, []);
 
   // Toggle microphone
@@ -202,52 +211,77 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       setRecordingStatus('recording');
       playSound(videoStartSoundRef);
       
-      // recordAsync returns a promise that resolves when recording stops
-      // We need to handle it properly
-      const video = await cameraRef.current.recordAsync({
-        mute: !micEnabled,
+      // Start recording
+      await cameraRef.current.startRecording({
+        flash: 'off',
+        onRecordingFinished: async (video) => {
+          // This callback is called when recording stops
+          console.log('Recording finished:', video);
+          
+          // video.path contains the file path
+          const videoUri = `file://${video.path}`;
+          
+          // Save the recorded video
+          if (videoUri) {
+            if (mediaLibraryPermission === 'granted') {
+              await MediaLibrary.saveToLibraryAsync(videoUri);
+              Alert.alert(t('success'), t('videoSaved'));
+            } else {
+              Alert.alert(t('error'), t('noMediaLibraryPermission'));
+            }
+            playSound(videoCompleteSoundRef);
+          }
+          
+          setRecordingStatus('idle');
+        },
+        onRecordingError: (error) => {
+          console.error('Recording error:', error);
+          Alert.alert(t('error'), t('recordingStartFailed'));
+          setRecordingStatus('idle');
+        },
       });
-
-      // Save the recorded video
-      if (video && video.uri) {
-        if (mediaLibraryPermission === 'granted') {
-          await MediaLibrary.saveToLibraryAsync(video.uri);
-          Alert.alert(t('success'), t('videoSaved'));
-        } else {
-          Alert.alert(t('error'), t('noMediaLibraryPermission'));
-        }
-        playSound(videoCompleteSoundRef);
-      }
-      
-      setRecordingStatus('idle');
     } catch (error) {
-      console.error('Error in recording:', error);
+      console.error('Error starting recording:', error);
       Alert.alert(t('error'), t('recordingStartFailed'));
       setRecordingStatus('idle');
     }
   }, [micEnabled, playSound, mediaLibraryPermission, t]);
 
   // Stop recording
-  const stopRecording = useCallback(() => {
+  const stopRecording = useCallback(async () => {
     if (!cameraRef.current) return;
 
     try {
-      // Calling stopRecording will cause recordAsync to resolve in startRecording
-      cameraRef.current.stopRecording();
+      // Calling stopRecording will trigger onRecordingFinished callback
+      await cameraRef.current.stopRecording();
     } catch (error) {
       console.error('Error stopping recording:', error);
       setRecordingStatus('idle');
     }
   }, []);
 
-  // Pause recording (not directly supported by expo-camera, would need custom implementation)
-  const pauseRecording = useCallback(() => {
-    Alert.alert(t('info'), t('pauseResumeNotSupported'));
+  // Pause recording (supported by vision-camera)
+  const pauseRecording = useCallback(async () => {
+    if (!cameraRef.current) return;
+    try {
+      await cameraRef.current.pauseRecording();
+      setRecordingStatus('paused');
+    } catch (error) {
+      console.error('Error pausing recording:', error);
+      Alert.alert(t('error'), t('pauseResumeNotSupported'));
+    }
   }, [t]);
 
-  // Resume recording (not directly supported by expo-camera, would need custom implementation)
-  const resumeRecording = useCallback(() => {
-    Alert.alert(t('info'), t('pauseResumeNotSupported'));
+  // Resume recording (supported by vision-camera)
+  const resumeRecording = useCallback(async () => {
+    if (!cameraRef.current) return;
+    try {
+      await cameraRef.current.resumeRecording();
+      setRecordingStatus('recording');
+    } catch (error) {
+      console.error('Error resuming recording:', error);
+      Alert.alert(t('error'), t('pauseResumeNotSupported'));
+    }
   }, [t]);
 
   // Pinch gesture for zoom
@@ -258,16 +292,18 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     })
     .onUpdate((event) => {
       // Calculate zoom level based on pinch scale
-      // expo-camera zoom is 0 (no zoom) to 1 (max zoom)
+      // vision-camera zoom is typically 1 (no zoom) to device.maxZoom
       // scale starts at 1, increases when pinching out, decreases when pinching in
       const delta = (event.scale - 1) * ZOOM_SENSITIVITY;
-      const newZoom = Math.min(Math.max(baseZoomRef.current + delta, 0), 1);
-      setZoom(newZoom);
+      const newZoom = Math.max(baseZoomRef.current + delta, 1);
+      // Limit zoom to reasonable value (device might have very high maxZoom)
+      const maxZoom = device?.maxZoom ?? 10;
+      setZoom(Math.min(newZoom, Math.min(maxZoom, 10)));
     })
     .runOnJS(true);
 
   // Handle permission errors
-  if (!cameraPermission) {
+  if (hasCameraPermission === null || hasCameraPermission === undefined) {
     return (
       <View style={styles.container}>
         <Text style={styles.statusText}>{t('initializing')}</Text>
@@ -275,7 +311,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     );
   }
 
-  if (!cameraPermission.granted) {
+  if (!hasCameraPermission) {
     return (
       <View style={styles.container}>
         <Text style={styles.statusText}>{t('noPermission')}</Text>
@@ -286,16 +322,28 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     );
   }
 
+  if (!device) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.statusText}>{t('noDevice')}</Text>
+      </View>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={styles.container}>
       <GestureDetector gesture={pinchGesture}>
         <View style={styles.container}>
-          <CameraView
+          <Camera
             ref={cameraRef}
             style={styles.camera}
-            facing={facing}
+            device={device}
+            isActive={isActive}
+            photo={true}
+            video={true}
+            audio={micEnabled}
             zoom={zoom}
-            enableTorch={false}
+            enableZoomGesture={false}
           >
         {/* Status display */}
         {showStatus && status !== 'ready' && (
@@ -399,7 +447,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
             </View>
           </View>
         )}
-      </CameraView>
+      </Camera>
         </View>
       </GestureDetector>
     </GestureHandlerRootView>

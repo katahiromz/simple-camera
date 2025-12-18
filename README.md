@@ -4,7 +4,7 @@
 
 Expo + React Native製のシンプルなカメラアプリです。Android、iOS、Webに対応しております。
 
-`expo-camera`を使用したネイティブカメラ機能により、高品質な写真撮影と動画録画が可能です。
+`react-native-vision-camera`を使用したネイティブカメラ機能により、高品質な写真撮影と動画録画が可能です。
 
 <p align="center">
   <img src="public/pwa-192x192.png" alt="[カメラ アイコン]" />　　
@@ -14,8 +14,8 @@ Expo + React Native製のシンプルなカメラアプリです。Android、iOS
 ## プラットフォーム
 
 - **フレームワーク**: Expo SDK 54
-- **カメラライブラリ**: expo-camera
-- **ズーム機能**: ピンチジェスチャー + expo-camera zoom
+- **カメラライブラリ**: react-native-vision-camera
+- **ズーム機能**: ピンチジェスチャー + react-native-vision-camera zoom
 - **対応プラットフォーム**: Android、iOS、Web
 
 ### 起動方法
@@ -108,12 +108,13 @@ function MyApp() {
 
 #### Expo/React Native版
 
-- **expo-camera**: ネイティブカメラ機能を提供
-  - CameraViewコンポーネントによるカメラ統合
+- **react-native-vision-camera**: ネイティブカメラ機能を提供
+  - Cameraコンポーネントによるカメラ統合
   - 写真撮影と動画録画
   - フロント/リアカメラの切り替え
-  - ネイティブズーム機能（0〜1の範囲）
+  - ネイティブズーム機能
   - カメラ権限の管理
+  - 動画録画の一時停止/再開機能
 
 - **expo-media-library**: メディアの保存と管理
   - ギャラリーへの写真・動画の自動保存
@@ -131,11 +132,11 @@ function MyApp() {
 - **言語**: TypeScript
 - **フレームワーク**: React 19 + React Native (Expo SDK 54)
 - **ビルドツール**: Metro Bundler
-- **カメラライブラリ**: expo-camera
+- **カメラライブラリ**: react-native-vision-camera
 - **メディア保存**: expo-media-library
 - **オーディオ**: expo-av
 - **ジェスチャー**: react-native-gesture-handler
-- **ズーム**: expo-camera native zoom + pinch gesture
+- **ズーム**: react-native-vision-camera native zoom + pinch gesture
 - **国際化**: i18next (日本語・英語対応)
 - **スタイリング**: React Native StyleSheet
 - **対応プラットフォーム**: Android、iOS、Web

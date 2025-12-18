@@ -46,11 +46,11 @@
     },
     "plugins": [
       [
-        "expo-camera",
+        "react-native-vision-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to take photos and record videos.",
-          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone to record audio with videos.",
-          "recordAudioAndroid": true
+          "cameraPermissionText": "Allow $(PRODUCT_NAME) to access your camera to take photos and record videos.",
+          "enableMicrophonePermission": true,
+          "microphonePermissionText": "Allow $(PRODUCT_NAME) to access your microphone to record audio with videos."
         }
       ],
       [
