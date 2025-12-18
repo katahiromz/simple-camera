@@ -1,10 +1,10 @@
-// App-Native.tsx --- React Native App for Expo
+// App.tsx --- React Native App for Expo
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import SimpleCamera from './src/components/SimpleCamera-Native';
+import SimpleCamera from './src/components/SimpleCamera';
 import './src/components/i18n';
 
-// App component for React Native
+// App component for Expo
 function App() {
   return (
     <View style={styles.container}>

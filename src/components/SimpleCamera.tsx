@@ -1,34 +1,25 @@
-// SimpleCamera.tsx --- New camera implementation using react-webcam and react-zoom-pan-pinch
-import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
-import Webcam from 'react-webcam';
-import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { Camera, Mic, MicOff, Video, VideoOff, Square, SwitchCamera, RefreshCw, Pause } from 'lucide-react';
+// SimpleCamera-Native.tsx --- React Native camera implementation using expo-camera
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
+import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import * as MediaLibrary from 'expo-media-library';
+import { Audio } from 'expo-av';
 import { useTranslation } from 'react-i18next';
-import './SimpleCamera.css';
+import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
 
-// Image processing
-import ImageProcessingControls from './ImageProcessingControls';
-import {
-  ImageProcessingParams,
-  getDefaultImageProcessingParams,
-  loadImageProcessingParams,
-  applyCSSFilters,
-  buildCSSFilterString,
-} from './ImageProcessingUtils';
-
-// Utils
-import {
-  generateFileName,
-  formatTime,
-  saveBlobToGalleryOrDownload,
-} from './utils';
-
-// Base URL
-const BASE_URL = import.meta.env.BASE_URL;
+// Icons (using text for now, could use react-native-vector-icons)
+const Icons = {
+  Camera: () => <Text style={styles.iconText}>📷</Text>,
+  SwitchCamera: () => <Text style={styles.iconText}>🔄</Text>,
+  Mic: () => <Text style={styles.iconText}>🎤</Text>,
+  MicOff: () => <Text style={styles.iconText}>🔇</Text>,
+  Video: () => <Text style={styles.iconText}>🎥</Text>,
+  Square: () => <Text style={styles.iconText}>⏹️</Text>,
+  Pause: () => <Text style={styles.iconText}>⏸️</Text>,
+};
 
 // Constants
-const ICON_SIZE = 32;
-const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const ZOOM_SENSITIVITY = 0.5; // Adjust zoom gesture sensitivity
 
 // Camera status
 type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice';
@@ -44,9 +35,6 @@ interface SimpleCameraProps {
   soundEffect?: boolean;
   showStatus?: boolean;
   showTimer?: boolean;
-  shutterSoundUrl?: string | null;
-  videoStartSoundUrl?: string | null;
-  videoCompleteSoundUrl?: string | null;
 }
 
 const SimpleCamera: React.FC<SimpleCameraProps> = ({
@@ -59,58 +47,81 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
   soundEffect = true,
   showStatus = true,
   showTimer = true,
-  shutterSoundUrl = `${BASE_URL}ac-camera-shutter-sound.mp3`,
-  videoStartSoundUrl = `${BASE_URL}ac-video-started.mp3`,
-  videoCompleteSoundUrl = `${BASE_URL}ac-video-completed.mp3`,
 }) => {
   const { t } = useTranslation();
 
   // Refs
-  const webcamRef = useRef<Webcam>(null);
-  const transformRef = useRef<{ instance: { transformState: { scale: number; positionX: number; positionY: number } } } | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
-  const shutterAudioRef = useRef<HTMLAudioElement | null>(null);
-  const videoStartAudioRef = useRef<HTMLAudioElement | null>(null);
-  const videoCompleteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const cameraRef = useRef<CameraView>(null);
+
+  // Permissions
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [micPermission, requestMicPermission] = useMicrophonePermissions();
+  const [mediaLibraryPermission, setMediaLibraryPermission] = useState<any>(null);
 
   // State
   const [status, setStatus] = useState<CameraStatus>('initializing');
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [facing, setFacing] = useState<CameraType>('back');
   const [micEnabled, setMicEnabled] = useState(audio);
   const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>('idle');
   const [recordingTime, setRecordingTime] = useState(0);
-  const [imageProcessing, setImageProcessing] = useState<ImageProcessingParams>(
-    loadImageProcessingParams('SimpleCamera_imageProcessing') || getDefaultImageProcessingParams()
-  );
+  const [zoom, setZoom] = useState(0);
+  const baseZoomRef = useRef(0);
 
-  // Video constraints
-  const videoConstraints = {
-    facingMode,
-    width: { ideal: 1920 },
-    height: { ideal: 1080 },
-  };
+  // Audio refs for sound effects
+  const shutterSoundRef = useRef<Audio.Sound | null>(null);
+  const videoStartSoundRef = useRef<Audio.Sound | null>(null);
+  const videoCompleteSoundRef = useRef<Audio.Sound | null>(null);
 
-  const audioConstraints = micEnabled
-    ? {
-        echoCancellation: true,
-        noiseSuppression: true,
-        sampleRate: 48000,
-      }
-    : false;
-
-  // Initialize audio elements
+  // Initialize permissions
   useEffect(() => {
-    if (soundEffect && shutterSoundUrl) {
-      shutterAudioRef.current = new Audio(shutterSoundUrl);
+    (async () => {
+      // Request camera permission
+      if (!cameraPermission?.granted) {
+        await requestCameraPermission();
+      }
+
+      // Request microphone permission if audio is enabled
+      if (audio && !micPermission?.granted) {
+        await requestMicPermission();
+      }
+
+      // Request media library permission
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      setMediaLibraryPermission(status);
+
+      // Check final status
+      if (cameraPermission?.granted) {
+        setStatus('ready');
+      } else if (cameraPermission?.canAskAgain === false) {
+        setStatus('noPermission');
+      }
+    })();
+  }, []);
+
+  // Load sound effects
+  useEffect(() => {
+    if (soundEffect) {
+      (async () => {
+        try {
+          // In a real implementation, you would load actual sound files
+          // For now, we'll just prepare the audio system
+          await Audio.setAudioModeAsync({
+            allowsRecordingIOS: true,
+            playsInSilentModeIOS: true,
+          });
+        } catch (error) {
+          console.error('Error loading sound effects:', error);
+        }
+      })();
     }
-    if (soundEffect && videoStartSoundUrl) {
-      videoStartAudioRef.current = new Audio(videoStartSoundUrl);
-    }
-    if (soundEffect && videoCompleteSoundUrl) {
-      videoCompleteAudioRef.current = new Audio(videoCompleteSoundUrl);
-    }
-  }, [soundEffect, shutterSoundUrl, videoStartSoundUrl, videoCompleteSoundUrl]);
+
+    return () => {
+      // Cleanup sound effects
+      shutterSoundRef.current?.unloadAsync();
+      videoStartSoundRef.current?.unloadAsync();
+      videoCompleteSoundRef.current?.unloadAsync();
+    };
+  }, [soundEffect]);
 
   // Recording timer
   useEffect(() => {
@@ -127,596 +138,381 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     };
   }, [recordingStatus]);
 
-  // Cleanup MediaRecorder on unmount
-  useEffect(() => {
-    return () => {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        try {
-          mediaRecorderRef.current.stop();
-          console.log('MediaRecorder stopped on unmount');
-        } catch (error) {
-          console.error('Error stopping MediaRecorder on unmount:', error);
-        }
+  // Format time for timer display
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Play sound effect
+  const playSound = useCallback(async (soundRef: React.RefObject<Audio.Sound>) => {
+    if (soundEffect && soundRef.current) {
+      try {
+        await soundRef.current.replayAsync();
+      } catch (error) {
+        console.error('Error playing sound:', error);
       }
-    };
-  }, []);
-
-  // Handle camera ready
-  const handleUserMedia = useCallback(() => {
-    setStatus('ready');
-  }, []);
-
-  // Handle camera error
-  const handleUserMediaError = useCallback((error: string | DOMException) => {
-    console.error('Camera error:', error);
-    if (typeof error === 'string' && error.includes('Permission')) {
-      setStatus('noPermission');
-    } else {
-      setStatus('noDevice');
-    }
-  }, []);
-
-  // Play sound
-  const playSound = useCallback((audioRef: React.RefObject<HTMLAudioElement>) => {
-    if (soundEffect && audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(console.error);
     }
   }, [soundEffect]);
 
-  // Capture photo with zoom, pan, and image processing filters applied
-  const capturePhoto = useCallback(() => {
-    if (!webcamRef.current || !webcamRef.current.video) return;
+  // Capture photo
+  const capturePhoto = useCallback(async () => {
+    if (!cameraRef.current) return;
 
     try {
-      const video = webcamRef.current.video;
-      
-      // Get transform state (zoom and pan)
-      const transformState = transformRef.current?.instance?.transformState;
-      const scale = transformState?.scale || 1;
-      const positionX = transformState?.positionX || 0;
-      const positionY = transformState?.positionY || 0;
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: photoQuality,
+        skipProcessing: false,
+      });
 
-      // Get video dimensions
-      const videoWidth = video.videoWidth;
-      const videoHeight = video.videoHeight;
-      
-      // Get display dimensions (viewport)
-      const displayWidth = video.clientWidth;
-      const displayHeight = video.clientHeight;
-
-      if (videoWidth === 0 || videoHeight === 0) {
-        console.error('Video not ready or failed to load. Ensure camera is initialized before capturing.');
-        return;
-      }
-
-      // Create canvas
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      // Calculate the video rendering metrics (how video fits in viewport with object-fit: cover)
-      const scaleX = displayWidth / videoWidth;
-      const scaleY = displayHeight / videoHeight;
-      const coverScale = Math.max(scaleX, scaleY);
-      
-      const renderWidth = videoWidth * coverScale;
-      const renderHeight = videoHeight * coverScale;
-      const offsetX = (displayWidth - renderWidth) / 2;
-      const offsetY = (displayHeight - renderHeight) / 2;
-
-      // Calculate the visible region in the viewport after zoom and pan
-      // Coordinate system explanation:
-      // 1. Original video coordinates (videoWidth x videoHeight)
-      // 2. Rendered video coordinates after object-fit: cover (renderWidth x renderHeight, centered with offsetX, offsetY)
-      // 3. Zoomed coordinates after scale transformation (renderWidth * scale x renderHeight * scale)
-      // 4. Final display after pan (moved by positionX, positionY)
-      //
-      // To find what part of the original video is visible in the viewport:
-      // - Viewport shows display coordinates (0, 0) to (displayWidth, displayHeight)
-      // - After pan, the visible content in zoomed coordinates is at (-positionX, -positionY)
-      // - After zoom, the visible content in rendered coordinates is at (-positionX/scale, -positionY/scale)
-      // - After cover scaling, the visible content in video coordinates needs to account for the offset
-      
-      // Step 1: Find the visible region in rendered coordinates (before zoom, after cover scale)
-      // The viewport origin (0, 0) maps to (-positionX, -positionY) in zoomed coordinates
-      // In pre-zoom (rendered) coordinates, this is (-positionX / scale, -positionY / scale)
-      const visibleRenderX = -positionX / scale;
-      const visibleRenderY = -positionY / scale;
-      const visibleRenderWidth = displayWidth / scale;
-      const visibleRenderHeight = displayHeight / scale;
-      
-      // Step 2: Account for the offset from object-fit: cover
-      // The rendered video is centered in the display, so we need to subtract the offset
-      // to get coordinates relative to the rendered video's top-left corner
-      const renderCropX = visibleRenderX - offsetX;
-      const renderCropY = visibleRenderY - offsetY;
-      
-      // Step 3: Convert from rendered coordinates to original video coordinates
-      // The rendered video is scaled by coverScale from the original video
-      let videoCropX = renderCropX / coverScale;
-      let videoCropY = renderCropY / coverScale;
-      let videoCropWidth = visibleRenderWidth / coverScale;
-      let videoCropHeight = visibleRenderHeight / coverScale;
-
-      // Clamp to valid video bounds (handle over-panning)
-      // If the user panned beyond the content, we clamp to show the edge of the video
-      if (videoCropX < 0) {
-        videoCropWidth += videoCropX;
-        videoCropX = 0;
-      }
-      if (videoCropY < 0) {
-        videoCropHeight += videoCropY;
-        videoCropY = 0;
-      }
-      if (videoCropX + videoCropWidth > videoWidth) {
-        videoCropWidth = videoWidth - videoCropX;
-      }
-      if (videoCropY + videoCropHeight > videoHeight) {
-        videoCropHeight = videoHeight - videoCropY;
-      }
-
-      // Ensure dimensions are positive (safety check for extreme over-panning)
-      videoCropWidth = Math.max(1, videoCropWidth);
-      videoCropHeight = Math.max(1, videoCropHeight);
-      videoCropX = Math.max(0, Math.min(videoCropX, videoWidth - videoCropWidth));
-      videoCropY = Math.max(0, Math.min(videoCropY, videoHeight - videoCropHeight));
-
-      // Set canvas size to the output resolution (use high quality)
-      const outputWidth = 1920;
-      const outputScale = outputWidth / videoCropWidth;
-      const outputHeight = videoCropHeight * outputScale;
-      
-      canvas.width = outputWidth;
-      canvas.height = outputHeight;
-
-      // Apply image processing filters to the canvas context
-      // This ensures the captured photo matches the live preview
-      applyCSSFilters(ctx, imageProcessing);
-
-      // Draw the cropped and zoomed portion of the video
-      ctx.drawImage(
-        video,
-        videoCropX, videoCropY, videoCropWidth, videoCropHeight,  // source rectangle
-        0, 0, outputWidth, outputHeight  // destination rectangle
-      );
-
-      // Convert canvas to blob and download/save
-      canvas.toBlob((blob) => {
-        if (blob) {
-          playSound(shutterAudioRef);
-          
-          const filename = generateFileName('photo-', '.jpg');
-          saveBlobToGalleryOrDownload(blob, filename, 'image/jpeg', false);
+      if (photo) {
+        // Save to media library
+        if (mediaLibraryPermission === 'granted') {
+          await MediaLibrary.saveToLibraryAsync(photo.uri);
+          Alert.alert(t('success'), t('photoSaved'));
+        } else {
+          Alert.alert(t('error'), t('noMediaLibraryPermission'));
         }
-      }, 'image/jpeg', photoQuality);
 
+        // Play shutter sound
+        playSound(shutterSoundRef);
+      }
     } catch (error) {
       console.error('Error capturing photo:', error);
+      Alert.alert(t('error'), t('photoCaptureFailed'));
     }
-  }, [playSound, photoQuality, imageProcessing]);
+  }, [photoQuality, mediaLibraryPermission, playSound, t]);
 
-  // Toggle camera
-  const toggleCamera = useCallback(() => {
-    setFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'));
+  // Toggle camera facing
+  const toggleCameraFacing = useCallback(() => {
+    setFacing((current) => (current === 'back' ? 'front' : 'back'));
   }, []);
 
-  // Toggle mic
+  // Toggle microphone
   const toggleMic = useCallback(() => {
     setMicEnabled((prev) => !prev);
   }, []);
 
   // Start recording
-  const startRecording = useCallback(() => {
-    if (!webcamRef.current || !webcamRef.current.stream) return;
+  const startRecording = useCallback(async () => {
+    if (!cameraRef.current) return;
 
     try {
-      recordedChunksRef.current = [];
-
-      // Get video stream from webcam
-      const videoStream = webcamRef.current.stream;
+      setRecordingStatus('recording');
+      playSound(videoStartSoundRef);
       
-      // Create a combined stream with video and optionally audio
-      let combinedStream: MediaStream;
-      
-      if (micEnabled && audio) {
-        // Get audio stream
-        navigator.mediaDevices.getUserMedia({ audio: audioConstraints as MediaTrackConstraints })
-          .then((audioStream) => {
-            const videoTracks = videoStream.getVideoTracks();
-            const audioTracks = audioStream.getAudioTracks();
-            
-            combinedStream = new MediaStream([...videoTracks, ...audioTracks]);
-            
-            // Determine the best codec with proper validation
-            const mimeType = getSupportedMimeType();
-            console.log('Selected MIME type for recording:', mimeType);
-            
-            const options: MediaRecorderOptions = {
-              mimeType,
-              videoBitsPerSecond: isMobile ? 2500000 : undefined,
-              audioBitsPerSecond: 128000,
-            };
+      // recordAsync returns a promise that resolves when recording stops
+      // We need to handle it properly
+      const video = await cameraRef.current.recordAsync({
+        mute: !micEnabled,
+      });
 
-            mediaRecorderRef.current = new MediaRecorder(combinedStream, options);
-
-            mediaRecorderRef.current.ondataavailable = (event) => {
-              if (event.data && event.data.size > 0) {
-                recordedChunksRef.current.push(event.data);
-                console.log('Data chunk received:', event.data.size, 'bytes');
-              }
-            };
-
-            mediaRecorderRef.current.onstop = () => {
-              console.log('Recording stopped. Total chunks:', recordedChunksRef.current.length);
-              
-              // Validate that we have data chunks
-              if (recordedChunksRef.current.length === 0) {
-                console.error('No data chunks recorded');
-                setRecordingStatus('idle');
-                return;
-              }
-
-              // Create blob with proper mimeType for consistency
-              const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-              console.log('Video blob created:', blob.size, 'bytes, type:', blob.type);
-              
-              // Validate blob size
-              if (blob.size === 0) {
-                console.error('Recording failed: empty blob');
-                setRecordingStatus('idle');
-                return;
-              }
-
-              const filename = generateFileName('video-', getExtensionFromMimeType(mimeType));
-              
-              saveBlobToGalleryOrDownload(blob, filename, mimeType, true);
-
-              playSound(videoCompleteAudioRef);
-              setRecordingStatus('idle');
-              
-              // Clean up recorded chunks
-              recordedChunksRef.current = [];
-            };
-
-            mediaRecorderRef.current.onerror = (event: Event) => {
-              console.error('MediaRecorder error:', event);
-              setRecordingStatus('idle');
-            };
-
-            mediaRecorderRef.current.start(100); // Request data every 100ms
-            setRecordingStatus('recording');
-            playSound(videoStartAudioRef);
-            console.log('Recording started with mimeType:', mimeType);
-          })
-          .catch((error) => {
-            console.error('Error getting audio stream:', error);
-            // Fallback to video only
-            startVideoOnlyRecording(videoStream);
-          });
-      } else {
-        startVideoOnlyRecording(videoStream);
+      // Save the recorded video
+      if (video && video.uri) {
+        if (mediaLibraryPermission === 'granted') {
+          await MediaLibrary.saveToLibraryAsync(video.uri);
+          Alert.alert(t('success'), t('videoSaved'));
+        } else {
+          Alert.alert(t('error'), t('noMediaLibraryPermission'));
+        }
+        playSound(videoCompleteSoundRef);
       }
+      
+      setRecordingStatus('idle');
     } catch (error) {
-      console.error('Error starting recording:', error);
+      console.error('Error in recording:', error);
+      Alert.alert(t('error'), t('recordingStartFailed'));
       setRecordingStatus('idle');
     }
-  }, [micEnabled, audio, audioConstraints, playSound]);
-
-  // Helper function to start video-only recording
-  const startVideoOnlyRecording = (videoStream: MediaStream) => {
-    const mimeType = getSupportedMimeType();
-    console.log('Selected MIME type for video-only recording:', mimeType);
-    
-    const options: MediaRecorderOptions = {
-      mimeType,
-      videoBitsPerSecond: isMobile ? 2500000 : undefined,
-    };
-
-    mediaRecorderRef.current = new MediaRecorder(videoStream, options);
-
-    mediaRecorderRef.current.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        recordedChunksRef.current.push(event.data);
-        console.log('Data chunk received:', event.data.size, 'bytes');
-      }
-    };
-
-    mediaRecorderRef.current.onstop = () => {
-      console.log('Recording stopped. Total chunks:', recordedChunksRef.current.length);
-      
-      // Validate that we have data chunks
-      if (recordedChunksRef.current.length === 0) {
-        console.error('No data chunks recorded');
-        setRecordingStatus('idle');
-        return;
-      }
-
-      // Create blob with proper mimeType for consistency
-      const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-      console.log('Video blob created:', blob.size, 'bytes, type:', blob.type);
-      
-      // Validate blob size
-      if (blob.size === 0) {
-        console.error('Recording failed: empty blob');
-        setRecordingStatus('idle');
-        return;
-      }
-
-      const filename = generateFileName('video-', getExtensionFromMimeType(mimeType));
-      
-      saveBlobToGalleryOrDownload(blob, filename, mimeType, true);
-
-      playSound(videoCompleteAudioRef);
-      setRecordingStatus('idle');
-      
-      // Clean up recorded chunks
-      recordedChunksRef.current = [];
-    };
-
-    mediaRecorderRef.current.onerror = (event: Event) => {
-      console.error('MediaRecorder error:', event);
-      setRecordingStatus('idle');
-    };
-
-    mediaRecorderRef.current.start(100); // Request data every 100ms
-    setRecordingStatus('recording');
-    playSound(videoStartAudioRef);
-    console.log('Recording started with mimeType:', mimeType);
-  };
+  }, [micEnabled, playSound, mediaLibraryPermission, t]);
 
   // Stop recording
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && (recordingStatus === 'recording' || recordingStatus === 'paused')) {
-      setRecordingStatus('stopping');
-      
-      // Stop the MediaRecorder to trigger onstop event
-      try {
-        mediaRecorderRef.current.stop();
-        console.log('MediaRecorder.stop() called');
-      } catch (error) {
-        console.error('Error stopping MediaRecorder:', error);
-        setRecordingStatus('idle');
-      }
+    if (!cameraRef.current) return;
+
+    try {
+      // Calling stopRecording will cause recordAsync to resolve in startRecording
+      cameraRef.current.stopRecording();
+    } catch (error) {
+      console.error('Error stopping recording:', error);
+      setRecordingStatus('idle');
     }
-  }, [recordingStatus]);
-
-  // Pause recording
-  const pauseRecording = useCallback(() => {
-    if (mediaRecorderRef.current && recordingStatus === 'recording') {
-      try {
-        mediaRecorderRef.current.pause();
-        setRecordingStatus('paused');
-        console.log('Recording paused');
-      } catch (error) {
-        console.error('Error pausing recording:', error);
-      }
-    }
-  }, [recordingStatus]);
-
-  // Resume recording
-  const resumeRecording = useCallback(() => {
-    if (mediaRecorderRef.current && recordingStatus === 'paused') {
-      try {
-        mediaRecorderRef.current.resume();
-        setRecordingStatus('recording');
-        console.log('Recording resumed');
-      } catch (error) {
-        console.error('Error resuming recording:', error);
-      }
-    }
-  }, [recordingStatus]);
-
-  // Get supported mime type
-  const getSupportedMimeType = (): string => {
-    const types = [
-      'video/webm;codecs=vp9,opus',
-      'video/webm;codecs=vp8,opus',
-      'video/webm;codecs=vp8',
-      'video/webm',
-      'video/mp4;codecs=h264,aac',
-      'video/mp4;codecs=avc1,mp4a',
-      'video/mp4',
-    ];
-
-    console.log('Checking MediaRecorder codec support...');
-    
-    for (const type of types) {
-      try {
-        if (MediaRecorder.isTypeSupported(type)) {
-          console.log('✓ Supported:', type);
-          return type;
-        } else {
-          console.log('✗ Not supported:', type);
-        }
-      } catch (error) {
-        console.error('Error checking codec support:', type, error);
-      }
-    }
-
-    console.warn('No preferred codec supported, using default video/webm');
-    return 'video/webm';
-  };
-
-  // Get file extension from mime type
-  const getExtensionFromMimeType = (mimeType: string): string => {
-    if (mimeType.includes('webm')) return '.webm';
-    if (mimeType.includes('mp4')) return '.mp4';
-    return '.webm';
-  };
-
-  // Handle image processing change
-  const handleImageProcessingChange = useCallback((params: ImageProcessingParams) => {
-    setImageProcessing(params);
   }, []);
 
-  // Memoize style objects to prevent unnecessary re-renders
-  const wrapperStyle = useMemo(() => ({
-    width: '100%',
-    height: '100%',
-  }), []);
+  // Pause recording (not directly supported by expo-camera, would need custom implementation)
+  const pauseRecording = useCallback(() => {
+    Alert.alert(t('info'), t('pauseResumeNotSupported'));
+  }, [t]);
 
-  const contentStyle = useMemo(() => ({
-    width: '100%',
-    height: '100%',
-  }), []);
+  // Resume recording (not directly supported by expo-camera, would need custom implementation)
+  const resumeRecording = useCallback(() => {
+    Alert.alert(t('info'), t('pauseResumeNotSupported'));
+  }, [t]);
 
-  const webcamStyle = useMemo(() => ({
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover' as const,
-    filter: buildCSSFilterString(imageProcessing),
-  }), [imageProcessing]);
+  // Pinch gesture for zoom
+  const pinchGesture = Gesture.Pinch()
+    .onStart(() => {
+      // Store the current zoom as the base for this gesture
+      baseZoomRef.current = zoom;
+    })
+    .onUpdate((event) => {
+      // Calculate zoom level based on pinch scale
+      // expo-camera zoom is 0 (no zoom) to 1 (max zoom)
+      // scale starts at 1, increases when pinching out, decreases when pinching in
+      const delta = (event.scale - 1) * ZOOM_SENSITIVITY;
+      const newZoom = Math.min(Math.max(baseZoomRef.current + delta, 0), 1);
+      setZoom(newZoom);
+    })
+    .runOnJS(true);
+
+  // Handle permission errors
+  if (!cameraPermission) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.statusText}>{t('initializing')}</Text>
+      </View>
+    );
+  }
+
+  if (!cameraPermission.granted) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.statusText}>{t('noPermission')}</Text>
+        <TouchableOpacity style={styles.button} onPress={requestCameraPermission}>
+          <Text style={styles.buttonText}>{t('grantPermission')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
-    <div className="simple-camera-container">
-      <div className="simple-camera-viewport">
-        <TransformWrapper
-          ref={transformRef}
-          initialScale={1}
-          minScale={1}
-          maxScale={4}
-          centerOnInit
-          wheel={{ step: 0.1 }}
-          pinch={{ step: 5 }}
-          doubleClick={{ disabled: false }}
-        >
-          <TransformComponent
-            wrapperStyle={wrapperStyle}
-            contentStyle={contentStyle}
+    <GestureHandlerRootView style={styles.container}>
+      <GestureDetector gesture={pinchGesture}>
+        <View style={styles.container}>
+          <CameraView
+            ref={cameraRef}
+            style={styles.camera}
+            facing={facing}
+            zoom={zoom}
+            enableTorch={false}
           >
-            <Webcam
-              ref={webcamRef}
-              audio={false}
-              screenshotFormat="image/jpeg"
-              screenshotQuality={photoQuality}
-              videoConstraints={videoConstraints}
-              onUserMedia={handleUserMedia}
-              onUserMediaError={handleUserMediaError}
-              style={webcamStyle}
-            />
-          </TransformComponent>
-        </TransformWrapper>
-      </div>
+        {/* Status display */}
+        {showStatus && status !== 'ready' && (
+          <View style={styles.statusOverlay}>
+            {status === 'initializing' && <Text style={styles.statusText}>{t('initializing')}</Text>}
+            {status === 'noPermission' && <Text style={styles.statusText}>{t('noPermission')}</Text>}
+            {status === 'noDevice' && <Text style={styles.statusText}>{t('noDevice')}</Text>}
+          </View>
+        )}
 
-      {/* Status display */}
-      {showStatus && status !== 'ready' && (
-        <div className="camera-status-overlay">
-          {status === 'initializing' && <p>{t('initializing')}</p>}
-          {status === 'noPermission' && <p>{t('noPermission')}</p>}
-          {status === 'noDevice' && <p>{t('noDevice')}</p>}
-        </div>
-      )}
+        {/* Recording timer */}
+        {showTimer && recordingStatus !== 'idle' && (
+          <View style={styles.recordingTimer}>
+            <View style={styles.recordingIndicator} />
+            <Text style={styles.timerText}>{formatTime(recordingTime)}</Text>
+          </View>
+        )}
 
-      {/* Recording timer */}
-      {showTimer && recordingStatus !== 'idle' && (
-        <div className="recording-timer">
-          <span className="recording-indicator">●</span>
-          {formatTime(recordingTime)}
-        </div>
-      )}
-
-      {/* Controls */}
-      {showControls && status === 'ready' && (
-        <div className="camera-controls">
-          {/* Image processing controls */}
-          <ImageProcessingControls
-            params={imageProcessing}
-            onChange={handleImageProcessingChange}
-            disabled={recordingStatus !== 'idle'}
-          />
-
-          {/* Main control buttons */}
-          <div className="control-buttons">
-            {/* Switch camera button */}
-            <button
-              className="control-button"
-              onClick={toggleCamera}
-              title={t('switchCamera')}
-              disabled={recordingStatus !== 'idle'}
-            >
-              <SwitchCamera size={ICON_SIZE} />
-            </button>
-
-            {/* Mic toggle button */}
-            {showMic && (
-              <button
-                className={`control-button ${micEnabled ? 'active' : ''}`}
-                onClick={toggleMic}
-                title={micEnabled ? t('muteMic') : t('unmuteMic')}
+        {/* Controls */}
+        {showControls && status === 'ready' && (
+          <View style={styles.controls}>
+            <View style={styles.controlButtons}>
+              {/* Switch camera button */}
+              <TouchableOpacity
+                style={[styles.controlButton, recordingStatus !== 'idle' && styles.disabledButton]}
+                onPress={toggleCameraFacing}
                 disabled={recordingStatus !== 'idle'}
               >
-                {micEnabled ? <Mic size={ICON_SIZE} /> : <MicOff size={ICON_SIZE} />}
-              </button>
-            )}
+                <Icons.SwitchCamera />
+              </TouchableOpacity>
 
-            {/* Capture photo button */}
-            {showTakePhoto && (
-              <button
-                className="control-button capture-button"
-                onClick={capturePhoto}
-                title={t('takePhoto')}
-                disabled={recordingStatus !== 'idle'}
-              >
-                <Camera size={ICON_SIZE * 1.5} />
-              </button>
-            )}
+              {/* Mic toggle button */}
+              {showMic && (
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    micEnabled && styles.activeButton,
+                    recordingStatus !== 'idle' && styles.disabledButton,
+                  ]}
+                  onPress={toggleMic}
+                  disabled={recordingStatus !== 'idle'}
+                >
+                  {micEnabled ? <Icons.Mic /> : <Icons.MicOff />}
+                </TouchableOpacity>
+              )}
 
-            {/* Video recording buttons */}
-            {showRecord && (
-              <>
-                {recordingStatus === 'idle' && (
-                  <button
-                    className="control-button record-button"
-                    onClick={startRecording}
-                    title={t('startRecording')}
-                  >
-                    <Video size={ICON_SIZE} />
-                  </button>
-                )}
-                {recordingStatus === 'recording' && (
-                  <>
-                    <button
-                      className="control-button pause-button"
-                      onClick={pauseRecording}
-                      title={t('pauseRecording')}
+              {/* Capture photo button */}
+              {showTakePhoto && (
+                <TouchableOpacity
+                  style={[
+                    styles.controlButton,
+                    styles.captureButton,
+                    recordingStatus !== 'idle' && styles.disabledButton,
+                  ]}
+                  onPress={capturePhoto}
+                  disabled={recordingStatus !== 'idle'}
+                >
+                  <Icons.Camera />
+                </TouchableOpacity>
+              )}
+
+              {/* Video recording buttons */}
+              {showRecord && (
+                <>
+                  {recordingStatus === 'idle' && (
+                    <TouchableOpacity
+                      style={[styles.controlButton, styles.recordButton]}
+                      onPress={startRecording}
                     >
-                      <Pause size={ICON_SIZE} />
-                    </button>
-                    <button
-                      className="control-button stop-button"
-                      onClick={stopRecording}
-                      title={t('stopRecording')}
-                    >
-                      <Square size={ICON_SIZE} />
-                    </button>
-                  </>
-                )}
-                {recordingStatus === 'paused' && (
-                  <>
-                    <button
-                      className="control-button resume-button"
-                      onClick={resumeRecording}
-                      title={t('resumeRecording')}
-                    >
-                      <Video size={ICON_SIZE} />
-                    </button>
-                    <button
-                      className="control-button stop-button"
-                      onClick={stopRecording}
-                      title={t('stopRecording')}
-                    >
-                      <Square size={ICON_SIZE} />
-                    </button>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+                      <Icons.Video />
+                    </TouchableOpacity>
+                  )}
+                  {recordingStatus === 'recording' && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.controlButton, styles.stopButton]}
+                        onPress={stopRecording}
+                      >
+                        <Icons.Square />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                  {recordingStatus === 'paused' && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.controlButton, styles.resumeButton]}
+                        onPress={resumeRecording}
+                      >
+                        <Icons.Video />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.controlButton, styles.stopButton]}
+                        onPress={stopRecording}
+                      >
+                        <Icons.Square />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </>
+              )}
+            </View>
+          </View>
+        )}
+      </CameraView>
+        </View>
+      </GestureDetector>
+    </GestureHandlerRootView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  camera: {
+    flex: 1,
+  },
+  statusOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  recordingTimer: {
+    position: 'absolute',
+    top: 40,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  recordingIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#ff0000',
+    marginRight: 8,
+  },
+  timerText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+  },
+  controls: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+  },
+  controlButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
+  },
+  controlButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  captureButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#fff',
+  },
+  recordButton: {
+    backgroundColor: 'rgba(255, 0, 0, 0.5)',
+  },
+  stopButton: {
+    backgroundColor: 'rgba(255, 0, 0, 0.7)',
+  },
+  pauseButton: {
+    backgroundColor: 'rgba(255, 165, 0, 0.5)',
+  },
+  resumeButton: {
+    backgroundColor: 'rgba(0, 255, 0, 0.5)',
+  },
+  activeButton: {
+    backgroundColor: 'rgba(0, 255, 0, 0.3)',
+  },
+  disabledButton: {
+    opacity: 0.3,
+  },
+  button: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  iconText: {
+    fontSize: 24,
+  },
+});
 
 export default SimpleCamera;
