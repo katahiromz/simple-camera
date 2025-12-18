@@ -175,3 +175,51 @@ export const saveVideoToAndroidGallery = (
     return false;
   }
 };
+
+/**
+ * ブラウザでBlobをダウンロード
+ * @param blob ダウンロードするBlob
+ * @param filename ファイル名
+ */
+export const downloadBlob = (blob: Blob, filename: string): void => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+/**
+ * BlobをAndroid環境ではギャラリーに保存、それ以外ではダウンロード
+ * @param blob 保存するBlob
+ * @param filename ファイル名
+ * @param mimeType MIMEタイプ
+ * @param isVideo 動画かどうか（true: 動画, false: 画像）
+ */
+export const saveBlobToGalleryOrDownload = (
+  blob: Blob,
+  filename: string,
+  mimeType: string,
+  isVideo: boolean = false
+): void => {
+  if (isAndroidWebView()) {
+    // BlobをBase64に変換してAndroidのギャラリーに保存
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64data = reader.result as string;
+      const saveFunction = isVideo ? saveVideoToAndroidGallery : saveImageToAndroidGallery;
+      const success = saveFunction(base64data, filename, mimeType);
+      
+      if (!success) {
+        console.error(`Failed to save ${isVideo ? 'video' : 'image'} to Android gallery`);
+        // フォールバック: 通常のダウンロード
+        downloadBlob(blob, filename);
+      }
+    };
+    reader.readAsDataURL(blob);
+  } else {
+    // 通常のブラウザ環境ではダウンロード
+    downloadBlob(blob, filename);
+  }
+};

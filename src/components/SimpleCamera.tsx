@@ -20,9 +20,7 @@ import {
 import {
   generateFileName,
   formatTime,
-  isAndroidWebView,
-  saveImageToAndroidGallery,
-  saveVideoToAndroidGallery,
+  saveBlobToGalleryOrDownload,
 } from './utils';
 
 // Base URL
@@ -275,35 +273,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
           playSound(shutterAudioRef);
           
           const filename = generateFileName('photo-', '.jpg');
-          
-          // Android WebView環境ではギャラリーに保存
-          if (isAndroidWebView()) {
-            // BlobをBase64に変換してAndroidのギャラリーに保存
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const base64data = reader.result as string;
-              const success = saveImageToAndroidGallery(base64data, filename, 'image/jpeg');
-              if (!success) {
-                console.error('Failed to save image to Android gallery');
-                // フォールバック: 通常のダウンロード
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = filename;
-                link.click();
-                URL.revokeObjectURL(url);
-              }
-            };
-            reader.readAsDataURL(blob);
-          } else {
-            // 通常のブラウザ環境ではダウンロード
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            link.click();
-            URL.revokeObjectURL(url);
-          }
+          saveBlobToGalleryOrDownload(blob, filename, 'image/jpeg', false);
         }
       }, 'image/jpeg', photoQuality);
 
@@ -413,34 +383,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       const blob = new Blob(recordedChunksRef.current, { type: mimeType });
       const filename = generateFileName('video-', getExtensionFromMimeType(mimeType));
       
-      // Android WebView環境ではギャラリーに保存
-      if (isAndroidWebView()) {
-        // BlobをBase64に変換してAndroidのギャラリーに保存
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64data = reader.result as string;
-          const success = saveVideoToAndroidGallery(base64data, filename, mimeType);
-          if (!success) {
-            console.error('Failed to save video to Android gallery');
-            // フォールバック: 通常のダウンロード
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            link.click();
-            URL.revokeObjectURL(url);
-          }
-        };
-        reader.readAsDataURL(blob);
-      } else {
-        // 通常のブラウザ環境ではダウンロード
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        link.click();
-        URL.revokeObjectURL(url);
-      }
+      saveBlobToGalleryOrDownload(blob, filename, mimeType, true);
 
       playSound(videoCompleteAudioRef);
       setRecordingStatus('idle');
