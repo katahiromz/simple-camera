@@ -20,6 +20,7 @@ import {
 import {
   generateFileName,
   formatTime,
+  saveBlobToGalleryOrDownload,
 } from './utils';
 
 // Base URL
@@ -266,17 +267,13 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
         0, 0, outputWidth, outputHeight  // destination rectangle
       );
 
-      // Convert canvas to blob and download
+      // Convert canvas to blob and download/save
       canvas.toBlob((blob) => {
         if (blob) {
           playSound(shutterAudioRef);
           
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = generateFileName('photo-', '.jpg');
-          link.click();
-          URL.revokeObjectURL(url);
+          const filename = generateFileName('photo-', '.jpg');
+          saveBlobToGalleryOrDownload(blob, filename, 'image/jpeg', false);
         }
       }, 'image/jpeg', photoQuality);
 
@@ -384,12 +381,9 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
 
     mediaRecorderRef.current.onstop = () => {
       const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = generateFileName('video-', getExtensionFromMimeType(mimeType));
-      link.click();
-      URL.revokeObjectURL(url);
+      const filename = generateFileName('video-', getExtensionFromMimeType(mimeType));
+      
+      saveBlobToGalleryOrDownload(blob, filename, mimeType, true);
 
       playSound(videoCompleteAudioRef);
       setRecordingStatus('idle');
