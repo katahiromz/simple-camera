@@ -13,6 +13,19 @@ function App() {
     emulateInsets(); // insetsをエミュレートする
   }
 
+  // 製品版の場合、コンテキストメニューを禁止
+  React.useEffect(() => {
+    if (IS_PRODUCTION) {
+      const handleContextMenu = (e: MouseEvent) => {
+        e.preventDefault();
+      };
+      document.addEventListener('contextmenu', handleContextMenu);
+      return () => {
+        document.removeEventListener('contextmenu', handleContextMenu);
+      };
+    }
+  }, []);
+
   return (
     <SimpleCamera />
   );
