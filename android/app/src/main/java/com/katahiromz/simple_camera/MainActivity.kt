@@ -835,7 +835,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             val fileName = sanitizeFileName(rawFileName)
             
             // リクエストの設定
-            request.setMimeType(mimeType)
+            if (mimeType.isNotEmpty()) {
+                request.setMimeType(mimeType)
+            }
             request.addRequestHeader("User-Agent", userAgent)
             request.setDescription("Downloading file...")
             request.setTitle(fileName)
@@ -857,7 +859,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     // ファイル名をサニタイズする（パストラバーサル攻撃を防ぐ）
     private fun sanitizeFileName(fileName: String): String {
         // パス区切り文字やその他の危険な文字を除去する
-        var sanitized = fileName.replace(Regex("[/\\\\:*?\"<>|]"), "_")
+        var sanitized = fileName.replace(Regex("""[/\\:*?"<>|]"""), "_")
         
         // ".." を除去する
         sanitized = sanitized.replace("..", "_")
@@ -867,7 +869,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         
         // 空のファイル名を避ける
         if (sanitized.isEmpty()) {
-            sanitized = "download"
+            sanitized = "download.bin"
         }
         
         return sanitized
