@@ -333,12 +333,9 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
 
             mediaRecorderRef.current.onstop = () => {
               const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = generateFileName('video-', getExtensionFromMimeType(mimeType));
-              link.click();
-              URL.revokeObjectURL(url);
+              const filename = generateFileName('video-', getExtensionFromMimeType(mimeType));
+              
+              saveBlobToGalleryOrDownload(blob, filename, mimeType, true);
 
               playSound(videoCompleteAudioRef);
               setRecordingStatus('idle');
