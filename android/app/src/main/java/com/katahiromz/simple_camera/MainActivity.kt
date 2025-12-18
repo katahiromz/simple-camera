@@ -5,13 +5,16 @@ package com.katahiromz.simple_camera
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.DownloadManager
 import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.media.AudioManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.StrictMode
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -22,6 +25,7 @@ import android.view.WindowManager
 import android.webkit.PermissionRequest
 import android.webkit.ServiceWorkerClient
 import android.webkit.ServiceWorkerController
+import android.webkit.URLUtil
 import android.webkit.ValueCallback
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -794,6 +798,48 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         // JavaScript側からGenericAppのバージョン情報を取得できるようにする。
         val versionName = getVersionName()
         settings.userAgentString += "/SimpleCamera/Android/$versionName/"
+
+        // ダウンロードリスナーを設定する。
+        currentWebView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
+            handleDownload(url, userAgent, contentDisposition, mimeType, contentLength)
+        }
+    }
+
+    // ダウンロード処理を実行する。
+    private fun handleDownload(
+        url: String,
+        userAgent: String,
+        contentDisposition: String,
+        mimeType: String,
+        contentLength: Long
+    ) {
+        Timber.i("handleDownload: url=$url, mimeType=$mimeType")
+        
+        try {
+            // ダウンロードリクエストを作成する。
+            val request = DownloadManager.Request(Uri.parse(url))
+            
+            // ファイル名を取得する（contentDispositionから取得するか、URLから取得する）
+            val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            
+            // リクエストの設定
+            request.setMimeType(mimeType)
+            request.addRequestHeader("User-Agent", userAgent)
+            request.setDescription("Downloading file...")
+            request.setTitle(fileName)
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+            
+            // DownloadManagerを取得してダウンロードをエンキューする。
+            val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            downloadManager.enqueue(request)
+            
+            // ユーザーに通知する。
+            showToast("Downloading $fileName", SHORT_TOAST)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to start download")
+            showToast("Download failed", SHORT_TOAST)
+        }
     }
 
     // バージョン名を取得する。
