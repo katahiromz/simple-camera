@@ -2,29 +2,75 @@
 
 ## 概要
 
-React+Vita製のシンプルなカメラアプリです。PWAとAndroidに対応しております。
+React製のシンプルなカメラアプリです。PWA、Web、Android、iOSに対応しております。
+
+**新機能**: Expoフレームワークに移行し、`expo-camera`を使用したネイティブカメラ機能をサポートしています。
 
 <p align="center">
   <img src="public/pwa-192x192.png" alt="[カメラ アイコン]" />　　
   <img src="img/screenshot.png" alt="[スクリーンショット]" />
 </p>
 
+## プラットフォーム
+
+このアプリは2つのモードで動作します：
+
+### 1. Web/PWA版（従来版）
+- **ビルドツール**: Vite 7
+- **カメラライブラリ**: react-webcam
+- **ズーム機能**: react-zoom-pan-pinch
+- **対応プラットフォーム**: Web ブラウザ、PWA
+
+**起動方法**:
+```bash
+npm run dev    # 開発サーバー起動
+npm run build  # プロダクションビルド
+```
+
+### 2. Expo/React Native版（新規）
+- **フレームワーク**: Expo SDK 54
+- **カメラライブラリ**: expo-camera
+- **ズーム機能**: ピンチジェスチャー + expo-camera zoom
+- **対応プラットフォーム**: Android、iOS、Web（Metro経由）
+
+**起動方法**:
+```bash
+npm start      # Expo開発サーバー起動
+npm run android # Androidエミュレーターで起動
+npm run ios    # iOSシミュレーターで起動（macOS のみ）
+npm run web    # Metro bundlerでWeb版起動
+```
+
+**必要な環境**:
+- Node.js 18以上
+- Android Studio（Android開発の場合）
+- Xcode（iOS開発の場合、macOSのみ）
+- Expo Go アプリ（実機でのテスト用）
+
 ## 機能
 
+### 共通機能（Web版・Expo版）
+
 - **写真撮影と録画**
-  - **高品質ビデオ録画**（マイク音声付き）
-  - **録画の一時停止/再開機能**（MediaRecorder API）
-  - **自動コーデック選択**（VP9、VP8、H.264対応）
-  - **堅牢なエラー処理**（録画状態管理）
-- **ズーム・パン機能** (react-zoom-pan-pinch)
-  - ピンチ操作によるズーム
-  - マウスホイールでのズーム
-  - ダブルクリックでズーム
-  - スムーズなパン（移動）操作
-- **カメラコントロール** (react-webcam)
-  - 前面カメラ・背面カメラの切り替え
   - 高品質な写真撮影
-  - ビデオストリームのキャプチャ
+  - ビデオ録画（マイク音声付き）
+  - 前面カメラ・背面カメラの切り替え
+  - マイクのオン/オフ切り替え
+  - 堅牢なエラー処理と権限管理
+
+- **ズーム機能**
+  - **Web版**: react-zoom-pan-pinchによる高度なズーム・パン
+    - ピンチ操作、マウスホイール、ダブルクリックでズーム
+    - スムーズなパン（移動）操作
+  - **Expo版**: expo-cameraのネイティブズーム
+    - ピンチジェスチャーによるズーム（0〜1の範囲）
+    - ネイティブカメラ機能の活用
+
+- **多言語対応**
+  - 日本語・英語対応（i18next）
+
+### Web/PWA版の追加機能
+
 - **リアルタイム画像処理機能**
   - 明るさ、コントラスト、彩度、色相の調整
   - ぼかし効果
@@ -32,10 +78,21 @@ React+Vita製のシンプルなカメラアプリです。PWAとAndroidに対応
   - プリセットフィルター（鮮やか、クール、暖かい、白黒、ビンテージ、高コントラスト）
   - **リアルタイムプレビュー**: すべてのフィルターがライブビデオに即座に反映
   - **写真キャプチャ統合**: 保存される写真は画面表示と完全に一致（ズーム、パン、フィルターすべてを含む）
-  - レスポンシブデザイン対応（デスクトップ、タブレット、モバイル）
   - 設定の自動保存（localStorage）
 
-## 画像処理機能の使い方
+- **録画の高度な機能**
+  - 録画の一時停止/再開機能（MediaRecorder API）
+  - 自動コーデック選択（VP9、VP8、H.264対応）
+
+### Expo版の追加機能
+
+- **ネイティブカメラ機能**
+  - デバイスのネイティブカメラAPIを使用
+  - expo-mediaライブラリでギャラリーへの自動保存
+  - 高品質な写真・動画キャプチャ
+  - クロスプラットフォーム対応（Android、iOS）
+
+## 画像処理機能の使い方（Web/PWA版）
 
 ### 基本的な使用方法
 
@@ -81,7 +138,7 @@ function MyApp() {
 
 ### 使用しているライブラリ
 
-新しい実装では、以下のライブラリを使用しています：
+#### Web/PWA版
 
 - **react-webcam**: カメラアクセスと写真撮影機能を提供
   - Webcamコンポーネントによる簡単なカメラ統合
@@ -101,11 +158,31 @@ function MyApp() {
   - オーディオトラックの統合
   - 一時停止/再開機能
 
-## 録画機能の詳細
+#### Expo/React Native版
+
+- **expo-camera**: ネイティブカメラ機能を提供
+  - CameraViewコンポーネントによるカメラ統合
+  - 写真撮影と動画録画
+  - フロント/リアカメラの切り替え
+  - ネイティブズーム機能（0〜1の範囲）
+  - カメラ権限の管理
+
+- **expo-media-library**: メディアの保存と管理
+  - ギャラリーへの写真・動画の自動保存
+  - メディアライブラリ権限の管理
+
+- **expo-av**: オーディオ再生機能
+  - サウンドエフェクトの再生
+  - オーディオ設定の管理
+
+- **react-native-gesture-handler**: ジェスチャー認識
+  - ピンチジェスチャーでのズーム制御
+
+## 録画機能の詳細（Web/PWA版）
 
 ### ビデオとオーディオの録画サポート
 
-simple-cameraは、以下の機能を備えた堅牢な録画機能を提供します：
+simple-cameraのWeb版は、以下の機能を備えた堅牢な録画機能を提供します：
 
 - **ビデオ録画**: 高品質なビデオ録画（react-webcamストリームからのキャプチャ）
 - **オーディオ録画**: マイク音声のキャプチャとビデオへの統合
@@ -138,6 +215,8 @@ simple-cameraは、以下の機能を備えた堅牢な録画機能を提供し�
 
 ## 技術仕様
 
+### Web/PWA版
+
 - **言語**: TypeScript
 - **フレームワーク**: React 19
 - **ビルドツール**: Vite 7
@@ -152,6 +231,61 @@ simple-cameraは、以下の機能を備えた堅牢な録画機能を提供し�
 - **国際化**: i18next (日本語・英語対応)
 - **アイコン**: lucide-react
 - **レスポンシブ対応**: CSS Media Queries
+
+### Expo/React Native版
+
+- **言語**: TypeScript
+- **フレームワーク**: React 19 + React Native (Expo SDK 54)
+- **ビルドツール**: Metro Bundler
+- **カメラライブラリ**: expo-camera
+- **メディア保存**: expo-media-library
+- **オーディオ**: expo-av
+- **ジェスチャー**: react-native-gesture-handler
+- **ズーム**: expo-camera native zoom + pinch gesture
+- **国際化**: i18next (日本語・英語対応)
+- **スタイリング**: React Native StyleSheet
+- **対応プラットフォーム**: Android、iOS
+
+## セットアップ手順
+
+### Web/PWA版の開発
+
+```bash
+# 依存関係のインストール
+npm install
+
+# 開発サーバーの起動
+npm run dev
+
+# プロダクションビルド
+npm run build
+```
+
+### Expo版の開発
+
+```bash
+# 依存関係のインストール
+npm install
+
+# Expo開発サーバーの起動
+npm start
+
+# Androidエミュレーターで起動
+npm run android
+
+# iOSシミュレーターで起動（macOS のみ）
+npm run ios
+
+# Metro bundlerでWeb版起動
+npm run web
+```
+
+### Expo Goでのテスト
+
+1. スマートフォンにExpo Goアプリをインストール
+2. `npm start`でQRコードを表示
+3. Expo GoアプリでQRコードをスキャン
+4. アプリが起動
 
 ## ライセンス
 

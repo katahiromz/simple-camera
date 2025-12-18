@@ -5,6 +5,7 @@ import { CameraView, CameraType, useCameraPermissions, useMicrophonePermissions 
 import * as MediaLibrary from 'expo-media-library';
 import { Audio } from 'expo-av';
 import { useTranslation } from 'react-i18next';
+import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Icons (using text for now, could use react-native-vector-icons)
 const Icons = {
@@ -250,6 +251,16 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     Alert.alert(t('info'), t('resumeNotSupported'));
   }, [t]);
 
+  // Pinch gesture for zoom
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((event) => {
+      // Calculate zoom level based on pinch scale
+      // expo-camera zoom is 0 (no zoom) to 1 (max zoom)
+      const newZoom = Math.min(Math.max(event.scale - 1, 0), 1);
+      setZoom(newZoom);
+    })
+    .runOnJS(true);
+
   // Handle permission errors
   if (!cameraPermission) {
     return (
@@ -271,14 +282,16 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
   }
 
   return (
-    <View style={styles.container}>
-      <CameraView
-        ref={cameraRef}
-        style={styles.camera}
-        facing={facing}
-        zoom={zoom}
-        enableTorch={false}
-      >
+    <GestureHandlerRootView style={styles.container}>
+      <GestureDetector gesture={pinchGesture}>
+        <View style={styles.container}>
+          <CameraView
+            ref={cameraRef}
+            style={styles.camera}
+            facing={facing}
+            zoom={zoom}
+            enableTorch={false}
+          >
         {/* Status display */}
         {showStatus && status !== 'ready' && (
           <View style={styles.statusOverlay}>
@@ -382,7 +395,9 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
           </View>
         )}
       </CameraView>
-    </View>
+        </View>
+      </GestureDetector>
+    </GestureHandlerRootView>
   );
 };
 
