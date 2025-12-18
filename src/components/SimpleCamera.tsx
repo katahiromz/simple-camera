@@ -162,7 +162,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       // Download the image
       const link = document.createElement('a');
       link.href = imageSrc;
-      link.download = generateFileName('photo', 'jpeg');
+      link.download = generateFileName('photo-', '.jpg');
       link.click();
     }
   }, [playSound]);
@@ -221,7 +221,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
               const url = URL.createObjectURL(blob);
               const link = document.createElement('a');
               link.href = url;
-              link.download = generateFileName('video', getExtensionFromMimeType(mimeType));
+              link.download = generateFileName('video-', getExtensionFromMimeType(mimeType));
               link.click();
               URL.revokeObjectURL(url);
 
@@ -269,7 +269,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = generateFileName('video', getExtensionFromMimeType(mimeType));
+      link.download = generateFileName('video-', getExtensionFromMimeType(mimeType));
       link.click();
       URL.revokeObjectURL(url);
 
@@ -329,9 +329,9 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
 
   // Get file extension from mime type
   const getExtensionFromMimeType = (mimeType: string): string => {
-    if (mimeType.includes('webm')) return 'webm';
-    if (mimeType.includes('mp4')) return 'mp4';
-    return 'webm';
+    if (mimeType.includes('webm')) return '.webm';
+    if (mimeType.includes('mp4')) return '.mp4';
+    return '.webm';
   };
 
   // Handle image processing change
