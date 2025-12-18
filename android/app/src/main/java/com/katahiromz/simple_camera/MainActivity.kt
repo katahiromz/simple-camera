@@ -195,7 +195,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     private val actionsOnPermissionsGranted = mutableListOf<() -> Unit>()
     // 拒否されたときに実行する処理を保持するリスト
     private val actionsOnPermissionsDenied = mutableListOf<() -> Unit>()
-    
+
     // パーミッションリクエストが進行中かどうかのフラグ
     private var permissionRequestInProgress: Boolean = false
     // 保留中のWebView PermissionRequestのキュー
@@ -422,7 +422,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
                                 this@MainActivity,
                                 permission
                             ) == PackageManager.PERMISSION_GRANTED
-                            
+
                             if (isGranted) {
                                 grantedResources.add(resource)
                             }
@@ -453,27 +453,27 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
      */
     private fun requestInitialPermissions() {
         val permissions = mutableListOf<String>()
-        
+
         // カメラ権限（必須）
-        if (USE_CAMERA && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
+        if (USE_CAMERA && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.CAMERA)
         }
-        
+
         // 録音権限（オプション）
-        if (USE_AUDIO && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) 
+        if (USE_AUDIO && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.RECORD_AUDIO)
         }
-        
+
         // ストレージ権限（Android 9以前のみ）
         if (USE_STORAGE && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
                 permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
         }
-        
+
         // 権限が必要な場合のみ要求
         if (permissions.isNotEmpty()) {
             checkAndRequestPermissions(
@@ -798,81 +798,6 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         // JavaScript側からGenericAppのバージョン情報を取得できるようにする。
         val versionName = getVersionName()
         settings.userAgentString += "/SimpleCamera/Android/$versionName/"
-
-        // ダウンロードリスナーを設定する。
-        currentWebView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
-            handleDownload(url, userAgent, contentDisposition, mimeType, contentLength)
-        }
-    }
-
-    // ダウンロード処理を実行する。
-    private fun handleDownload(
-        url: String,
-        userAgent: String,
-        contentDisposition: String,
-        mimeType: String,
-        contentLength: Long
-    ) {
-        Timber.i("handleDownload: url=$url, mimeType=$mimeType")
-        
-        try {
-            // URLを検証する。
-            val uri = Uri.parse(url)
-            val scheme = uri.scheme
-            if (scheme != "http" && scheme != "https") {
-                Timber.w("handleDownload: Invalid URL scheme: $scheme")
-                TopSnackbar.show(this, "Download failed: Invalid URL", durationMillis = 3000)
-                return
-            }
-            
-            // ダウンロードリクエストを作成する。
-            val request = DownloadManager.Request(uri)
-            
-            // ファイル名を取得する（contentDispositionから取得するか、URLから取得する）
-            val rawFileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
-            
-            // ファイル名をサニタイズする（パストラバーサル攻撃を防ぐ）
-            val fileName = sanitizeFileName(rawFileName)
-            
-            // リクエストの設定
-            if (mimeType.isNotEmpty()) {
-                request.setMimeType(mimeType)
-            }
-            request.addRequestHeader("User-Agent", userAgent)
-            request.setDescription("Downloading file...")
-            request.setTitle(fileName)
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-            
-            // DownloadManagerを取得してダウンロードをエンキューする。
-            val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            downloadManager.enqueue(request)
-            
-            // TopSnackbarでユーザーに通知する。
-            TopSnackbar.show(this, "Downloading $fileName", durationMillis = 3000)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to start download")
-            TopSnackbar.show(this, "Download failed", durationMillis = 3000)
-        }
-    }
-
-    // ファイル名をサニタイズする（パストラバーサル攻撃を防ぐ）
-    private fun sanitizeFileName(fileName: String): String {
-        // パス区切り文字やその他の危険な文字を除去する
-        var sanitized = fileName.replace(Regex("""[/\\:*?"<>|]"""), "_")
-        
-        // ".." を除去する
-        sanitized = sanitized.replace("..", "_")
-        
-        // 先頭と末尾の空白を削除
-        sanitized = sanitized.trim()
-        
-        // 空のファイル名を避ける
-        if (sanitized.isEmpty()) {
-            sanitized = "download.bin"
-        }
-        
-        return sanitized
     }
 
     // バージョン名を取得する。

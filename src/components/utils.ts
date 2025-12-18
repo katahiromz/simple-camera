@@ -215,5 +215,42 @@ export const saveBlobToGalleryOrDownload = (
   mimeType: string,
   isVideo: boolean = false
 ): void => {
-  downloadBlob(blob, filename);
+  if (isAndroidWebView()) {
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      const result = reader.result;
+      if (typeof result !== 'string') {
+        console.error('Failed to read blob as data URL');
+        // フォールバックとして通常のダウンロードを試みる
+        downloadBlob(blob, filename);
+        return;
+      }
+
+      // result は "data:...;base64,..." 形式
+      let ok = false;
+      if (isVideo) {
+        ok = saveVideoToAndroidGallery(result, filename, mimeType);
+      } else {
+        ok = saveImageToAndroidGallery(result, filename, mimeType);
+      }
+
+      if (!ok) {
+        console.error('Saving to Android gallery failed, falling back to downloadBlob');
+        downloadBlob(blob, filename);
+      }
+    };
+
+    reader.onerror = (e) => {
+      console.error('FileReader error while converting blob to base64:', e);
+      // エラー時もフォールバック
+      downloadBlob(blob, filename);
+    };
+
+    // Base64 データURLに変換
+    reader.readAsDataURL(blob);
+  } else {
+    // 通常ブラウザ環境: 従来どおり blob: URL でダウンロード
+    downloadBlob(blob, filename);
+  }
 };
