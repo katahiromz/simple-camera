@@ -122,8 +122,19 @@ export const isAndroidWebView = (): boolean => {
 };
 
 /**
+ * Base64データURLからプレフィックスを除去してピュアなBase64文字列を返す
+ * @param base64Data data:image/jpeg;base64,... または data:video/webm;base64,... 形式の文字列
+ * @returns プレフィックスを除去したピュアなBase64文字列
+ */
+const removeBase64Prefix = (base64Data: string): string => {
+  return base64Data.includes(',') 
+    ? base64Data.substring(base64Data.indexOf(',') + 1) 
+    : base64Data;
+};
+
+/**
  * Android環境でギャラリーに画像を保存
- * @param base64Data Base64エンコードされた画像データ（data:image/jpeg;base64,プレフィックスなし）
+ * @param base64Data Base64エンコードされた画像データ（data:image/jpeg;base64,プレフィックス付き/なし両方対応）
  * @param filename ファイル名
  * @param mimeType MIMEタイプ（例: 'image/jpeg'）
  * @returns 保存成功時はtrue、失敗時はfalse
@@ -139,10 +150,8 @@ export const saveImageToAndroidGallery = (
   }
   
   try {
-    // data:image/jpeg;base64, プレフィックスを除去
-    const pureBase64 = base64Data.includes(',') 
-      ? base64Data.substring(base64Data.indexOf(',') + 1) 
-      : base64Data;
+    // プレフィックスを除去してAndroidに渡す
+    const pureBase64 = removeBase64Prefix(base64Data);
     
     return (window as any).android.saveImageToGallery(pureBase64, filename, mimeType);
   } catch (error) {
@@ -153,7 +162,7 @@ export const saveImageToAndroidGallery = (
 
 /**
  * Android環境でギャラリーに動画を保存
- * @param base64Data Base64エンコードされた動画データ（data:video/webm;base64,プレフィックスなし）
+ * @param base64Data Base64エンコードされた動画データ（data:video/webm;base64,プレフィックス付き/なし両方対応）
  * @param filename ファイル名
  * @param mimeType MIMEタイプ（例: 'video/webm'）
  * @returns 保存成功時はtrue、失敗時はfalse
@@ -169,10 +178,8 @@ export const saveVideoToAndroidGallery = (
   }
   
   try {
-    // data:video/...;base64, プレフィックスを除去
-    const pureBase64 = base64Data.includes(',') 
-      ? base64Data.substring(base64Data.indexOf(',') + 1) 
-      : base64Data;
+    // プレフィックスを除去してAndroidに渡す
+    const pureBase64 = removeBase64Prefix(base64Data);
     
     return (window as any).android.saveVideoToGallery(pureBase64, filename, mimeType);
   } catch (error) {
