@@ -215,23 +215,5 @@ export const saveBlobToGalleryOrDownload = (
   mimeType: string,
   isVideo: boolean = false
 ): void => {
-  if (isAndroidWebView()) {
-    // BlobをBase64に変換してAndroidのギャラリーに保存
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64data = reader.result as string;
-      const saveFunction = isVideo ? saveVideoToAndroidGallery : saveImageToAndroidGallery;
-      const success = saveFunction(base64data, filename, mimeType);
-      
-      if (!success) {
-        console.error(`Failed to save ${isVideo ? 'video' : 'image'} to Android gallery`);
-        // フォールバック: 通常のダウンロード
-        downloadBlob(blob, filename);
-      }
-    };
-    reader.readAsDataURL(blob);
-  } else {
-    // 通常のブラウザ環境ではダウンロード
-    downloadBlob(blob, filename);
-  }
+  downloadBlob(blob, filename);
 };
