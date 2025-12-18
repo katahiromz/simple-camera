@@ -220,10 +220,27 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       
       // Step 3: Convert from rendered coordinates to original video coordinates
       // The rendered video is scaled by coverScale from the original video
-      const videoCropX = renderCropX / coverScale;
-      const videoCropY = renderCropY / coverScale;
-      const videoCropWidth = visibleRenderWidth / coverScale;
-      const videoCropHeight = visibleRenderHeight / coverScale;
+      let videoCropX = renderCropX / coverScale;
+      let videoCropY = renderCropY / coverScale;
+      let videoCropWidth = visibleRenderWidth / coverScale;
+      let videoCropHeight = visibleRenderHeight / coverScale;
+
+      // Clamp to valid video bounds (handle over-panning)
+      // If the user panned beyond the content, we clamp to show the edge of the video
+      if (videoCropX < 0) {
+        videoCropWidth += videoCropX;
+        videoCropX = 0;
+      }
+      if (videoCropY < 0) {
+        videoCropHeight += videoCropY;
+        videoCropY = 0;
+      }
+      if (videoCropX + videoCropWidth > videoWidth) {
+        videoCropWidth = videoWidth - videoCropX;
+      }
+      if (videoCropY + videoCropHeight > videoHeight) {
+        videoCropHeight = videoHeight - videoCropY;
+      }
 
       // Set canvas size to the output resolution (use high quality)
       const outputWidth = 1920;
