@@ -180,7 +180,7 @@ export const saveVideoToAndroidGalleryFromArrayBuffer = (
       hexString += hex;
     }
     
-    console.log(`Converting ArrayBuffer (${arrayBuffer.byteLength} bytes) to hex string (${hexString.length} chars)`);
+    console.info(`Converting ArrayBuffer (${arrayBuffer.byteLength} bytes) to hex string (${hexString.length} chars)`);
     
     return (window as any).android.saveVideoToGalleryFromHex(hexString, filename, mimeType);
   } catch (error) {
@@ -253,13 +253,13 @@ export const saveBlobToGalleryOrDownload = (
         let success = false;
         
         if (hasNewMethod) {
-          console.log('Using ArrayBuffer/Hex method for video save');
+          console.info('Using ArrayBuffer/Hex method for video save');
           success = saveVideoToGalleryFromArrayBuffer(arrayBuffer, filename, mimeType);
         }
         
         // 新しいメソッドが利用できない場合、または失敗した場合はBase64にフォールバック
         if (!hasNewMethod || !success) {
-          console.log('Falling back to Base64 method for video save');
+          console.info('Falling back to Base64 method for video save');
           const uint8Array = new Uint8Array(arrayBuffer);
           let binary = '';
           const len = uint8Array.byteLength;

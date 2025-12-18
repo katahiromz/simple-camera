@@ -429,6 +429,15 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         return try {
             Timber.i("saveVideoToGalleryFromHex called with hexString length: ${hexString.length}")
             
+            // 16進文字列の長さが偶数であることを検証
+            if (hexString.length % 2 != 0) {
+                Timber.e("Invalid hex string: length must be even, got ${hexString.length}")
+                currentActivity.runOnUiThread {
+                    currentActivity.showToast("Failed to save video: invalid data format", SHORT_TOAST)
+                }
+                return false
+            }
+            
             // 16進文字列をバイト配列に変換
             val videoBytes = ByteArray(hexString.length / 2)
             for (i in videoBytes.indices) {
