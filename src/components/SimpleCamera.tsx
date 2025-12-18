@@ -127,6 +127,20 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     };
   }, [recordingStatus]);
 
+  // Cleanup MediaRecorder on unmount
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+          console.log('MediaRecorder stopped on unmount');
+        } catch (error) {
+          console.error('Error stopping MediaRecorder on unmount:', error);
+        }
+      }
+    };
+  }, []);
+
   // Handle camera ready
   const handleUserMedia = useCallback(() => {
     setStatus('ready');
@@ -314,8 +328,9 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
             
             combinedStream = new MediaStream([...videoTracks, ...audioTracks]);
             
-            // Determine the best codec
+            // Determine the best codec with proper validation
             const mimeType = getSupportedMimeType();
+            console.log('Selected MIME type for recording:', mimeType);
             
             const options: MediaRecorderOptions = {
               mimeType,
@@ -328,22 +343,51 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
             mediaRecorderRef.current.ondataavailable = (event) => {
               if (event.data && event.data.size > 0) {
                 recordedChunksRef.current.push(event.data);
+                console.log('Data chunk received:', event.data.size, 'bytes');
               }
             };
 
             mediaRecorderRef.current.onstop = () => {
+              console.log('Recording stopped. Total chunks:', recordedChunksRef.current.length);
+              
+              // Validate that we have data chunks
+              if (recordedChunksRef.current.length === 0) {
+                console.error('No data chunks recorded');
+                setRecordingStatus('idle');
+                return;
+              }
+
+              // Create blob with proper mimeType for consistency
               const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+              console.log('Video blob created:', blob.size, 'bytes, type:', blob.type);
+              
+              // Validate blob size
+              if (blob.size === 0) {
+                console.error('Recording failed: empty blob');
+                setRecordingStatus('idle');
+                return;
+              }
+
               const filename = generateFileName('video-', getExtensionFromMimeType(mimeType));
               
               saveBlobToGalleryOrDownload(blob, filename, mimeType, true);
 
               playSound(videoCompleteAudioRef);
               setRecordingStatus('idle');
+              
+              // Clean up recorded chunks
+              recordedChunksRef.current = [];
             };
 
-            mediaRecorderRef.current.start(100);
+            mediaRecorderRef.current.onerror = (event: Event) => {
+              console.error('MediaRecorder error:', event);
+              setRecordingStatus('idle');
+            };
+
+            mediaRecorderRef.current.start(100); // Request data every 100ms
             setRecordingStatus('recording');
             playSound(videoStartAudioRef);
+            console.log('Recording started with mimeType:', mimeType);
           })
           .catch((error) => {
             console.error('Error getting audio stream:', error);
@@ -362,6 +406,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
   // Helper function to start video-only recording
   const startVideoOnlyRecording = (videoStream: MediaStream) => {
     const mimeType = getSupportedMimeType();
+    console.log('Selected MIME type for video-only recording:', mimeType);
     
     const options: MediaRecorderOptions = {
       mimeType,
@@ -373,45 +418,92 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     mediaRecorderRef.current.ondataavailable = (event) => {
       if (event.data && event.data.size > 0) {
         recordedChunksRef.current.push(event.data);
+        console.log('Data chunk received:', event.data.size, 'bytes');
       }
     };
 
     mediaRecorderRef.current.onstop = () => {
+      console.log('Recording stopped. Total chunks:', recordedChunksRef.current.length);
+      
+      // Validate that we have data chunks
+      if (recordedChunksRef.current.length === 0) {
+        console.error('No data chunks recorded');
+        setRecordingStatus('idle');
+        return;
+      }
+
+      // Create blob with proper mimeType for consistency
       const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+      console.log('Video blob created:', blob.size, 'bytes, type:', blob.type);
+      
+      // Validate blob size
+      if (blob.size === 0) {
+        console.error('Recording failed: empty blob');
+        setRecordingStatus('idle');
+        return;
+      }
+
       const filename = generateFileName('video-', getExtensionFromMimeType(mimeType));
       
       saveBlobToGalleryOrDownload(blob, filename, mimeType, true);
 
       playSound(videoCompleteAudioRef);
       setRecordingStatus('idle');
+      
+      // Clean up recorded chunks
+      recordedChunksRef.current = [];
     };
 
-    mediaRecorderRef.current.start(100);
+    mediaRecorderRef.current.onerror = (event: Event) => {
+      console.error('MediaRecorder error:', event);
+      setRecordingStatus('idle');
+    };
+
+    mediaRecorderRef.current.start(100); // Request data every 100ms
     setRecordingStatus('recording');
     playSound(videoStartAudioRef);
+    console.log('Recording started with mimeType:', mimeType);
   };
 
   // Stop recording
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && recordingStatus === 'recording') {
+    if (mediaRecorderRef.current && (recordingStatus === 'recording' || recordingStatus === 'paused')) {
       setRecordingStatus('stopping');
-      mediaRecorderRef.current.stop();
+      
+      // Stop the MediaRecorder to trigger onstop event
+      try {
+        mediaRecorderRef.current.stop();
+        console.log('MediaRecorder.stop() called');
+      } catch (error) {
+        console.error('Error stopping MediaRecorder:', error);
+        setRecordingStatus('idle');
+      }
     }
   }, [recordingStatus]);
 
   // Pause recording
   const pauseRecording = useCallback(() => {
     if (mediaRecorderRef.current && recordingStatus === 'recording') {
-      mediaRecorderRef.current.pause();
-      setRecordingStatus('paused');
+      try {
+        mediaRecorderRef.current.pause();
+        setRecordingStatus('paused');
+        console.log('Recording paused');
+      } catch (error) {
+        console.error('Error pausing recording:', error);
+      }
     }
   }, [recordingStatus]);
 
   // Resume recording
   const resumeRecording = useCallback(() => {
     if (mediaRecorderRef.current && recordingStatus === 'paused') {
-      mediaRecorderRef.current.resume();
-      setRecordingStatus('recording');
+      try {
+        mediaRecorderRef.current.resume();
+        setRecordingStatus('recording');
+        console.log('Recording resumed');
+      } catch (error) {
+        console.error('Error resuming recording:', error);
+      }
     }
   }, [recordingStatus]);
 
@@ -427,12 +519,22 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       'video/mp4',
     ];
 
+    console.log('Checking MediaRecorder codec support...');
+    
     for (const type of types) {
-      if (MediaRecorder.isTypeSupported(type)) {
-        return type;
+      try {
+        if (MediaRecorder.isTypeSupported(type)) {
+          console.log('✓ Supported:', type);
+          return type;
+        } else {
+          console.log('✗ Not supported:', type);
+        }
+      } catch (error) {
+        console.error('Error checking codec support:', type, error);
       }
     }
 
+    console.warn('No preferred codec supported, using default video/webm');
     return 'video/webm';
   };
 

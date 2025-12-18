@@ -201,6 +201,17 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
             
             val imageBytes = android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
             
+            // Validate image data size
+            if (imageBytes.isEmpty()) {
+                Timber.e("Image data is empty")
+                currentActivity.runOnUiThread {
+                    currentActivity.showToast("Failed to save image: empty data", SHORT_TOAST)
+                }
+                return false
+            }
+            
+            Timber.i("Saving image: ${imageBytes.size} bytes, mimeType: $mimeType")
+            
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Android 10以降: MediaStore APIを使用
                 val contentValues = android.content.ContentValues().apply {
@@ -220,6 +231,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 uri?.let {
                     currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
                         outputStream.write(imageBytes)
+                        outputStream.flush()
                     }
                     
                     // 書き込み完了後、PENDINGフラグをクリア
@@ -228,11 +240,16 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     }
                     currentActivity.contentResolver.update(it, updateValues, null, null)
                     
+                    Timber.i("Image saved successfully to MediaStore: $it")
+                    
                     // Snackbarを表示
                     showFileOpenSnackbar(currentActivity, it, R.string.image_saved, "image/*")
                     
                     true
-                } ?: false
+                } ?: run {
+                    Timber.e("Failed to insert image into MediaStore")
+                    false
+                }
             } else {
                 // Android 9以前: 従来の方法
                 val picturesDir = android.os.Environment.getExternalStoragePublicDirectory(
@@ -246,7 +263,10 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 val file = java.io.File(appDir, filename)
                 java.io.FileOutputStream(file).use { outputStream ->
                     outputStream.write(imageBytes)
+                    outputStream.flush()
                 }
+                
+                Timber.i("Image saved successfully to file: ${file.absolutePath}")
                 
                 // MediaScannerConnectionを使ってギャラリーに通知
                 android.media.MediaScannerConnection.scanFile(
@@ -290,6 +310,17 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
 
             val videoBytes = android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
             
+            // Validate video data size
+            if (videoBytes.isEmpty()) {
+                Timber.e("Video data is empty")
+                currentActivity.runOnUiThread {
+                    currentActivity.showToast("Failed to save video: empty data", SHORT_TOAST)
+                }
+                return false
+            }
+            
+            Timber.i("Saving video: ${videoBytes.size} bytes, mimeType: $mimeType")
+            
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Android 10以降: MediaStore APIを使用
                 val contentValues = android.content.ContentValues().apply {
@@ -309,6 +340,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 uri?.let {
                     currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
                         outputStream.write(videoBytes)
+                        outputStream.flush()
                     }
                     
                     // 書き込み完了後、PENDINGフラグをクリア
@@ -317,11 +349,16 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     }
                     currentActivity.contentResolver.update(it, updateValues, null, null)
                     
+                    Timber.i("Video saved successfully to MediaStore: $it")
+                    
                     // Snackbarを表示
                     showFileOpenSnackbar(currentActivity, it, R.string.video_saved, "video/*")
                     
                     true
-                } ?: false
+                } ?: run {
+                    Timber.e("Failed to insert video into MediaStore")
+                    false
+                }
             } else {
                 // Android 9以前: 従来の方法
                 val moviesDir = android.os.Environment.getExternalStoragePublicDirectory(
@@ -335,7 +372,10 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 val file = java.io.File(appDir, filename)
                 java.io.FileOutputStream(file).use { outputStream ->
                     outputStream.write(videoBytes)
+                    outputStream.flush()
                 }
+                
+                Timber.i("Video saved successfully to file: ${file.absolutePath}")
                 
                 // MediaScannerConnectionを使ってギャラリーに通知
                 android.media.MediaScannerConnection.scanFile(
