@@ -481,6 +481,109 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         }
     }
 
+    // チャンク転送用のセッション管理
+    private val videoSaveSessions = mutableMapOf<String, VideoSaveSession>()
+    
+    private data class VideoSaveSession(
+        val filename: String,
+        val mimeType: String,
+        val totalSize: Int,
+        val chunks: MutableList<ByteArray> = mutableListOf()
+    )
+
+    // 動画保存セッションを開始する (チャンク転送方式)
+    @JavascriptInterface
+    fun startVideoSaveSession(sessionId: String, filename: String, mimeType: String, totalSize: Int): Boolean {
+        return try {
+            Timber.i("Starting video save session: $sessionId, size: $totalSize bytes")
+            
+            val session = VideoSaveSession(filename, mimeType, totalSize)
+            videoSaveSessions[sessionId] = session
+            
+            true
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to start video save session")
+            false
+        }
+    }
+
+    // 動画チャンクを追加する
+    @JavascriptInterface
+    fun appendVideoChunk(sessionId: String, base64Chunk: String): Boolean {
+        return try {
+            val session = videoSaveSessions[sessionId]
+            if (session == null) {
+                Timber.e("Video save session not found: $sessionId")
+                return false
+            }
+            
+            // Base64チャンクをデコード
+            val chunkBytes = android.util.Base64.decode(base64Chunk, android.util.Base64.DEFAULT)
+            session.chunks.add(chunkBytes)
+            
+            true
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to append video chunk")
+            false
+        }
+    }
+
+    // 動画保存セッションを完了する
+    @JavascriptInterface
+    fun completeVideoSaveSession(sessionId: String): Boolean {
+        val currentActivity = activity ?: return false
+        
+        return try {
+            val session = videoSaveSessions.remove(sessionId)
+            if (session == null) {
+                Timber.e("Video save session not found: $sessionId")
+                return false
+            }
+            
+            Timber.i("Completing video save session: $sessionId, ${session.chunks.size} chunks")
+            
+            // すべてのチャンクを結合
+            var totalBytes = 0
+            session.chunks.forEach { totalBytes += it.size }
+            
+            val videoBytes = ByteArray(totalBytes)
+            var offset = 0
+            for (chunk in session.chunks) {
+                System.arraycopy(chunk, 0, videoBytes, offset, chunk.size)
+                offset += chunk.size
+            }
+            
+            Timber.i("Combined ${session.chunks.size} chunks into ${videoBytes.size} bytes")
+            
+            // 動画を保存
+            saveVideoBytesToGallery(currentActivity, videoBytes, session.filename, session.mimeType)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to complete video save session")
+            currentActivity.runOnUiThread {
+                currentActivity.showToast("Failed to save video: ${e.message}", SHORT_TOAST)
+            }
+            videoSaveSessions.remove(sessionId)
+            false
+        }
+    }
+
+    // 動画保存セッションをキャンセルする
+    @JavascriptInterface
+    fun cancelVideoSaveSession(sessionId: String): Boolean {
+        return try {
+            val removed = videoSaveSessions.remove(sessionId) != null
+            if (removed) {
+                Timber.i("Cancelled video save session: $sessionId")
+            } else {
+                Timber.w("Video save session not found: $sessionId")
+            }
+            removed
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to cancel video save session")
+            false
+        }
+    }
+
     // 現在の言語をセットする。
     @JavascriptInterface
     fun setLanguage(lang: String) {

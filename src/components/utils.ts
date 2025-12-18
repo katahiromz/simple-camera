@@ -152,13 +152,97 @@ export const saveImageToAndroidGallery = (
 };
 
 /**
- * Android環境でギャラリーに動画を保存（ArrayBuffer使用）
+ * Android環境でギャラリーに動画を保存（チャンク転送使用 - Base64を回避）
  * @param arrayBuffer ArrayBufferとして渡される動画データ
  * @param filename ファイル名
  * @param mimeType MIMEタイプ（例: 'video/webm'）
  * @returns 保存成功時はtrue、失敗時はfalse
  */
 export const saveVideoToAndroidGalleryFromArrayBuffer = (
+  arrayBuffer: ArrayBuffer,
+  filename: string,
+  mimeType: string = 'video/webm'
+): boolean => {
+  if (!isAndroidWebView()) {
+    console.warn('Not in Android WebView environment');
+    return false;
+  }
+  
+  try {
+    // ArrayBufferをUint8Arrayに変換
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const totalSize = uint8Array.length;
+    
+    console.info(`Saving video using chunked transfer: ${totalSize} bytes`);
+    
+    // チャンクサイズ: 64KB (Base64エンコード後も扱いやすいサイズ)
+    const CHUNK_SIZE = 64 * 1024;
+    const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
+    
+    // 転送を開始
+    const sessionId = Date.now().toString();
+    const android = (window as any).android;
+    
+    if (!android.startVideoSaveSession) {
+      // 新しいチャンク転送メソッドが利用できない場合、hex方式にフォールバック
+      console.info('Chunked transfer not available, using hex method');
+      return saveVideoToAndroidGalleryFromArrayBufferHex(arrayBuffer, filename, mimeType);
+    }
+    
+    // セッション開始
+    if (!android.startVideoSaveSession(sessionId, filename, mimeType, totalSize)) {
+      console.error('Failed to start video save session');
+      return false;
+    }
+    
+    // チャンクを順次送信
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, totalSize);
+      const chunk = uint8Array.subarray(start, end);
+      
+      // チャンクをBase64エンコード（小さいサイズなので安全）
+      let binary = '';
+      for (let j = 0; j < chunk.length; j++) {
+        binary += String.fromCharCode(chunk[j]);
+      }
+      const base64Chunk = btoa(binary);
+      
+      // チャンクを送信
+      if (!android.appendVideoChunk(sessionId, base64Chunk)) {
+        console.error(`Failed to append chunk ${i + 1}/${totalChunks}`);
+        android.cancelVideoSaveSession(sessionId);
+        return false;
+      }
+      
+      if ((i + 1) % 10 === 0 || i === totalChunks - 1) {
+        console.info(`Progress: ${i + 1}/${totalChunks} chunks sent`);
+      }
+    }
+    
+    // セッション完了
+    const success = android.completeVideoSaveSession(sessionId);
+    if (success) {
+      console.info('Video saved successfully using chunked transfer');
+    } else {
+      console.error('Failed to complete video save session');
+    }
+    return success;
+    
+  } catch (error) {
+    console.error('Failed to save video to Android gallery from ArrayBuffer:', error);
+    return false;
+  }
+};
+
+/**
+ * Android環境でギャラリーに動画を保存（Hex文字列使用 - フォールバック）
+ * @param arrayBuffer ArrayBufferとして渡される動画データ
+ * @param filename ファイル名
+ * @param mimeType MIMEタイプ（例: 'video/webm'）
+ * @returns 保存成功時はtrue、失敗時はfalse
+ */
+export const saveVideoToAndroidGalleryFromArrayBufferHex = (
   arrayBuffer: ArrayBuffer,
   filename: string,
   mimeType: string = 'video/webm'
@@ -184,7 +268,7 @@ export const saveVideoToAndroidGalleryFromArrayBuffer = (
     
     return (window as any).android.saveVideoToGalleryFromHex(hexString, filename, mimeType);
   } catch (error) {
-    console.error('Failed to save video to Android gallery from ArrayBuffer:', error);
+    console.error('Failed to save video to Android gallery from ArrayBuffer (hex):', error);
     return false;
   }
 };
@@ -248,17 +332,21 @@ export const saveBlobToGalleryOrDownload = (
       reader.onloadend = () => {
         const arrayBuffer = reader.result as ArrayBuffer;
         
-        // まずArrayBuffer/Hexメソッドを試す（新しい実装）
-        const hasNewMethod = typeof (window as any).android.saveVideoToGalleryFromHex === 'function';
+        // チャンク転送メソッドを試す（最も効率的）
+        const hasChunkedMethod = typeof (window as any).android.startVideoSaveSession === 'function';
+        const hasHexMethod = typeof (window as any).android.saveVideoToGalleryFromHex === 'function';
         let success = false;
         
-        if (hasNewMethod) {
-          console.info('Using ArrayBuffer/Hex method for video save');
+        if (hasChunkedMethod) {
+          console.info('Using chunked transfer method for video save');
           success = saveVideoToGalleryFromArrayBuffer(arrayBuffer, filename, mimeType);
+        } else if (hasHexMethod) {
+          console.info('Using hex method for video save');
+          success = saveVideoToAndroidGalleryFromArrayBufferHex(arrayBuffer, filename, mimeType);
         }
         
         // 新しいメソッドが利用できない場合、または失敗した場合はBase64にフォールバック
-        if (!hasNewMethod || !success) {
+        if (!hasChunkedMethod && !hasHexMethod || !success) {
           console.info('Falling back to Base64 method for video save');
           const uint8Array = new Uint8Array(arrayBuffer);
           let binary = '';
