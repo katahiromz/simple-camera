@@ -64,6 +64,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
 
   // Refs
   const webcamRef = useRef<Webcam>(null);
+  const transformRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const shutterAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -146,25 +147,100 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     }
   }, [soundEffect]);
 
-  // Capture photo
+  // Capture photo with zoom and pan applied
   const capturePhoto = useCallback(() => {
-    if (!webcamRef.current) return;
+    if (!webcamRef.current || !webcamRef.current.video) return;
 
-    const imageSrc = webcamRef.current.getScreenshot({
-      width: 1920,
-      height: 1080,
-    });
+    try {
+      const video = webcamRef.current.video;
+      
+      // Get transform state (zoom and pan)
+      const transformState = transformRef.current?.instance?.transformState;
+      const scale = transformState?.scale || 1;
+      const positionX = transformState?.positionX || 0;
+      const positionY = transformState?.positionY || 0;
 
-    if (imageSrc) {
-      playSound(shutterAudioRef);
+      // Get video dimensions
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+      
+      // Get display dimensions (viewport)
+      const displayWidth = video.clientWidth;
+      const displayHeight = video.clientHeight;
 
-      // Download the image
-      const link = document.createElement('a');
-      link.href = imageSrc;
-      link.download = generateFileName('photo-', '.jpg');
-      link.click();
+      if (videoWidth === 0 || videoHeight === 0) {
+        console.error('Video dimensions are zero');
+        return;
+      }
+
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Calculate the video rendering metrics (how video fits in viewport with object-fit: cover)
+      const scaleX = displayWidth / videoWidth;
+      const scaleY = displayHeight / videoHeight;
+      const coverScale = Math.max(scaleX, scaleY);
+      
+      const renderWidth = videoWidth * coverScale;
+      const renderHeight = videoHeight * coverScale;
+      const offsetX = (displayWidth - renderWidth) / 2;
+      const offsetY = (displayHeight - renderHeight) / 2;
+
+      // Calculate the visible region in the viewport after zoom and pan
+      // The transform is applied to the rendered video, not the original video
+      const zoomedRenderWidth = renderWidth * scale;
+      const zoomedRenderHeight = renderHeight * scale;
+
+      // Calculate the crop region in display coordinates
+      const cropX = -offsetX - positionX;
+      const cropY = -offsetY - positionY;
+      const cropWidth = displayWidth;
+      const cropHeight = displayHeight;
+
+      // Convert display coordinates to video coordinates
+      // We need to map from the transformed/rendered space back to video space
+      const videoScaleRatio = 1 / coverScale / scale;
+      
+      const videoCropX = cropX * videoScaleRatio;
+      const videoCropY = cropY * videoScaleRatio;
+      const videoCropWidth = cropWidth * videoScaleRatio;
+      const videoCropHeight = cropHeight * videoScaleRatio;
+
+      // Set canvas size to the output resolution (use high quality)
+      const outputWidth = 1920;
+      const outputScale = outputWidth / videoCropWidth;
+      const outputHeight = videoCropHeight * outputScale;
+      
+      canvas.width = outputWidth;
+      canvas.height = outputHeight;
+
+      // Draw the cropped and zoomed portion of the video
+      ctx.drawImage(
+        video,
+        videoCropX, videoCropY, videoCropWidth, videoCropHeight,  // source rectangle
+        0, 0, outputWidth, outputHeight  // destination rectangle
+      );
+
+      // Convert canvas to blob and download
+      canvas.toBlob((blob) => {
+        if (blob) {
+          playSound(shutterAudioRef);
+          
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = generateFileName('photo-', '.jpg');
+          link.click();
+          URL.revokeObjectURL(url);
+        }
+      }, 'image/jpeg', photoQuality);
+
+    } catch (error) {
+      console.error('Error capturing photo:', error);
     }
-  }, [playSound]);
+  }, [playSound, photoQuality]);
 
   // Toggle camera
   const toggleCamera = useCallback(() => {
@@ -359,6 +435,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     <div className="simple-camera-container">
       <div className="simple-camera-viewport">
         <TransformWrapper
+          ref={transformRef}
           initialScale={1}
           minScale={1}
           maxScale={4}
