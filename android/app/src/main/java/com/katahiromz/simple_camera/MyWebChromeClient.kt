@@ -295,21 +295,14 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         }
     }
 
-    // 動画をギャラリーに保存する
-    @JavascriptInterface
-    fun saveVideoToGallery(base64Data: String, filename: String, mimeType: String): Boolean {
-        val currentActivity = activity ?: return false
-        
+    // 動画バイトデータをギャラリーに保存する共通ヘルパー関数
+    private fun saveVideoBytesToGallery(
+        currentActivity: MainActivity,
+        videoBytes: ByteArray,
+        filename: String,
+        mimeType: String
+    ): Boolean {
         return try {
-            // カンマが含まれている場合、それ以降のデータのみを抽出する修正
-            val pureBase64 = if (base64Data.contains(",")) {
-                base64Data.substring(base64Data.indexOf(",") + 1)
-            } else {
-                base64Data
-            }
-
-            val videoBytes = android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
-            
             // Validate video data size
             if (videoBytes.isEmpty()) {
                 Timber.e("Video data is empty")
@@ -396,7 +389,55 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 true
             }
         } catch (e: Exception) {
-            Timber.e(e, "Failed to save video")
+            Timber.e(e, "Failed to save video bytes")
+            currentActivity.runOnUiThread {
+                currentActivity.showToast("Failed to save video: ${e.message}", SHORT_TOAST)
+            }
+            false
+        }
+    }
+
+    // 動画をギャラリーに保存する (Base64形式)
+    @JavascriptInterface
+    fun saveVideoToGallery(base64Data: String, filename: String, mimeType: String): Boolean {
+        val currentActivity = activity ?: return false
+        
+        return try {
+            // カンマが含まれている場合、それ以降のデータのみを抽出する修正
+            val pureBase64 = if (base64Data.contains(",")) {
+                base64Data.substring(base64Data.indexOf(",") + 1)
+            } else {
+                base64Data
+            }
+
+            val videoBytes = android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
+            saveVideoBytesToGallery(currentActivity, videoBytes, filename, mimeType)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to save video from Base64")
+            currentActivity.runOnUiThread {
+                currentActivity.showToast("Failed to save video: ${e.message}", SHORT_TOAST)
+            }
+            false
+        }
+    }
+
+    // 動画をギャラリーに保存する (バイト配列形式 - Base64を使用しない新しい実装)
+    @JavascriptInterface
+    fun saveVideoToGalleryFromBytes(byteString: String, filename: String, mimeType: String): Boolean {
+        val currentActivity = activity ?: return false
+        
+        return try {
+            Timber.i("saveVideoToGalleryFromBytes called with byteString length: ${byteString.length}")
+            
+            // カンマ区切りの文字列をバイト配列に変換
+            val videoBytes = byteString.split(",")
+                .map { it.toInt().toByte() }
+                .toByteArray()
+            
+            Timber.i("Converted to byte array: ${videoBytes.size} bytes")
+            saveVideoBytesToGallery(currentActivity, videoBytes, filename, mimeType)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to save video from byte string")
             currentActivity.runOnUiThread {
                 currentActivity.showToast("Failed to save video: ${e.message}", SHORT_TOAST)
             }

@@ -152,7 +152,39 @@ export const saveImageToAndroidGallery = (
 };
 
 /**
- * Android環境でギャラリーに動画を保存
+ * Android環境でギャラリーに動画を保存（ArrayBuffer使用）
+ * @param arrayBuffer ArrayBufferとして渡される動画データ
+ * @param filename ファイル名
+ * @param mimeType MIMEタイプ（例: 'video/webm'）
+ * @returns 保存成功時はtrue、失敗時はfalse
+ */
+export const saveVideoToAndroidGalleryFromArrayBuffer = (
+  arrayBuffer: ArrayBuffer,
+  filename: string,
+  mimeType: string = 'video/webm'
+): boolean => {
+  if (!isAndroidWebView()) {
+    console.warn('Not in Android WebView environment');
+    return false;
+  }
+  
+  try {
+    // ArrayBufferをUint8Arrayに変換
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Uint8Arrayをカンマ区切りの文字列に変換してAndroidに渡す
+    // これによりBase64エンコーディングのオーバーヘッドと潜在的なエラーを回避
+    const byteString = Array.from(uint8Array).join(',');
+    
+    return (window as any).android.saveVideoToGalleryFromBytes(byteString, filename, mimeType);
+  } catch (error) {
+    console.error('Failed to save video to Android gallery from ArrayBuffer:', error);
+    return false;
+  }
+};
+
+/**
+ * Android環境でギャラリーに動画を保存（Base64フォールバック）
  * @param base64Data Base64エンコードされた動画データ
  * @param filename ファイル名
  * @param mimeType MIMEタイプ（例: 'video/webm'）
@@ -204,20 +236,68 @@ export const saveBlobToGalleryOrDownload = (
   isVideo: boolean = false
 ): void => {
   if (isAndroidWebView()) {
-    // BlobをBase64に変換してAndroidのギャラリーに保存
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64data = reader.result as string;
-      const saveFunction = isVideo ? saveVideoToAndroidGallery : saveImageToAndroidGallery;
-      const success = saveFunction(base64data, filename, mimeType);
+    if (isVideo) {
+      // 動画の場合: ArrayBufferを使用してBase64エンコーディングを回避
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const arrayBuffer = reader.result as ArrayBuffer;
+        
+        // まずArrayBufferメソッドを試す（新しい実装）
+        const hasNewMethod = typeof (window as any).android.saveVideoToGalleryFromBytes === 'function';
+        let success = false;
+        
+        if (hasNewMethod) {
+          console.log('Using ArrayBuffer method for video save');
+          success = saveVideoToGalleryFromArrayBuffer(arrayBuffer, filename, mimeType);
+        }
+        
+        // 新しいメソッドが利用できない場合、または失敗した場合はBase64にフォールバック
+        if (!hasNewMethod || !success) {
+          console.log('Falling back to Base64 method for video save');
+          const uint8Array = new Uint8Array(arrayBuffer);
+          let binary = '';
+          const len = uint8Array.byteLength;
+          for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(uint8Array[i]);
+          }
+          const base64data = 'data:' + mimeType + ';base64,' + btoa(binary);
+          success = saveVideoToAndroidGallery(base64data, filename, mimeType);
+        }
+        
+        if (!success) {
+          console.error('Failed to save video to Android gallery');
+          // フォールバック: 通常のダウンロード
+          downloadBlob(blob, filename);
+        }
+      };
       
-      if (!success) {
-        console.error(`Failed to save ${isVideo ? 'video' : 'image'} to Android gallery`);
-        // フォールバック: 通常のダウンロード
+      reader.onerror = () => {
+        console.error('Failed to read Blob as ArrayBuffer');
         downloadBlob(blob, filename);
-      }
-    };
-    reader.readAsDataURL(blob);
+      };
+      
+      reader.readAsArrayBuffer(blob);
+    } else {
+      // 画像の場合: 従来のBase64メソッドを使用
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64data = reader.result as string;
+        const success = saveImageToAndroidGallery(base64data, filename, mimeType);
+        
+        if (!success) {
+          console.error('Failed to save image to Android gallery');
+          // フォールバック: 通常のダウンロード
+          downloadBlob(blob, filename);
+        }
+      };
+      
+      reader.onerror = () => {
+        console.error('Failed to read Blob as DataURL');
+        downloadBlob(blob, filename);
+      };
+      
+      reader.readAsDataURL(blob);
+    }
   } else {
     // 通常のブラウザ環境ではダウンロード
     downloadBlob(blob, filename);
