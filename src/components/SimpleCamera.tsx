@@ -191,7 +191,6 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       const offsetY = (displayHeight - renderHeight) / 2;
 
       // Calculate the visible region in the viewport after zoom and pan
-      // 
       // Coordinate system explanation:
       // 1. Original video coordinates (videoWidth x videoHeight)
       // 2. Rendered video coordinates after object-fit: cover (renderWidth x renderHeight, centered with offsetX, offsetY)
@@ -241,6 +240,12 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       if (videoCropY + videoCropHeight > videoHeight) {
         videoCropHeight = videoHeight - videoCropY;
       }
+
+      // Ensure dimensions are positive (safety check for extreme over-panning)
+      videoCropWidth = Math.max(1, videoCropWidth);
+      videoCropHeight = Math.max(1, videoCropHeight);
+      videoCropX = Math.max(0, Math.min(videoCropX, videoWidth - videoCropWidth));
+      videoCropY = Math.max(0, Math.min(videoCropY, videoHeight - videoCropHeight));
 
       // Set canvas size to the output resolution (use high quality)
       const outputWidth = 1920;
