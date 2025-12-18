@@ -20,6 +20,9 @@ import {
 import {
   generateFileName,
   formatTime,
+  isAndroidWebView,
+  saveImageToAndroidGallery,
+  saveVideoToAndroidGallery,
 } from './utils';
 
 // Base URL
@@ -266,17 +269,41 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
         0, 0, outputWidth, outputHeight  // destination rectangle
       );
 
-      // Convert canvas to blob and download
+      // Convert canvas to blob and download/save
       canvas.toBlob((blob) => {
         if (blob) {
           playSound(shutterAudioRef);
           
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = generateFileName('photo-', '.jpg');
-          link.click();
-          URL.revokeObjectURL(url);
+          const filename = generateFileName('photo-', '.jpg');
+          
+          // Android WebView環境ではギャラリーに保存
+          if (isAndroidWebView()) {
+            // BlobをBase64に変換してAndroidのギャラリーに保存
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64data = reader.result as string;
+              const success = saveImageToAndroidGallery(base64data, filename, 'image/jpeg');
+              if (!success) {
+                console.error('Failed to save image to Android gallery');
+                // フォールバック: 通常のダウンロード
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                link.click();
+                URL.revokeObjectURL(url);
+              }
+            };
+            reader.readAsDataURL(blob);
+          } else {
+            // 通常のブラウザ環境ではダウンロード
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+          }
         }
       }, 'image/jpeg', photoQuality);
 
@@ -384,12 +411,36 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
 
     mediaRecorderRef.current.onstop = () => {
       const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = generateFileName('video-', getExtensionFromMimeType(mimeType));
-      link.click();
-      URL.revokeObjectURL(url);
+      const filename = generateFileName('video-', getExtensionFromMimeType(mimeType));
+      
+      // Android WebView環境ではギャラリーに保存
+      if (isAndroidWebView()) {
+        // BlobをBase64に変換してAndroidのギャラリーに保存
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64data = reader.result as string;
+          const success = saveVideoToAndroidGallery(base64data, filename, mimeType);
+          if (!success) {
+            console.error('Failed to save video to Android gallery');
+            // フォールバック: 通常のダウンロード
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(url);
+          }
+        };
+        reader.readAsDataURL(blob);
+      } else {
+        // 通常のブラウザ環境ではダウンロード
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
 
       playSound(videoCompleteAudioRef);
       setRecordingStatus('idle');

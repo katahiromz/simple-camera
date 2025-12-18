@@ -112,3 +112,66 @@ export const videoFormatToExtension = (format: string): string => {
   if (format.includes('webm')) return '.webm';
   return '.webm'; // default
 };
+
+/**
+ * Android WebView環境かどうかを判定
+ */
+export const isAndroidWebView = (): boolean => {
+  return typeof (window as any).android !== 'undefined' && 
+         typeof (window as any).android.saveImageToGallery === 'function';
+};
+
+/**
+ * Android環境でギャラリーに画像を保存
+ * @param base64Data Base64エンコードされた画像データ（data:image/jpeg;base64,プレフィックスなし）
+ * @param filename ファイル名
+ * @param mimeType MIMEタイプ（例: 'image/jpeg'）
+ * @returns 保存成功時はtrue、失敗時はfalse
+ */
+export const saveImageToAndroidGallery = (
+  base64Data: string, 
+  filename: string, 
+  mimeType: string = 'image/jpeg'
+): boolean => {
+  if (!isAndroidWebView()) {
+    console.warn('Not in Android WebView environment');
+    return false;
+  }
+  
+  try {
+    // data:image/jpeg;base64, プレフィックスを除去
+    const pureBase64 = base64Data.includes(',') 
+      ? base64Data.substring(base64Data.indexOf(',') + 1) 
+      : base64Data;
+    
+    return (window as any).android.saveImageToGallery(pureBase64, filename, mimeType);
+  } catch (error) {
+    console.error('Failed to save image to Android gallery:', error);
+    return false;
+  }
+};
+
+/**
+ * Android環境でギャラリーに動画を保存
+ * @param base64Data Base64エンコードされた動画データ
+ * @param filename ファイル名
+ * @param mimeType MIMEタイプ（例: 'video/webm'）
+ * @returns 保存成功時はtrue、失敗時はfalse
+ */
+export const saveVideoToAndroidGallery = (
+  base64Data: string, 
+  filename: string, 
+  mimeType: string = 'video/webm'
+): boolean => {
+  if (!isAndroidWebView()) {
+    console.warn('Not in Android WebView environment');
+    return false;
+  }
+  
+  try {
+    return (window as any).android.saveVideoToGallery(base64Data, filename, mimeType);
+  } catch (error) {
+    console.error('Failed to save video to Android gallery:', error);
+    return false;
+  }
+};

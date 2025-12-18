@@ -192,7 +192,14 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         val currentActivity = activity ?: return false
         
         return try {
-            val imageBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            // data:image/jpeg;base64, のようなプレフィックスを除去
+            val pureBase64 = if (base64Data.contains(",")) {
+                base64Data.substring(base64Data.indexOf(",") + 1)
+            } else {
+                base64Data
+            }
+            
+            val imageBytes = android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
             
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Android 10以降: MediaStore APIを使用
@@ -201,6 +208,8 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     put(android.provider.MediaStore.Images.Media.MIME_TYPE, mimeType)
                     put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, 
                         android.os.Environment.DIRECTORY_PICTURES + "/SimpleCamera")
+                    // 書き込み中はPENDINGにして、メディアスキャナーの干渉を防ぐ
+                    put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
                 }
                 
                 val uri = currentActivity.contentResolver.insert(
@@ -212,6 +221,12 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
                         outputStream.write(imageBytes)
                     }
+                    
+                    // 書き込み完了後、PENDINGフラグをクリア
+                    val updateValues = android.content.ContentValues().apply {
+                        put(android.provider.MediaStore.Images.Media.IS_PENDING, 0)
+                    }
+                    currentActivity.contentResolver.update(it, updateValues, null, null)
                     
                     // Snackbarを表示
                     showFileOpenSnackbar(currentActivity, it, R.string.image_saved, "image/*")
@@ -253,6 +268,9 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
             }
         } catch (e: Exception) {
             Timber.e(e, "Failed to save image")
+            currentActivity.runOnUiThread {
+                currentActivity.showToast("Failed to save image: ${e.message}", SHORT_TOAST)
+            }
             false
         }
     }
@@ -279,6 +297,8 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     put(android.provider.MediaStore.Video.Media.MIME_TYPE, mimeType)
                     put(android.provider.MediaStore.Video.Media.RELATIVE_PATH, 
                         android.os.Environment.DIRECTORY_MOVIES + "/SimpleCamera")
+                    // 書き込み中はPENDINGにして、メディアスキャナーの干渉を防ぐ
+                    put(android.provider.MediaStore.Video.Media.IS_PENDING, 1)
                 }
                 
                 val uri = currentActivity.contentResolver.insert(
@@ -290,6 +310,12 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
                         outputStream.write(videoBytes)
                     }
+                    
+                    // 書き込み完了後、PENDINGフラグをクリア
+                    val updateValues = android.content.ContentValues().apply {
+                        put(android.provider.MediaStore.Video.Media.IS_PENDING, 0)
+                    }
+                    currentActivity.contentResolver.update(it, updateValues, null, null)
                     
                     // Snackbarを表示
                     showFileOpenSnackbar(currentActivity, it, R.string.video_saved, "video/*")
@@ -331,6 +357,9 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
             }
         } catch (e: Exception) {
             Timber.e(e, "Failed to save video")
+            currentActivity.runOnUiThread {
+                currentActivity.showToast("Failed to save video: ${e.message}", SHORT_TOAST)
+            }
             false
         }
     }
