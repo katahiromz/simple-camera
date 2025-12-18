@@ -816,11 +816,23 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         Timber.i("handleDownload: url=$url, mimeType=$mimeType")
         
         try {
+            // URLを検証する。
+            val uri = Uri.parse(url)
+            val scheme = uri.scheme
+            if (scheme != "http" && scheme != "https") {
+                Timber.w("handleDownload: Invalid URL scheme: $scheme")
+                showToast("Download failed: Invalid URL", SHORT_TOAST)
+                return
+            }
+            
             // ダウンロードリクエストを作成する。
-            val request = DownloadManager.Request(Uri.parse(url))
+            val request = DownloadManager.Request(uri)
             
             // ファイル名を取得する（contentDispositionから取得するか、URLから取得する）
-            val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            val rawFileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            
+            // ファイル名をサニタイズする（パストラバーサル攻撃を防ぐ）
+            val fileName = sanitizeFileName(rawFileName)
             
             // リクエストの設定
             request.setMimeType(mimeType)
@@ -840,6 +852,25 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             Timber.e(e, "Failed to start download")
             showToast("Download failed", SHORT_TOAST)
         }
+    }
+
+    // ファイル名をサニタイズする（パストラバーサル攻撃を防ぐ）
+    private fun sanitizeFileName(fileName: String): String {
+        // パス区切り文字やその他の危険な文字を除去する
+        var sanitized = fileName.replace(Regex("[/\\\\:*?\"<>|]"), "_")
+        
+        // ".." を除去する
+        sanitized = sanitized.replace("..", "_")
+        
+        // 先頭と末尾の空白を削除
+        sanitized = sanitized.trim()
+        
+        // 空のファイル名を避ける
+        if (sanitized.isEmpty()) {
+            sanitized = "download"
+        }
+        
+        return sanitized
     }
 
     // バージョン名を取得する。
