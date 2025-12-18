@@ -821,7 +821,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             val scheme = uri.scheme
             if (scheme != "http" && scheme != "https") {
                 Timber.w("handleDownload: Invalid URL scheme: $scheme")
-                showToast("Download failed: Invalid URL", SHORT_TOAST)
+                TopSnackbar.show(this, "Download failed: Invalid URL", durationMillis = 3000)
                 return
             }
             
@@ -846,11 +846,11 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             downloadManager.enqueue(request)
             
-            // ユーザーに通知する。
-            showToast("Downloading $fileName", SHORT_TOAST)
+            // TopSnackbarでユーザーに通知する。
+            TopSnackbar.show(this, "Downloading $fileName", durationMillis = 3000)
         } catch (e: Exception) {
             Timber.e(e, "Failed to start download")
-            showToast("Download failed", SHORT_TOAST)
+            TopSnackbar.show(this, "Download failed", durationMillis = 3000)
         }
     }
 
