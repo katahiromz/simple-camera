@@ -421,7 +421,34 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         }
     }
 
-    // 動画をギャラリーに保存する (バイト配列形式 - Base64を使用しない新しい実装)
+    // 動画をギャラリーに保存する (16進文字列形式 - Base64を使用しない新しい実装)
+    @JavascriptInterface
+    fun saveVideoToGalleryFromHex(hexString: String, filename: String, mimeType: String): Boolean {
+        val currentActivity = activity ?: return false
+        
+        return try {
+            Timber.i("saveVideoToGalleryFromHex called with hexString length: ${hexString.length}")
+            
+            // 16進文字列をバイト配列に変換
+            val videoBytes = ByteArray(hexString.length / 2)
+            for (i in videoBytes.indices) {
+                val index = i * 2
+                val byteValue = hexString.substring(index, index + 2).toInt(16)
+                videoBytes[i] = byteValue.toByte()
+            }
+            
+            Timber.i("Converted hex string to byte array: ${videoBytes.size} bytes")
+            saveVideoBytesToGallery(currentActivity, videoBytes, filename, mimeType)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to save video from hex string")
+            currentActivity.runOnUiThread {
+                currentActivity.showToast("Failed to save video: ${e.message}", SHORT_TOAST)
+            }
+            false
+        }
+    }
+
+    // 動画をギャラリーに保存する (バイト配列形式 - 後方互換性のため残す)
     @JavascriptInterface
     fun saveVideoToGalleryFromBytes(byteString: String, filename: String, mimeType: String): Boolean {
         val currentActivity = activity ?: return false

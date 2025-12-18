@@ -172,11 +172,17 @@ export const saveVideoToAndroidGalleryFromArrayBuffer = (
     // ArrayBufferをUint8Arrayに変換
     const uint8Array = new Uint8Array(arrayBuffer);
     
-    // Uint8Arrayをカンマ区切りの文字列に変換してAndroidに渡す
-    // これによりBase64エンコーディングのオーバーヘッドと潜在的なエラーを回避
-    const byteString = Array.from(uint8Array).join(',');
+    // Uint8Arrayを16進文字列に変換してAndroidに渡す
+    // Base64よりも確実で、カンマ区切りよりも効率的
+    let hexString = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      const hex = uint8Array[i].toString(16).padStart(2, '0');
+      hexString += hex;
+    }
     
-    return (window as any).android.saveVideoToGalleryFromBytes(byteString, filename, mimeType);
+    console.log(`Converting ArrayBuffer (${arrayBuffer.byteLength} bytes) to hex string (${hexString.length} chars)`);
+    
+    return (window as any).android.saveVideoToGalleryFromHex(hexString, filename, mimeType);
   } catch (error) {
     console.error('Failed to save video to Android gallery from ArrayBuffer:', error);
     return false;
@@ -242,12 +248,12 @@ export const saveBlobToGalleryOrDownload = (
       reader.onloadend = () => {
         const arrayBuffer = reader.result as ArrayBuffer;
         
-        // まずArrayBufferメソッドを試す（新しい実装）
-        const hasNewMethod = typeof (window as any).android.saveVideoToGalleryFromBytes === 'function';
+        // まずArrayBuffer/Hexメソッドを試す（新しい実装）
+        const hasNewMethod = typeof (window as any).android.saveVideoToGalleryFromHex === 'function';
         let success = false;
         
         if (hasNewMethod) {
-          console.log('Using ArrayBuffer method for video save');
+          console.log('Using ArrayBuffer/Hex method for video save');
           success = saveVideoToGalleryFromArrayBuffer(arrayBuffer, filename, mimeType);
         }
         
