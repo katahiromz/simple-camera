@@ -61,7 +61,6 @@
   "photoCaptureFailed": "Failed to capture photo",
   "recordingStartFailed": "Failed to start recording",
   "recordingStopFailed": "Failed to stop recording",
-  "pauseNotSupported": "Pause/resume is not supported in this version",
-  "resumeNotSupported": "Pause/resume is not supported in this version",
+  "pauseResumeNotSupported": "Pause/resume is not supported in this version",
   "grantPermission": "Grant Permission"
 }

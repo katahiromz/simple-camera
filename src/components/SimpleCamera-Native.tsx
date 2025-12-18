@@ -18,6 +18,9 @@ const Icons = {
   Pause: () => <Text style={styles.iconText}>⏸️</Text>,
 };
 
+// Constants
+const ZOOM_SENSITIVITY = 0.5; // Adjust zoom gesture sensitivity
+
 // Camera status
 type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice';
 type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopping';
@@ -239,12 +242,12 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
 
   // Pause recording (not directly supported by expo-camera, would need custom implementation)
   const pauseRecording = useCallback(() => {
-    Alert.alert(t('info'), t('pauseNotSupported'));
+    Alert.alert(t('info'), t('pauseResumeNotSupported'));
   }, [t]);
 
   // Resume recording (not directly supported by expo-camera, would need custom implementation)
   const resumeRecording = useCallback(() => {
-    Alert.alert(t('info'), t('resumeNotSupported'));
+    Alert.alert(t('info'), t('pauseResumeNotSupported'));
   }, [t]);
 
   // Pinch gesture for zoom
@@ -257,8 +260,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       // Calculate zoom level based on pinch scale
       // expo-camera zoom is 0 (no zoom) to 1 (max zoom)
       // scale starts at 1, increases when pinching out, decreases when pinching in
-      const sensitivity = 0.5; // Adjust sensitivity as needed
-      const delta = (event.scale - 1) * sensitivity;
+      const delta = (event.scale - 1) * ZOOM_SENSITIVITY;
       const newZoom = Math.min(Math.max(baseZoomRef.current + delta, 0), 1);
       setZoom(newZoom);
     })

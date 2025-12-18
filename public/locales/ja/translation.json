@@ -61,7 +61,6 @@
   "photoCaptureFailed": "写真の撮影に失敗しました",
   "recordingStartFailed": "録画の開始に失敗しました",
   "recordingStopFailed": "録画の停止に失敗しました",
-  "pauseNotSupported": "このバージョンでは一時停止/再開はサポートされていません",
-  "resumeNotSupported": "このバージョンでは一時停止/再開はサポートされていません",
+  "pauseResumeNotSupported": "このバージョンでは一時停止/再開はサポートされていません",
   "grantPermission": "権限を許可"
 }
