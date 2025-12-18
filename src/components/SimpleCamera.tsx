@@ -64,7 +64,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
 
   // Refs
   const webcamRef = useRef<Webcam>(null);
-  const transformRef = useRef<any>(null);
+  const transformRef = useRef<{ instance: { transformState: { scale: number; positionX: number; positionY: number } } } | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const shutterAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -169,7 +169,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       const displayHeight = video.clientHeight;
 
       if (videoWidth === 0 || videoHeight === 0) {
-        console.error('Video dimensions are zero');
+        console.error('Video not ready or failed to load. Ensure camera is initialized before capturing.');
         return;
       }
 
@@ -194,6 +194,10 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       const zoomedRenderHeight = renderHeight * scale;
 
       // Calculate the crop region in display coordinates
+      // We need to account for:
+      // 1. The initial offset of the rendered video (offsetX, offsetY)
+      // 2. The pan position (positionX, positionY) - these move the content in the opposite direction to the viewport
+      // Hence: cropX = -offsetX - positionX (negated to get the source crop position)
       const cropX = -offsetX - positionX;
       const cropY = -offsetY - positionY;
       const cropWidth = displayWidth;
@@ -201,6 +205,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
 
       // Convert display coordinates to video coordinates
       // We need to map from the transformed/rendered space back to video space
+      // This is the inverse of: video -> scale by coverScale -> scale by zoom
       const videoScaleRatio = 1 / coverScale / scale;
       
       const videoCropX = cropX * videoScaleRatio;
