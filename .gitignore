@@ -13,6 +13,20 @@ dist-ssr
 *.local
 a.*
 
+# Expo
+.expo/
+.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# Metro
+.metro-health-check*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

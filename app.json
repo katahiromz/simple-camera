@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "Simple Camera",
+    "slug": "simple-camera",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./public/pwa-512x512.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./public/pwa-512x512.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.katahiromz.simplecamera",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to the camera to take photos and record videos.",
+        "NSMicrophoneUsageDescription": "This app needs access to the microphone to record audio with videos.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to the photo library to save photos and videos.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs permission to save photos and videos to your photo library."
+      }
+    },
+    "android": {
+      "package": "com.katahiromz.simplecamera",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./public/pwa-512x512.png",
+        "backgroundColor": "#000000"
+      },
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO"
+      ]
+    },
+    "web": {
+      "favicon": "./public/favicon.ico",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to take photos and record videos.",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone to record audio with videos.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to save captured images and videos.",
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos and videos to your photo library.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
+    ]
+  }
+}
