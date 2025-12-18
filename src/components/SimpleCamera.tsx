@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import Webcam from 'react-webcam';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { Camera, Mic, MicOff, Video, VideoOff, Square, SwitchCamera, RefreshCw, Settings } from 'lucide-react';
+import { Camera, Mic, MicOff, Video, VideoOff, Square, SwitchCamera, RefreshCw, Pause } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import './SimpleCamera.css';
 
@@ -79,7 +79,6 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
   const [imageProcessing, setImageProcessing] = useState<ImageProcessingParams>(
     loadImageProcessingParams('SimpleCamera_imageProcessing') || getDefaultImageProcessingParams()
   );
-  const [showImageControls, setShowImageControls] = useState(false);
 
   // Video constraints
   const videoConstraints = {
@@ -339,11 +338,6 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     setImageProcessing(params);
   }, []);
 
-  // Toggle image controls
-  const toggleImageControls = useCallback(() => {
-    setShowImageControls((prev) => !prev);
-  }, []);
-
   // Memoize style objects to prevent unnecessary re-renders
   const wrapperStyle = useMemo(() => ({
     width: '100%',
@@ -412,26 +406,14 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       {showControls && status === 'ready' && (
         <div className="camera-controls">
           {/* Image processing controls */}
-          {showImageControls && (
-            <ImageProcessingControls
-              params={imageProcessing}
-              onChange={handleImageProcessingChange}
-              disabled={recordingStatus !== 'idle'}
-            />
-          )}
+          <ImageProcessingControls
+            params={imageProcessing}
+            onChange={handleImageProcessingChange}
+            disabled={recordingStatus !== 'idle'}
+          />
 
           {/* Main control buttons */}
           <div className="control-buttons">
-            {/* Settings button */}
-            <button
-              className="control-button settings-button"
-              onClick={toggleImageControls}
-              title={t('imageProcessing')}
-              disabled={recordingStatus !== 'idle'}
-            >
-              <Settings size={ICON_SIZE} />
-            </button>
-
             {/* Switch camera button */}
             <button
               className="control-button"
@@ -485,7 +467,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
                       onClick={pauseRecording}
                       title={t('pauseRecording')}
                     >
-                      <Square size={ICON_SIZE} />
+                      <Pause size={ICON_SIZE} />
                     </button>
                     <button
                       className="control-button stop-button"
