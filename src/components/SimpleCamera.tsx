@@ -191,29 +191,61 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       const offsetY = (displayHeight - renderHeight) / 2;
 
       // Calculate the visible region in the viewport after zoom and pan
-      // The transform is applied to the rendered video, not the original video
-      const zoomedRenderWidth = renderWidth * scale;
-      const zoomedRenderHeight = renderHeight * scale;
-
-      // Calculate the crop region in display coordinates
-      // We need to account for:
-      // 1. The initial offset of the rendered video (offsetX, offsetY)
-      // 2. The pan position (positionX, positionY) - these move the content in the opposite direction to the viewport
-      // Hence: cropX = -offsetX - positionX (negated to get the source crop position)
-      const cropX = -offsetX - positionX;
-      const cropY = -offsetY - positionY;
-      const cropWidth = displayWidth;
-      const cropHeight = displayHeight;
-
-      // Convert display coordinates to video coordinates
-      // We need to map from the transformed/rendered space back to video space
-      // This is the inverse of: video -> scale by coverScale -> scale by zoom
-      const videoScaleRatio = 1 / coverScale / scale;
+      // Coordinate system explanation:
+      // 1. Original video coordinates (videoWidth x videoHeight)
+      // 2. Rendered video coordinates after object-fit: cover (renderWidth x renderHeight, centered with offsetX, offsetY)
+      // 3. Zoomed coordinates after scale transformation (renderWidth * scale x renderHeight * scale)
+      // 4. Final display after pan (moved by positionX, positionY)
+      //
+      // To find what part of the original video is visible in the viewport:
+      // - Viewport shows display coordinates (0, 0) to (displayWidth, displayHeight)
+      // - After pan, the visible content in zoomed coordinates is at (-positionX, -positionY)
+      // - After zoom, the visible content in rendered coordinates is at (-positionX/scale, -positionY/scale)
+      // - After cover scaling, the visible content in video coordinates needs to account for the offset
       
-      const videoCropX = cropX * videoScaleRatio;
-      const videoCropY = cropY * videoScaleRatio;
-      const videoCropWidth = cropWidth * videoScaleRatio;
-      const videoCropHeight = cropHeight * videoScaleRatio;
+      // Step 1: Find the visible region in rendered coordinates (before zoom, after cover scale)
+      // The viewport origin (0, 0) maps to (-positionX, -positionY) in zoomed coordinates
+      // In pre-zoom (rendered) coordinates, this is (-positionX / scale, -positionY / scale)
+      const visibleRenderX = -positionX / scale;
+      const visibleRenderY = -positionY / scale;
+      const visibleRenderWidth = displayWidth / scale;
+      const visibleRenderHeight = displayHeight / scale;
+      
+      // Step 2: Account for the offset from object-fit: cover
+      // The rendered video is centered in the display, so we need to subtract the offset
+      // to get coordinates relative to the rendered video's top-left corner
+      const renderCropX = visibleRenderX - offsetX;
+      const renderCropY = visibleRenderY - offsetY;
+      
+      // Step 3: Convert from rendered coordinates to original video coordinates
+      // The rendered video is scaled by coverScale from the original video
+      let videoCropX = renderCropX / coverScale;
+      let videoCropY = renderCropY / coverScale;
+      let videoCropWidth = visibleRenderWidth / coverScale;
+      let videoCropHeight = visibleRenderHeight / coverScale;
+
+      // Clamp to valid video bounds (handle over-panning)
+      // If the user panned beyond the content, we clamp to show the edge of the video
+      if (videoCropX < 0) {
+        videoCropWidth += videoCropX;
+        videoCropX = 0;
+      }
+      if (videoCropY < 0) {
+        videoCropHeight += videoCropY;
+        videoCropY = 0;
+      }
+      if (videoCropX + videoCropWidth > videoWidth) {
+        videoCropWidth = videoWidth - videoCropX;
+      }
+      if (videoCropY + videoCropHeight > videoHeight) {
+        videoCropHeight = videoHeight - videoCropY;
+      }
+
+      // Ensure dimensions are positive (safety check for extreme over-panning)
+      videoCropWidth = Math.max(1, videoCropWidth);
+      videoCropHeight = Math.max(1, videoCropHeight);
+      videoCropX = Math.max(0, Math.min(videoCropX, videoWidth - videoCropWidth));
+      videoCropY = Math.max(0, Math.min(videoCropY, videoHeight - videoCropHeight));
 
       // Set canvas size to the output resolution (use high quality)
       const outputWidth = 1920;
