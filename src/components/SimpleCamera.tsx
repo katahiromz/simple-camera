@@ -12,6 +12,8 @@ import {
   ImageProcessingParams,
   getDefaultImageProcessingParams,
   loadImageProcessingParams,
+  applyCSSFilters,
+  buildCSSFilterString,
 } from './ImageProcessingUtils';
 
 // Utils
@@ -147,7 +149,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     }
   }, [soundEffect]);
 
-  // Capture photo with zoom and pan applied
+  // Capture photo with zoom, pan, and image processing filters applied
   const capturePhoto = useCallback(() => {
     if (!webcamRef.current || !webcamRef.current.video) return;
 
@@ -221,6 +223,10 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
       canvas.width = outputWidth;
       canvas.height = outputHeight;
 
+      // Apply image processing filters to the canvas context
+      // This ensures the captured photo matches the live preview
+      applyCSSFilters(ctx, imageProcessing);
+
       // Draw the cropped and zoomed portion of the video
       ctx.drawImage(
         video,
@@ -245,7 +251,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     } catch (error) {
       console.error('Error capturing photo:', error);
     }
-  }, [playSound, photoQuality]);
+  }, [playSound, photoQuality, imageProcessing]);
 
   // Toggle camera
   const toggleCamera = useCallback(() => {
@@ -434,7 +440,8 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
     width: '100%',
     height: '100%',
     objectFit: 'cover' as const,
-  }), []);
+    filter: buildCSSFilterString(imageProcessing),
+  }), [imageProcessing]);
 
   return (
     <div className="simple-camera-container">

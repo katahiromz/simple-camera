@@ -47,6 +47,17 @@ export const applyCSSFilters = (
   ctx: CanvasRenderingContext2D,
   params: ImageProcessingParams
 ): void => {
+  ctx.filter = buildCSSFilterString(params);
+};
+
+/**
+ * Build CSS filter string from image processing parameters
+ * Used for applying filters to video elements or canvas contexts
+ * 
+ * @param params - Image processing parameters
+ * @returns CSS filter string or 'none' if no filters applied
+ */
+export const buildCSSFilterString = (params: ImageProcessingParams): string => {
   const filters: string[] = [];
 
   // Brightness: -100 to +100 → CSS range 0 to 2
@@ -92,8 +103,8 @@ export const applyCSSFilters = (
     filters.push('invert(100%)');
   }
 
-  // Apply all filters or reset to none
-  ctx.filter = filters.length > 0 ? filters.join(' ') : 'none';
+  // Return filter string or 'none' if no filters
+  return filters.length > 0 ? filters.join(' ') : 'none';
 };
 
 /**
