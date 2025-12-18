@@ -49,7 +49,6 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
 
   // Refs
   const cameraRef = useRef<CameraView>(null);
-  const recordingRef = useRef<any>(null);
 
   // Permissions
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -63,6 +62,7 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
   const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>('idle');
   const [recordingTime, setRecordingTime] = useState(0);
   const [zoom, setZoom] = useState(0);
+  const baseZoomRef = useRef(0);
 
   // Audio refs for sound effects
   const shutterSoundRef = useRef<Audio.Sound | null>(null);
@@ -197,49 +197,45 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
 
     try {
       setRecordingStatus('recording');
-      const recording = await cameraRef.current.recordAsync({
+      playSound(videoStartSoundRef);
+      
+      // recordAsync returns a promise that resolves when recording stops
+      // We need to handle it properly
+      const video = await cameraRef.current.recordAsync({
         mute: !micEnabled,
       });
 
-      recordingRef.current = recording;
-      playSound(videoStartSoundRef);
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      Alert.alert(t('error'), t('recordingStartFailed'));
-      setRecordingStatus('idle');
-    }
-  }, [micEnabled, playSound, t]);
-
-  // Stop recording
-  const stopRecording = useCallback(async () => {
-    if (!cameraRef.current || !recordingRef.current) return;
-
-    try {
-      setRecordingStatus('stopping');
-      cameraRef.current.stopRecording();
-
-      const video = recordingRef.current;
-      
+      // Save the recorded video
       if (video && video.uri) {
-        // Save to media library
         if (mediaLibraryPermission === 'granted') {
           await MediaLibrary.saveToLibraryAsync(video.uri);
           Alert.alert(t('success'), t('videoSaved'));
         } else {
           Alert.alert(t('error'), t('noMediaLibraryPermission'));
         }
-
         playSound(videoCompleteSoundRef);
       }
-
-      recordingRef.current = null;
+      
       setRecordingStatus('idle');
     } catch (error) {
-      console.error('Error stopping recording:', error);
-      Alert.alert(t('error'), t('recordingStopFailed'));
+      console.error('Error in recording:', error);
+      Alert.alert(t('error'), t('recordingStartFailed'));
       setRecordingStatus('idle');
     }
-  }, [mediaLibraryPermission, playSound, t]);
+  }, [micEnabled, playSound, mediaLibraryPermission, t]);
+
+  // Stop recording
+  const stopRecording = useCallback(() => {
+    if (!cameraRef.current) return;
+
+    try {
+      // Calling stopRecording will cause recordAsync to resolve in startRecording
+      cameraRef.current.stopRecording();
+    } catch (error) {
+      console.error('Error stopping recording:', error);
+      setRecordingStatus('idle');
+    }
+  }, []);
 
   // Pause recording (not directly supported by expo-camera, would need custom implementation)
   const pauseRecording = useCallback(() => {
@@ -253,10 +249,17 @@ const SimpleCamera: React.FC<SimpleCameraProps> = ({
 
   // Pinch gesture for zoom
   const pinchGesture = Gesture.Pinch()
+    .onStart(() => {
+      // Store the current zoom as the base for this gesture
+      baseZoomRef.current = zoom;
+    })
     .onUpdate((event) => {
       // Calculate zoom level based on pinch scale
       // expo-camera zoom is 0 (no zoom) to 1 (max zoom)
-      const newZoom = Math.min(Math.max(event.scale - 1, 0), 1);
+      // scale starts at 1, increases when pinching out, decreases when pinching in
+      const sensitivity = 0.5; // Adjust sensitivity as needed
+      const delta = (event.scale - 1) * sensitivity;
+      const newZoom = Math.min(Math.max(baseZoomRef.current + delta, 0), 1);
       setZoom(newZoom);
     })
     .runOnJS(true);
