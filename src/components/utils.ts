@@ -153,7 +153,7 @@ export const saveImageToAndroidGallery = (
 
 /**
  * Android環境でギャラリーに動画を保存
- * @param base64Data Base64エンコードされた動画データ
+ * @param base64Data Base64エンコードされた動画データ（data:video/webm;base64,プレフィックスなし）
  * @param filename ファイル名
  * @param mimeType MIMEタイプ（例: 'video/webm'）
  * @returns 保存成功時はtrue、失敗時はfalse
@@ -169,7 +169,12 @@ export const saveVideoToAndroidGallery = (
   }
   
   try {
-    return (window as any).android.saveVideoToGallery(base64Data, filename, mimeType);
+    // data:video/...;base64, プレフィックスを除去
+    const pureBase64 = base64Data.includes(',') 
+      ? base64Data.substring(base64Data.indexOf(',') + 1) 
+      : base64Data;
+    
+    return (window as any).android.saveVideoToGallery(pureBase64, filename, mimeType);
   } catch (error) {
     console.error('Failed to save video to Android gallery:', error);
     return false;
