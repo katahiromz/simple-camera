@@ -1,7 +1,7 @@
 // SimpleCamera-Native.tsx --- React Native camera implementation using react-native-vision-camera
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission, useMicrophonePermission, useCameraFormat } from 'react-native-vision-camera';
+import { Camera, useCameraDevice, useCameraPermission, useMicrophonePermission } from 'react-native-vision-camera';
 import * as MediaLibrary from 'expo-media-library';
 import { Audio } from 'expo-av';
 import { useTranslation } from 'react-i18next';

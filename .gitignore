@@ -27,6 +27,11 @@ web-build/
 # Metro
 .metro-health-check*
 
+# Android
+*.keystore
+*.apk
+*.aab
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,13 +1,16 @@
-*.iml
-.gradle/
-/local.properties
-.idea/
+# OSX
+#
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+
+# Android/IntelliJ
+#
+build/
+.idea
+.gradle
 local.properties
-app/release
-android/.kotlin/sessions/*
-app/src/main/assets/camera/
+*.iml
+*.hprof
+.cxx/
+
+# Bundle artifacts
+*.jsbundle
