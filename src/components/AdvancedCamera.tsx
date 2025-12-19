@@ -129,6 +129,8 @@ interface AdvancedCameraProps {
   shutterSoundUrl: string | null; // 撮影時の音の場所
   videoStartSoundUrl: string | null; // 動画撮影開始時の音の場所
   videoCompleteSoundUrl: string | null; // 動画撮影完了時の音の場所
+  mirror: boolean; // 映像を水平反転するか？
+  autoMirror: boolean; // facingModeに応じて自動的にミラーを切り替えるか？
 };
 
 // AdvancedCamera本体
@@ -150,6 +152,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   shutterSoundUrl = `${BASE_URL}ac-camera-shutter-sound.mp3`,
   videoStartSoundUrl = `${BASE_URL}ac-video-started.mp3`,
   videoCompleteSoundUrl = `${BASE_URL}ac-video-completed.mp3`,
+  mirror = false,
+  autoMirror = false,
 }) => {
   const { t } = useTranslation(); // 翻訳用
   const ICON_SIZE = 32; // アイコンサイズ
@@ -222,6 +226,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       doWarn('Failed to save facingMode to localStorage:', error);
     }
   }, [facingMode]);
+
+  // autoMirrorがtrueの場合、facingModeに応じてミラーを自動的に切り替える
+  // 前面カメラ('user')の場合はミラーをON、背面カメラ('environment')の場合はミラーをOFF
+  const effectiveMirror = autoMirror ? (facingMode === 'user') : mirror;
 
   // renderMetricsのRefを追加（パフォーマンス最適化用）
   const renderMetricsRef = useRef<RenderMetrics>(renderMetrics);
@@ -737,7 +745,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     // ズームとパンの適用(object-fit: cover/contain再現)
     // 中心を基準にスケーリングするために translate -> scale -> translate back
     ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
-    ctx.scale(zoom, zoom);
+    // ミラー反転を適用（effectiveMirror が true の場合）
+    if (effectiveMirror) {
+      ctx.scale(-zoom, zoom);
+    } else {
+      ctx.scale(zoom, zoom);
+    }
     ctx.translate(-canvas.width / 2, -canvas.height / 2);
 
     // イメージを転送
