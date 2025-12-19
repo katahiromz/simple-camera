@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
+import { VitePWA } from 'vite-plugin-pwa' // PWA (Progressive Web App) サポート
+import basicSsl from '@vitejs/plugin-basic-ssl'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -10,6 +11,7 @@ export default defineConfig(({ mode }) => ({
 
   plugins: [
     react(),
+    basicSsl(),
     VitePWA({
       registerType: 'autoUpdate', // 更新があったら即座に反映
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
@@ -46,5 +48,5 @@ export default defineConfig(({ mode }) => ({
   // 製品版では、コンソール出力とデバッグ出力をしない
   esbuild: {
     drop: ((mode === 'production') ? ['console', 'debugger'] : [])
-  }
+  },
 }));
