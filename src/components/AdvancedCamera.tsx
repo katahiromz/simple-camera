@@ -717,7 +717,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     const observer = new ResizeObserver((entries) => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        if (!isRecording && canvasRef.current && !dummyImageSrc) {
+        if (!isRecording && canvasRef.current) {
           const entry = entries[0];
           const width = entry.contentRect.width;
           const height = entry.contentRect.height;
@@ -875,10 +875,41 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     };
   };
 
+  // パン操作の抵抗
+  const applyResistance = (delta: number, overflow: number) => {
+    if (overflow <= 0) return delta;
+    return delta * Math.exp(-overflow / 80); // 数値は調整
+  };
+
+  // 抵抗付きのパン操作の制限
+  const clampPanWithResistance = (x, y, zoom) => {
+    const { maxPanX, maxPanY } = calculateMaxPanOffsets(
+      zoom,
+      renderMetricsRef.current,
+      canvasRef.current.width,
+      canvasRef.current.height
+    );
+
+    const overflowX = Math.max(0, Math.abs(x) - maxPanX);
+    const overflowY = Math.max(0, Math.abs(y) - maxPanY);
+
+    return {
+      x: Math.abs(x) <= maxPanX
+        ? x
+        : Math.sign(x) * maxPanX +
+          applyResistance(x - Math.sign(x) * maxPanX, overflowX),
+
+      y: Math.abs(y) <= maxPanY
+        ? y
+        : Math.sign(y) * maxPanY +
+          applyResistance(y - Math.sign(y) * maxPanY, overflowY),
+    };
+  };
+
   // パンをずらす
   const shiftPan = (dx, dy) => {
-      const clamped = clampPan(pan.x + dx, pan.y + dy, zoom);
-      setPanState(clamped);
+    const clamped = clampPan(pan.x + dx, pan.y + dy, zoom);
+    setPanState(clamped);
   };
 
   // --- PC: マウスホイールでズーム ---
@@ -918,16 +949,20 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     const dy = event.clientY - lastMousePosRef.current.y;
 
     setPanState(prevPan =>
-      clampPan(prevPan.x + dx, prevPan.y + dy, zoom)
+      clampPanWithResistance(prevPan.x + dx, prevPan.y + dy, zoom)
     );
 
     lastMousePosRef.current = { x: event.clientX, y: event.clientY };
-  }, [clampPan, zoom]);
+  }, [clampPanWithResistance, zoom]);
 
   const handleMouseUp = useCallback(() => {
     console.log("mouse button up");
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
+
+    setPanState(prev =>
+      clampPan(prev.x, prev.y, zoomRef.current)
+    );
   }, []);
 
   // --- Touch: ピンチズーム & パン ---
@@ -989,13 +1024,19 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const newPanY = panRef.current.y + dy_screen * newZoom * TOUCH_MOVE_RATIO;
 
       // パンを更新し、ズームと描画メトリクスに基づき境界値にクランプ
-      setPanState(clampPan(newPanX, newPanY, newZoom));
+      setPanState(clampPanWithResistance(newPanX, newPanY, newZoom));
 
       // 次のフレームのために現在の値を保存
       lastTouchDistanceRef.current = currentDist;
       lastTouchCenterRef.current = currentCenter;
     }
   }, [clampPan, zoomRef]);
+
+  const handleTouchEnd = useCallback(() => {
+    setPanState(prev =>
+      clampPan(prev.x, prev.y, zoomRef.current)
+    );
+  }, []);
 
   // イベントリスナーの設定
   useEffect(() => {
@@ -1009,6 +1050,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     window.addEventListener('mouseup', handleMouseUp, { passive: false });
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
 
     return () => {
       canvas.removeEventListener('wheel', handleWheel);
@@ -1017,7 +1060,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       window.removeEventListener('mouseup', handleMouseUp);
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
-    };
+      canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+      canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+   };
   }, [handleMouseDown, handleMouseMove, handleMouseUp, handleTouchStart, handleTouchMove]);
 
   // フォールバック用のダウンロード関数

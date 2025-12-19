@@ -69,8 +69,8 @@ advanced-camera__overlay-description {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 12px;
-  padding: 10px 10px 10px;
+  gap: clamp(8px, 3vw, 12px);
+  padding: clamp(6px, 2vw, 10px);
   background: transparent;
   z-index: 5;
   transition: opacity 0.3s ease;
@@ -84,8 +84,8 @@ advanced-camera__overlay-description {
 
 /* ボタン共通スタイル */
 .advanced-camera__button {
-  width: 72px;
-  height: 72px;
+  width: clamp(48px, 12vw, 72px);
+  height: clamp(48px, 12vw, 72px);
   background: rgba(255, 255, 255, 0.2);
   border: none;
   border-radius: 50%;
@@ -240,10 +240,8 @@ position: absolute;
 /* カメラ切り替えボタン (右下端のフローティング配置) */
 .advanced-camera__button--switch {
   position: absolute;
-  /* コントロールパネルと同じ bottom: 20px よりも少し上に配置するか、
-     コントロールパネルの領域外に配置する */
-  bottom: 100px; /* コントロールパネルの上部と被らないよう配置 */
-  right: 10px;
+  bottom: clamp(80px, 18vw, 120px);
+  right: clamp(8px, 3vw, 16px);
   z-index: 5;
   /* デフォルトの advanced-camera__button スタイルを継承 */
   background: rgba(0, 0, 0, 0.5);
