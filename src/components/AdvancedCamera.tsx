@@ -761,7 +761,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     // フィルタをリセット（次回の描画に影響しないように）
     ctx.filter = 'none';
-  }, [effectiveMirror]);
+  }, []);
 
   // requestAnimationFrameによる描画ループ
   const draw = useCallback(() => {
