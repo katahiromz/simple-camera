@@ -733,7 +733,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   }, [isRecording, updateRenderMetrics]);
 
   // デフォルトのイメージ処理関数
-  const onDefaultImageProcess = (data: userImageProcessData) => {
+  const onDefaultImageProcess = useCallback((data: userImageProcessData) => {
     // 引数データ取得
     const canvas = data.canvas, video = data.video;
     const ctx = data.ctx, x = data.x, y = data.y, width = data.width, height = data.height;
@@ -759,7 +759,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     // フィルタをリセット（次回の描画に影響しないように）
     ctx.filter = 'none';
-  };
+  }, [effectiveMirror]);
 
   // requestAnimationFrameによる描画ループ
   const draw = useCallback(() => {
@@ -809,7 +809,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     ctx.restore();
 
     animeRequestRef.current = requestAnimationFrame(draw);
-  }, [status, isRecording, zoom, pan, renderMetrics]);
+  }, [status, isRecording, zoom, pan, renderMetrics, onDefaultImageProcess]);
 
   useEffect(() => {
     if (status === 'ready') {
