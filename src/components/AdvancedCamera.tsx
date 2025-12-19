@@ -758,9 +758,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     // イメージを転送
     const source = data.dummyImage ? data.dummyImage : video;
     ctx.drawImage(source, x, y, width, height);
-
-    // フィルタをリセット（次回の描画に影響しないように）
-    ctx.filter = 'none';
   }, []);
 
   // requestAnimationFrameによる描画ループ
