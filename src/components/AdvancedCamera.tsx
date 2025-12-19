@@ -1041,7 +1041,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       if (!photoCtx) {
         doError('Failed to get photo canvas context');
-        alert(t('ac_taking_photo_failed'));
+        alert(t('camera_taking_photo_failed'));
         return;
       }
 
@@ -1069,7 +1069,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           throw new Error('Failed to create photo blob');
 
         let extension = photoFormatToExtension(photoFormat); // 拡張子を選ぶ
-        const fileName = generateFileName(t('ac_text_photo') + '_', extension); // ファイル名
+        const fileName = generateFileName(t('camera_text_photo') + '_', extension); // ファイル名
 
         // ファイルに保存
         if (isAndroidApp) {
@@ -1080,7 +1080,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       }, photoFormat, photoQuality);
     } catch (error) {
       doError('Photo capture failed', error);
-      alert(t('ac_taking_photo_failed'));
+      alert(t('camera_taking_photo_failed'));
     }
   };
 
@@ -1107,7 +1107,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         doLog('Saved video:', fileName);
       } catch (error) {
         doError('android インタフェース呼び出しエラー:', error);
-        alert(t('ac_saving_movie_failed', { error: error }));
+        alert(t('camera_saving_movie_failed', { error: error }));
       }
     };
     reader.readAsDataURL(blob); // BlobをBase64に変換
@@ -1240,7 +1240,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       doError('Recording start failed', error);
       setRecordingStatus('error');
       setIsRecording(false);
-      alert(t('ac_recording_cannot_start', { error }));
+      alert(t('camera_recording_cannot_start', { error }));
     }
   };
 
@@ -1278,7 +1278,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             }
 
             const extension = videoFormatToExtension(mimeType); // 拡張子
-            const fileName = generateFileName(t('ac_text_video') + '_', extension); // ファイル名
+            const fileName = generateFileName(t('camera_text_video') + '_', extension); // ファイル名
 
             // Blobの検証とログ出力
             doLog('Video recording completed:', {
@@ -1292,7 +1292,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             if (blob.size === 0) {
               doError('Generated video blob is empty!');
               setRecordingStatus('error');
-              alert(t('ac_recording_error', { error: 'Video file is empty' }));
+              alert(t('camera_recording_error', { error: 'Video file is empty' }));
               reject(new Error('Video blob is empty'));
               return;
             }
@@ -1498,38 +1498,38 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       {showStatus && status === 'initializing' && (
         <div className="advanced-camera__overlay">
           <RefreshCw className="spin" size={48} />
-          <p className="advanced-camera__overlay-text">{t('ac_starting_camera')}</p>
+          <p className="advanced-camera__overlay-text">{t('camera_starting_camera')}</p>
         </div>
       )}
       {showStatus && status === 'switching' && (
         <div className="advanced-camera__overlay">
           <RefreshCw className="spin" size={48} />
-          <p className="advanced-camera__overlay-text">{t('ac_switching_camera')}</p>
+          <p className="advanced-camera__overlay-text">{t('camera_switching_camera')}</p>
         </div>
       )}
       {showStatus && status === 'noPermission' && (
         <div className="advanced-camera__overlay">
           <VideoOff size={48} color="red" />
           <p className="advanced-camera__overlay-text">
-            {t('ac_no_camera_permission')}
+            {t('camera_no_camera_permission')}
           </p>
           <p className="advanced-camera__overlay-description">
-            {t('ac_no_camera_permission_2')}
+            {t('camera_no_camera_permission_2')}
           </p>
           {/* 再起動ボタン */}
           <button className="advanced-camera__restart-btn" onClick={handleRestart}>
-            {t('ac_restart_app')}
+            {t('camera_restart_app')}
           </button>
         </div>
       )}
       {showStatus && status === 'noDevice' && (
         <div className="advanced-camera__overlay">
           <CameraOff size={48} color="red" />
-          <p className="advanced-camera__overlay-text">{t('ac_no_camera_found')}</p>
-          <p className="advanced-camera__overlay-description">{t('ac_no_camera_found_2')}</p>
+          <p className="advanced-camera__overlay-text">{t('camera_no_camera_found')}</p>
+          <p className="advanced-camera__overlay-description">{t('camera_no_camera_found_2')}</p>
           {/* 再起動ボタン */}
           <button className="advanced-camera__restart-btn" onClick={handleRestart}>
-            {t('ac_restart_app')}
+            {t('camera_restart_app')}
           </button>
         </div>
       )}
@@ -1557,7 +1557,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
               className={`advanced-camera__button advanced-camera__button--microphone ${hasMic && micEnabled ? 'advanced-camera__button--mic-on' : 'advanced-camera__button--mic-off'}`}
               onClick={toggleMic}
               disabled={!hasMic || isRecording || dummyImageSrc}
-              aria-label={micEnabled ? t('ac_mute_microphone') : t('ac_enable_microphone')}
+              aria-label={micEnabled ? t('camera_mute_microphone') : t('camera_enable_microphone')}
             >
               {hasMic && micEnabled && !dummyImageSrc ? <Mic size={ICON_SIZE} /> : <MicOff size={ICON_SIZE} />}
             </button>
@@ -1568,7 +1568,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             <button
               className="advanced-camera__button advanced-camera__button--photo"
               onClick={takePhoto}
-              aria-label={t('ac_take_photo')}
+              aria-label={t('camera_take_photo')}
             >
               <Camera size={ICON_SIZE} />
             </button>
@@ -1579,7 +1579,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             <button
               className={`advanced-camera__button advanced-camera__button--record ${isRecording ? 'is-recording' : ''}`}
               onClick={toggleRecording}
-              aria-label={isRecording ? t('ac_stop_recording') : t('ac_start_recording')}
+              aria-label={isRecording ? t('camera_stop_recording') : t('camera_start_recording')}
             >
               {isRecording ? <Square size={ICON_SIZE} /> : <Video size={ICON_SIZE} />}
             </button>
@@ -1593,7 +1593,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           className="advanced-camera__button advanced-camera__button--switch"
           onClick={switchCamera}
           disabled={isRecording}
-          aria-label={t('ac_switch_camera')}
+          aria-label={t('camera_switch_camera')}
         >
           <SwitchCamera size={ICON_SIZE} />
         </button>
