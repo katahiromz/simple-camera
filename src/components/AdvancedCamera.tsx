@@ -856,9 +856,20 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // グローバル関数として公開: Androidから呼び出される
   useEffect(() => {
-    // アニメーション再開用の関数をグローバルに登録
-    (window as any).resumeCameraAnimation = () => {
+    // セキュリティ: Androidアプリ内でのみ有効
+    if (!isAndroidApp) { // Web版では公開しない
+      return;
+    }
+
+    // 名前空間を使用してグローバル汚染を最小化
+    if (!(window as any).__advancedCamera) {
+      (window as any).__advancedCamera = {};
+    }
+
+    // アニメーション再開用の関数を登録
+    (window as any).__advancedCamera.resumeAnimation = () => {
       doLog('Resuming camera animation from native');
+      // 安全性チェック: ready状態でのみ実行
       if (status === 'ready' && !animeRequestRef.current) {
         animeRequestRef.current = requestAnimationFrame(draw);
       }
@@ -866,7 +877,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     return () => {
       // クリーンアップ時に削除
-      delete (window as any).resumeCameraAnimation;
+      if ((window as any).__advancedCamera) {
+        delete (window as any).__advancedCamera.resumeAnimation;
+      }
     };
   }, [status, draw]);
 

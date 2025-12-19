@@ -585,8 +585,11 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             startVibrator(-1)
 
         // カメラのアニメーションフレームを再開
+        // 名前空間を使用してセキュアに呼び出し
         if (webViewReady) {
-            webView?.evaluateJavascript("if (window.resumeCameraAnimation) window.resumeCameraAnimation();") { }
+            webView?.evaluateJavascript(
+                "(function() { if (window.__advancedCamera && window.__advancedCamera.resumeAnimation) { window.__advancedCamera.resumeAnimation(); } })();"
+            ) { }
         }
     }
 
