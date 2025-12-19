@@ -797,6 +797,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
 
         // MediaRecorderはGPUを使うので、ハードウェア アクセラレーションを有効にします
         currentWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+
+        // 混合コンテンツを許可する
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
     }
 
     // バージョン名を取得する。
