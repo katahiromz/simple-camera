@@ -794,6 +794,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         // JavaScript側からGenericAppのバージョン情報を取得できるようにする。
         val versionName = getVersionName()
         settings.userAgentString += "/SimpleCamera/Android/$versionName/"
+
+        // MediaRecorderはGPUを使うので、ハードウェア アクセラレーションを有効にします
+        currentWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
     }
 
     // バージョン名を取得する。
