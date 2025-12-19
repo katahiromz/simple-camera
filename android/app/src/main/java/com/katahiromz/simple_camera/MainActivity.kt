@@ -75,6 +75,10 @@ const val USE_AUDIO = true
 const val USE_CAMERA = true
 const val USE_TEXTTOSPEECH = false
 const val USE_STORAGE = true
+
+// ハードウェア アクセラレーションを有効にするか？
+const val USE_HARDWARE_ACCELERATION = true
+
 // endregion
 
 class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.OnInitListener {
@@ -795,11 +799,13 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         val versionName = getVersionName()
         settings.userAgentString += "/SimpleCamera/Android/$versionName/"
 
-        // MediaRecorderはGPUを使うので、ハードウェア アクセラレーションを有効にします
-        currentWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-
         // 混合コンテンツを許可する
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+
+        if (USE_HARDWARE_ACCELERATION) {
+            // MediaRecorderはGPUを使うので、ハードウェア アクセラレーションを有効にします
+            currentWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        }
     }
 
     // バージョン名を取得する。
