@@ -1,5 +1,5 @@
 // AdvancedCamera.tsx --- Reactコンポーネント「AdvancedCamera」のTypeScriptソース
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import './AdvancedCamera.css';
 
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
@@ -229,7 +229,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // autoMirrorがtrueの場合、facingModeに応じてミラーを自動的に切り替える
   // 前面カメラ('user')の場合はミラーをON、背面カメラ('environment')の場合はミラーをOFF
-  const effectiveMirror = autoMirror ? (facingMode === 'user') : mirror;
+  const effectiveMirror = useMemo(() => {
+    return autoMirror ? (facingMode === 'user') : mirror;
+  }, [autoMirror, facingMode, mirror]);
 
   // renderMetricsのRefを追加（パフォーマンス最適化用）
   const renderMetricsRef = useRef<RenderMetrics>(renderMetrics);
