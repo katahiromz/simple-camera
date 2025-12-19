@@ -16,15 +16,6 @@ import {
   RenderMetrics
 } from './utils';
 
-// 画像処理関連
-import ImageProcessingControls from './ImageProcessingControls';
-import {
-  ImageProcessingParams,
-  getDefaultImageProcessingParams,
-  applyCSSFilters,
-  loadImageProcessingParams,
-} from './ImageProcessingUtils';
-
 // コーデックサポート
 import {
   selectBestCodec,
@@ -201,11 +192,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const [hasMic, setHasMic] = useState(false); // マイクがあるか？
   const [renderMetrics, setRenderMetrics] = useState<RenderMetrics>({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 }); // 描画に使う寸法情報
   const [isDummyImageLoaded, setIsDummyImageLoaded] = useState(false); // ダミー画像がロードされたか？
-  
-  // 画像処理パラメータの状態管理
-  const [imageProcessingParams, setImageProcessingParams] = useState<ImageProcessingParams>(() => {
-    return loadImageProcessingParams('AdvancedCamera_imageProcessing');
-  });
+ 
 
   // 現在のzoomとpanの値を常にrefに保持（タッチイベントで使用）
   const zoomRef = useRef(zoom);
@@ -747,9 +734,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     // 画面クリア
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 画像処理フィルタを適用
-    applyCSSFilters(ctx, imageProcessingParams);
-
     // ズームとパンの適用(object-fit: cover/contain再現)
     // 中心を基準にスケーリングするために translate -> scale -> translate back
     ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
@@ -812,7 +796,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     ctx.restore();
 
     animeRequestRef.current = requestAnimationFrame(draw);
-  }, [status, isRecording, zoom, pan, renderMetrics, imageProcessingParams]);
+  }, [status, isRecording, zoom, pan, renderMetrics]);
 
   useEffect(() => {
     if (status === 'ready') {
@@ -1613,15 +1597,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         >
           <SwitchCamera size={ICON_SIZE} />
         </button>
-      )}
-
-      {/* 画像処理コントロール */}
-      {status === 'ready' && showControls && (
-        <ImageProcessingControls
-          params={imageProcessingParams}
-          onChange={setImageProcessingParams}
-          disabled={false}
-        />
       )}
     </div>
   );
