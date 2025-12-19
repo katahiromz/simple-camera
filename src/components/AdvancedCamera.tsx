@@ -1060,6 +1060,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         return;
       }
 
+      // キャンバスが反転されているときは、さらに反転して元に戻す
+      if (effectiveMirror) {
+         photoCtx.scale(-1, 1);
+         photoCtx.translate(-cropWidth, 0);
+      }
+
       // 元のキャンバスから映像部分のみを切り取ってコピー
       photoCtx.drawImage(
         canvas,
