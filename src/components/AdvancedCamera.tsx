@@ -854,6 +854,21 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     };
   }, [status, draw]);
 
+  // グローバル関数として公開: Androidから呼び出される
+  useEffect(() => {
+    // アニメーション再開用の関数をグローバルに登録
+    (window as any).resumeCameraAnimation = () => {
+      doLog('Resuming camera animation from native');
+      if (status === 'ready' && !animeRequestRef.current) {
+        animeRequestRef.current = requestAnimationFrame(draw);
+      }
+    };
+
+    return () => {
+      // クリーンアップ時に削除
+      delete (window as any).resumeCameraAnimation;
+    };
+  }, [status, draw]);
 
   // --- ズーム・パンロジック ---
   const MOUSE_WHEEL_DELTA = 0.004;

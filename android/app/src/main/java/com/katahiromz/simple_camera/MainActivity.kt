@@ -583,6 +583,11 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         // 振動を再開。
         if (hasVibratorInitialized && oldVibratorLength > 0)
             startVibrator(-1)
+
+        // カメラのアニメーションフレームを再開
+        if (webViewReady) {
+            webView?.evaluateJavascript("if (window.resumeCameraAnimation) window.resumeCameraAnimation();") { }
+        }
     }
 
     // アクティビティの一時停止時。
