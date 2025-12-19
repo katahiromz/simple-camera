@@ -40,4 +40,7 @@ body {
   right: var(--safe-inset-right, 0px);
   bottom: var(--safe-inset-bottom, 0px);
   overflow: auto; /* #root内でスクロール可能に */
+
+  width: 400px;
+  height: 400px;
 }

@@ -21,7 +21,7 @@ function App() {
   const dummyImageSrc = null; // ダミー画像を使わない
 
   return (
-    <AdvancedCamera dummyImageSrc={dummyImageSrc}></AdvancedCamera>
+    <AdvancedCamera dummyImageSrc={dummyImageSrc} />
   );
 }
 
