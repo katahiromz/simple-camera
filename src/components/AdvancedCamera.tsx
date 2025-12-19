@@ -749,7 +749,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   };
 
   // requestAnimationFrameによる描画ループ
-  const draw = useCallback(() => {
+  const render = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!canvas || status !== 'ready') return;
@@ -760,7 +760,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     const now = performance.now();
     const elapsed = now - (lastFrameTimeRef.current || 0);
     if (elapsed < frameInterval) {
-      animeRequestRef.current = requestAnimationFrame(draw);
+      animeRequestRef.current = requestAnimationFrame(render);
       return;
     }
     lastFrameTimeRef.current = now;
@@ -795,17 +795,17 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     ctx.restore();
 
-    animeRequestRef.current = requestAnimationFrame(draw);
+    animeRequestRef.current = requestAnimationFrame(render);
   }, [status, isRecording, zoom, pan, renderMetrics]);
 
   useEffect(() => {
     if (status === 'ready') {
-      animeRequestRef.current = requestAnimationFrame(draw);
+      animeRequestRef.current = requestAnimationFrame(render);
     }
     return () => {
       if (animeRequestRef.current) cancelAnimationFrame(animeRequestRef.current);
     };
-  }, [status, draw]);
+  }, [status, render]);
 
 
   // --- ズーム・パンロジック ---
