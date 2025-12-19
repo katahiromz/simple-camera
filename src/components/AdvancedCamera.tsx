@@ -400,6 +400,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     // もしあればダミー画像を使用
     if (dummyImageSrc) {
       console.log('Using dummy image');
+      // ダミー画像がロードされるまで待つ
+      if (! isDummyImageLoaded) {
+        console.log('Waiting for dummy image to load...');
+        return; // ロード完了まで待機
+      }
       updateRenderMetrics('contain');
       setStatus('ready');
       setHasMic(false); // ダミー画像使用時はマイクなし
@@ -780,13 +785,21 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     // ダミー画像を使用するか？
     const dummyImage = dummyImageSrc ? dummyImageRef.current : null;
+    // ダミー画像使用時は、ロードが完了していることを確認
+    if (dummyImageSrc && ! dummyImage) {
+      console.log('Dummy image not loaded yet, skipping draw');
+      animeRequestRef.current = requestAnimationFrame(draw);
+      return;
+    }
 
     // ビデオまたはダミー画像のいずれかが利用可能である必要がある
     if (!dummyImage && !video) return;
 
     // renderMetricsが初期値(0)の場合は描画をスキップする
-    // これにより、正しいメトリクスが計算されるまでの間、不正なフレームの描画を防ぐ
-    if (renderMetrics.renderWidth === 0) return;
+    if (renderMetrics.renderWidth === 0 || renderMetrics.renderHeight === 0) {
+      animeRequestRef.current = requestAnimationFrame(draw);
+      return;
+    }
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
