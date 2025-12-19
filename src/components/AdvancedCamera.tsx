@@ -1060,9 +1060,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       window.removeEventListener('mouseup', handleMouseUp);
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
-      canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
-      canvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
-   };
+      canvas.removeEventListener('touchend', handleTouchEnd);
+      canvas.removeEventListener('touchcancel', handleTouchEnd);
+    };
   }, [handleMouseDown, handleMouseMove, handleMouseUp, handleTouchStart, handleTouchMove]);
 
   // フォールバック用のダウンロード関数
