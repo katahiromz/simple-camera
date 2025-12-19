@@ -102,6 +102,7 @@ type userImageProcessData = {
   height: number, // 転送先の高さ
   zoom: number, // ズーム倍率(0.0～1.0)
   pan: { x: number, y: number }, // パン(平行移動量、ピクセル単位)
+  effectiveMirror: boolean, // ミラー(反転)が適用されているか？
 };
 
 // イメージを処理するための関数型
@@ -735,11 +736,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   }, [isRecording, updateRenderMetrics]);
 
   // デフォルトのイメージ処理関数
-  const onDefaultImageProcess = useCallback((data: userImageProcessData) => {
+  const onDefaultImageProcess = (data: userImageProcessData) => {
     // 引数データ取得
     const canvas = data.canvas, video = data.video;
     const ctx = data.ctx, x = data.x, y = data.y, width = data.width, height = data.height;
-    const zoom = data.zoom, pan = data.pan;
+    const zoom = data.zoom, pan = data.pan, effectiveMirror = data.effectiveMirror;
 
     // 画面クリア
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -758,7 +759,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     // イメージを転送
     const source = data.dummyImage ? data.dummyImage : video;
     ctx.drawImage(source, x, y, width, height);
-  }, []);
+  };
 
   // requestAnimationFrameによる描画ループ
   const draw = useCallback(() => {
@@ -797,9 +798,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     try {
       if (onImageProcess) {
-        onImageProcess({canvas, video, ctx, x:offsetX, y:offsetY, width:renderWidth, height:renderHeight, zoom, pan, dummyImage});
+        onImageProcess({canvas, video, ctx, x:offsetX, y:offsetY, width:renderWidth, height:renderHeight, zoom, pan, dummyImage, effectiveMirror});
       } else {
-        onDefaultImageProcess({canvas, video, ctx, x:offsetX, y:offsetY, width:renderWidth, height:renderHeight, zoom, pan, dummyImage});
+        onDefaultImageProcess({canvas, video, ctx, x:offsetX, y:offsetY, width:renderWidth, height:renderHeight, zoom, pan, dummyImage, effectiveMirror});
       }
     } catch (error) {
       doWarn('image processing failed', error);
@@ -808,7 +809,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     ctx.restore();
 
     animeRequestRef.current = requestAnimationFrame(draw);
-  }, [status, isRecording, zoom, pan, renderMetrics, onDefaultImageProcess]);
+  }, [status, isRecording, zoom, pan, renderMetrics]);
 
   useEffect(() => {
     if (status === 'ready') {
