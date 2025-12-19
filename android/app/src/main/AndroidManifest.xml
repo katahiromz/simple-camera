@@ -31,7 +31,9 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"
         tools:targetApi="s"
-        android:requestLegacyExternalStorage="true">
+        android:requestLegacyExternalStorage="true"
+        android:hardwareAccelerated="true"
+    >
         <activity
             android:name=".MainActivity"
             android:theme="@style/Theme.SimpleCamera.Splash"
