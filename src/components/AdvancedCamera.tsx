@@ -341,25 +341,26 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const updateRenderMetrics = useCallback((objectFit: 'cover' | 'contain') => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    // Canvasが存在しない、またはサイズが確定していない場合は処理しない
+    if (!canvas || canvas.clientWidth === 0) return;
 
     let sourceWidth: number;
     let sourceHeight: number;
 
     if (dummyImageSrc) {
       // ダミー画像があれば、ダミー画像のサイズを使用
-      if (dummyImageRef.current) {
+      if (dummyImageRef.current && isDummyImageLoaded) {
         sourceWidth = dummyImageRef.current.naturalWidth;
         sourceHeight = dummyImageRef.current.naturalHeight;
       } else {
-        sourceWidth = sourceHeight = 1;
+        // 画像未ロード時はメトリクスの更新自体をスキップする
+        return;
       }
-    } else if (video) {
+    } else if (video && video.videoWidth > 0) {
       // ビデオのサイズを使用
       sourceWidth = video.videoWidth;
       sourceHeight = video.videoHeight;
     } else {
-      console.assert(false);
       return;
     }
 
@@ -367,15 +368,20 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     let canvasWidth = canvas.width;
     let canvasHeight = canvas.height;
 
-    // If canvas drawing buffer hasn't been set yet, use clientWidth/Height with dpr
-    if (canvasWidth === 0 || canvasHeight === 0) {
-      const dpr = window.devicePixelRatio || 1;
-      canvasWidth = Math.round(canvas.clientWidth * dpr);
-      canvasHeight = Math.round(canvas.clientHeight * dpr);
-      canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
+    // キャンバスの内部解像度が、現在の表示サイズ(clientWidth/Height)と一致しているか確認し、
+    // 異なっていれば（初期化時やデフォルトの300x150の場合など）、即座に合わせます。
+    const dpr = window.devicePixelRatio || 1;
+    const targetWidth = Math.round(canvas.clientWidth * dpr);
+    const targetHeight = Math.round(canvas.clientHeight * dpr);
+    if (canvasWidth !== targetWidth || canvasHeight !== targetHeight) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      // CSSサイズも念のため明示（ResizeObserver側のロジックと合わせる）
       canvas.style.width = `${canvas.clientWidth}px`;
       canvas.style.height = `${canvas.clientHeight}px`;
+      // 変数も更新
+      canvasWidth = targetWidth;
+      canvasHeight = targetHeight;
     }
 
     const metrics = calculateVideoRenderMetrics(
@@ -711,7 +717,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     const observer = new ResizeObserver((entries) => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        if (!isRecording && canvasRef.current) {
+        if (!isRecording && canvasRef.current && !dummyImageSrc) {
           const entry = entries[0];
           const width = entry.contentRect.width;
           const height = entry.contentRect.height;
@@ -724,8 +730,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           // キャンバスの内部解像度をコンテナサイズに合わせる (device pixels)
           if (canvasRef.current) {
             const dpr = window.devicePixelRatio || 1;
-            canvasRef.current.width = Math.round(width * dpr);
-            canvasRef.current.height = Math.round(height * dpr);
+            const newWidth = Math.round(width * dpr);
+            const newHeight = Math.round(height * dpr);
+            // 現在のサイズと異なる場合のみ代入する
+            // ※同じ値を代入するだけでもCanvasはクリアされてしまうため、このチェックは必須です
+            if (canvasRef.current.width !== newWidth || canvasRef.current.height !== newHeight) {
+              canvasRef.current.width = newWidth;
+              canvasRef.current.height = newHeight;
+            }
             // Set CSS size to maintain layout in CSS pixels
             canvasRef.current.style.width = `${width}px`;
             canvasRef.current.style.height = `${height}px`;
@@ -783,10 +795,19 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     }
     lastFrameTimeRef.current = now;
 
+    // メトリクスが未設定、または画像がロードされていない場合は背景を黒く塗るだけで終了
+    if (renderMetrics.renderWidth <= 0 || renderMetrics.renderHeight <= 0) {
+      const ctx = canvas.getContext('2d');
+      if (ctx)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      animeRequestRef.current = requestAnimationFrame(draw);
+      return;
+    }
+
     // ダミー画像を使用するか？
     const dummyImage = dummyImageSrc ? dummyImageRef.current : null;
     // ダミー画像使用時は、ロードが完了していることを確認
-    if (dummyImageSrc && ! dummyImage) {
+    if (dummyImageSrc && !dummyImage) {
       console.log('Dummy image not loaded yet, skipping draw');
       animeRequestRef.current = requestAnimationFrame(draw);
       return;
