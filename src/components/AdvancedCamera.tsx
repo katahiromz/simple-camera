@@ -293,6 +293,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (dummyImageSrc) {
       const img = new Image();
       img.onload = () => {
+        doLog("img.onload");
         dummyImageRef.current = img;
         setIsDummyImageLoaded(true);
         console.log('Dummy image loaded:', {
@@ -301,7 +302,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         });
       };
       img.onerror = (error) => {
-        doError('Failed to load dummy image:', error);
+        doError('img.onerror: ', error);
         setIsDummyImageLoaded(false);
       };
       img.src = dummyImageSrc;
@@ -496,6 +497,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
           // メタデータがロードされたら
           video.onloadedmetadata = () => {
+            doLog("video.onloadedmetadata");
             updateRenderMetrics('contain'); // 描画メトリクスを更新
             video.onloadedmetadata = null; // ハンドラを解除 (二重発火防止)
             resolve();
@@ -552,6 +554,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     };
 
     const handleCameraPermissionChange = () => {
+      doLog("video.handleCameraPermissionChange");
       try {
         const state = cameraPermissionRef.current?.state;
         console.log('camera permission state:', state);
@@ -578,6 +581,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     };
 
     const handleMicPermissionChange = () => {
+      doLog("handleMicPermissionChange");
       try {
         const state = micPermissionRef.current?.state;
         console.log('microphone permission state:', state);
@@ -621,7 +625,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     // devicechange をフォールバックとして監視（権限やデバイスの変更を検出できることがある）
     const onDeviceChange = () => {
-      doLog('mediaDevices devicechange detected — reinitializing or checking permissions');
+      doLog('onDeviceChange');
       // 少し遅延して再初期化 (デバイスリストが更新されるのを待つ)
       setTimeout(() => {
         // 権限が denied になっていれば initCamera は no-op となる
@@ -1120,6 +1124,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     console.assert(isAndroidApp);
     const reader = new FileReader();
     reader.onloadend = () => {
+      doLog("reader.onloadend");
       const result = reader.result;
       const base64data = result.substr(result.lastIndexOf(',') + 1);
       if (typeof window.android.saveImageToGallery === 'function') {
@@ -1242,6 +1247,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     const reader = new FileReader();
     reader.onloadend = () => {
+      doLog("reader.onloadend");
       const result = reader.result;
       // Base64エンコードされた文字列（データURI）を取得
       const base64data = result.substr(result.lastIndexOf(',') + 1);
@@ -1259,6 +1265,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // 録画の最終処理
   const finalizeRecording = (options) => {
+    doError('finalizeRecording');
     if (finalizedRef.current) return;
     finalizedRef.current = true;
 
@@ -1396,8 +1403,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       // データが利用可能になったときのイベントハンドラ
       recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
+        doLog('recorder.ondataavailable');
+
+        const data = event.data;
+        if (date && date.size > 0) {
+          recordedChunksRef.current.push(date);
         }
 
         // stop要求済み & inactive になったら finalize
@@ -1408,6 +1418,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       // 停止時もfinalize
       recorder.onstop = () => {
+        doLog('recorder.onstop');
         if (!finalizedRef.current) {
           finalizeRecording(options);
         }
@@ -1415,7 +1426,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       // エラーハンドラを追加
       recorder.onerror = (event: any) => {
-        doError('MediaRecorder error:', event.error);
+        doLog('recorder.onerror: ', event.error);
         setRecordingStatus('error');
         setIsRecording(false);
         stopRequestedRef.current = false;
