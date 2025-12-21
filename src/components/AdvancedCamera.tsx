@@ -889,19 +889,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     };
   }, [status, draw]);
 
-  // 物理の音量ボタンを押されたら撮影
-  useEffect(() => {
-    // Android側から呼ばれるグローバル関数を定義
-    (window as any).onPhysicalVolumeButton = () => {
-      takePhoto();
-    };
-
-    // コンポーネントがアンマウントされる時にクリーンアップ
-    return () => {
-      delete (window as any).onPhysicalVolumeButton;
-    };
-  }, [takePhoto]);
-
   // --- ズーム・パンロジック ---
   const MOUSE_WHEEL_DELTA = 0.004;
 
@@ -1225,6 +1212,21 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       alert(t('camera_taking_photo_failed'));
     }
   };
+
+  // 物理の音量ボタンを押されたら撮影
+  useEffect(() => {
+    // Android側から呼ばれるグローバル関数を定義
+    (window as any).onPhysicalVolumeButton = () => {
+      if (status === 'ready') {
+        takePhoto();
+      }
+    };
+
+    // コンポーネントがアンマウントされる時にクリーンアップ
+    return () => {
+      delete (window as any).onPhysicalVolumeButton;
+    };
+  }, [takePhoto]);
 
   // --- 録画・マイク制御 ---
 
