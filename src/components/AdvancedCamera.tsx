@@ -29,8 +29,7 @@ import { useTranslation } from 'react-i18next';
 const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
 
 const NORMAL_FPS = 30; // 通常のFPS
-const RECORDING_FPS = 12; // 録画用のFPS
-const MOBILE_VIDEO_BITRATE = 2_000_000; // モバイル端末用のビデオビットレート
+const RECORDING_FPS = 30; // 録画用のFPS
 
 // アプリケーションのベースパスを取得
 const BASE_URL = import.meta.env.BASE_URL;
@@ -96,13 +95,11 @@ interface AdvancedCameraProps {
 // MediaRecorderオプション
 const ANDROID_SAFE_OPTIONS: MediaRecorderOptions = {
   mimeType: 'video/webm;codecs=vp8',
-  videoBitsPerSecond: isMobile ? MOBILE_VIDEO_BITRATE : undefined,
-  audio: false
+  videoBitsPerSecond: 1_000_000, // 1Mbps（より安定）
 };
 const DESKTOP_OPTIONS: MediaRecorderOptions = {
   mimeType: 'video/webm',
   videoBitsPerSecond: undefined,
-  audio: false
 };
 
 // AdvancedCamera本体
@@ -369,7 +366,21 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // --- 初期化 & カメラ取得フロー ---
   const initCamera = useCallback(async () => {
+    console.log('initCamera: start', { status, facingMode });
+
     setStatus('initializing');
+
+    // 既存のストリームがあれば停止
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
+    // アニメーションフレームをキャンセル
+    if (animeRequestRef.current) {
+      cancelAnimationFrame(animeRequestRef.current);
+      animeRequestRef.current = undefined;
+    }
 
     // 新しいストリームのロードに備え、描画メトリクスとパンをリセットする
     setRenderMetrics({ renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 });
@@ -425,6 +436,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         videoRef.current.srcObject = videoStream;
         streamRef.current = videoStream;
 
+        console.log('Video tracks:', videoStream.getVideoTracks().map(t => ({
+          id: t.id,
+          label: t.label,
+          enabled: t.enabled,
+          readyState: t.readyState
+        })));
+
         if (onUserMedia)
           onUserMedia(videoStream);
 
@@ -446,20 +464,23 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
         // readyへの遷移を onloadedmetadata に委ねる (Promiseで待機)
         await new Promise<void>((resolve) => {
-          const video = videoRef.current;
-
           // 既にメタデータがロード済みの場合 (非常に稀)
-          if (video.readyState >= 2) {
+          if (videoRef.current.readyState >= 2) {
             updateRenderMetrics('contain');
             resolve();
             return;
           }
 
           // メタデータがロードされたら
-          video.onloadedmetadata = () => {
-            console.log("video.onloadedmetadata");
+          videoRef.current.onloadedmetadata = () => {
+            const video = videoRef.current;
+            console.log('Video metadata loaded:', {
+              videoWidth: video.videoWidth,
+              videoHeight: video.videoHeight,
+              readyState: video.readyState
+            });
             updateRenderMetrics('contain'); // 描画メトリクスを更新
-            video.onloadedmetadata = null; // ハンドラを解除 (二重発火防止)
+            videoRef.current.onloadedmetadata = null; // ハンドラを解除 (二重発火防止)
             resolve();
           };
         });
@@ -636,6 +657,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       streamRef.current = null;
     }
 
+    // アニメーションフレームをキャンセル
+    if (animeRequestRef.current) {
+      cancelAnimationFrame(animeRequestRef.current);
+      animeRequestRef.current = undefined;
+    }
+
     // facing mode を切り替え
     const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
     setFacingMode(newFacingMode);
@@ -648,7 +675,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (status === 'switching') {
       initCamera();
     }
-  }, [facingMode, initCamera]);
+  }, [facingMode]);
 
   // Determine if camera should be initialized based on dummy image state
   // This helper function encapsulates the initialization logic to handle both
@@ -1318,7 +1345,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           const audioStream = await navigator.mediaDevices.getUserMedia({
             audio: {
               echoCancellation: true,
-              noiseSuppression: true
+              noiseSuppression: true,
+              sampleRate: 48000
             }
           });
           const audioTracks = audioStream.getAudioTracks();
@@ -1379,7 +1407,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       };
 
       // 録画開始
-      mediaRecorderRef.current.start(100); // 100msごとにデータを取得
+      mediaRecorderRef.current.start(1000); // 1000msごとにデータを取得
       setIsRecording(true);
       setRecordingStatus('recording');
 
