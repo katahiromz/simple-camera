@@ -17,6 +17,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.webkit.PermissionRequest
