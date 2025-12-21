@@ -645,6 +645,18 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     }
     private var resultString = ""
 
+    // キーを押した？
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        when (keyCode) {
+            // 音量キー
+            KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                webView?.evaluateJavascript("window.onPhysicalVolumeButton()", null)
+                return true // 音量変更の動作をキャンセルする場合
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
     // endregion
 
     /////////////////////////////////////////////////////////////////////
