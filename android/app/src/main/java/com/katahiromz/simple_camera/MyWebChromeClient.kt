@@ -242,11 +242,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 )
                 
                 // Snackbarを表示
-                val uri = FileProvider.getUriForFile(
-                    currentActivity,
-                    "${currentActivity.packageName}.fileprovider",
-                    file
-                )
+                val uri = android.net.Uri.fromFile(file)
                 showFileOpenSnackbar(currentActivity, uri, R.string.image_saved, "image/*")
                 
                 true
@@ -320,11 +316,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 )
                 
                 // Snackbarを表示
-                val uri = FileProvider.getUriForFile(
-                    currentActivity,
-                    "${currentActivity.packageName}.fileprovider",
-                    file
-                )
+                val uri = android.net.Uri.fromFile(file)
                 showFileOpenSnackbar(currentActivity, uri, R.string.video_saved, "video/*")
                 
                 true
