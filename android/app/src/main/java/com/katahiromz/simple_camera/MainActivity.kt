@@ -195,7 +195,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     private val actionsOnPermissionsGranted = mutableListOf<() -> Unit>()
     // 拒否されたときに実行する処理を保持するリスト
     private val actionsOnPermissionsDenied = mutableListOf<() -> Unit>()
-    
+
     // パーミッションリクエストが進行中かどうかのフラグ
     private var permissionRequestInProgress: Boolean = false
     // 保留中のWebView PermissionRequestのキュー
@@ -422,7 +422,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
                                 this@MainActivity,
                                 permission
                             ) == PackageManager.PERMISSION_GRANTED
-                            
+
                             if (isGranted) {
                                 grantedResources.add(resource)
                             }
@@ -453,27 +453,27 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
      */
     private fun requestInitialPermissions() {
         val permissions = mutableListOf<String>()
-        
+
         // カメラ権限（必須）
-        if (USE_CAMERA && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
+        if (USE_CAMERA && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.CAMERA)
         }
-        
+
         // 録音権限（オプション）
-        if (USE_AUDIO && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) 
+        if (USE_AUDIO && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.RECORD_AUDIO)
         }
-        
+
         // ストレージ権限（Android 9以前のみ）
         if (USE_STORAGE && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED) {
                 permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
         }
-        
+
         // 権限が必要な場合のみ要求
         if (permissions.isNotEmpty()) {
             checkAndRequestPermissions(

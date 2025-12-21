@@ -190,7 +190,19 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
     @JavascriptInterface
     fun saveImageToGallery(base64Data: String, filename: String, mimeType: String): Boolean {
         val currentActivity = activity ?: return false
-        
+
+        // Android 9以前では権限チェック
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+            if (android.content.ContextCompat.checkSelfPermission(
+                    currentActivity,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                Timber.e("WRITE_EXTERNAL_STORAGE permission not granted")
+                return false
+            }
+        }
+
         return try {
             val imageBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
             
@@ -257,7 +269,19 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
     @JavascriptInterface
     fun saveVideoToGallery(base64Data: String, filename: String, mimeType: String): Boolean {
         val currentActivity = activity ?: return false
-        
+
+        // Android 9以前では権限チェック
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+            if (android.content.ContextCompat.checkSelfPermission(
+                    currentActivity,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                Timber.e("WRITE_EXTERNAL_STORAGE permission not granted")
+                return false
+            }
+        }
+
         return try {
             // カンマが含まれている場合、それ以降のデータのみを抽出する修正
             val pureBase64 = if (base64Data.contains(",")) {
