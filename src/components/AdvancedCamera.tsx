@@ -1275,13 +1275,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       return;
     }
 
-    // デバッグ: chunksの内容を確認
-    console.log('Finalizing recording:', {
-      chunkCount: recordedChunksRef.current.length,
-      totalSize: recordedChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0),
-      chunkSizes: recordedChunksRef.current.map(chunk => chunk.size)
-    });
-
     // ビデオ録画完了音を再生
     if (mustPlaySound(options)) {
       playSound(videoCompleteAudioRef.current);
@@ -1291,6 +1284,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     const mimeType = 'video/webm';
     const blob = new Blob(recordedChunksRef.current, { type: mimeType });
     console.assert(blob.size > 0);
+
+    // デバッグ: chunksの内容を確認
+    console.log('Finalizing recording: ', blob.size);
 
     // 録画データをクリア
     recordedChunksRef.current = [];

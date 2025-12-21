@@ -237,6 +237,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 }
                 return false
             }
+            Timber.i("imageBytes: " + imageBytes.size)
 
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Android 10以降: MediaStore APIを使用
@@ -348,6 +349,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 }
                 return false
             }
+            Timber.i("videoBytes: " + videoBytes.size)
 
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Android 10以降: MediaStore APIを使用
