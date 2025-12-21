@@ -1326,6 +1326,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // 録画開始
   const startRecording = async (options = null) => {
+    doLog("startRecording");
     // 少なくとも1フレーム描画されていることを保証
     await new Promise(r => requestAnimationFrame(() => r(null)));
 
@@ -1406,8 +1407,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         doLog('recorder.ondataavailable');
 
         const data = event.data;
-        if (date && date.size > 0) {
-          recordedChunksRef.current.push(date);
+        doLog("data: ", data.text().substr(0, 16), "...");
+        if (data && data.size > 0) {
+          recordedChunksRef.current.push(data);
         }
 
         // stop要求済み & inactive になったら finalize
@@ -1452,6 +1454,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // 録画停止
   const stopRecording = async (options = null) => {
+    doLog("stopRecording");
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state === 'inactive') return;
 
@@ -1467,19 +1470,19 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     // WebView 対策の待ち
     setTimeout(() => {
       recorder.stop();
-    }, 100);
+    }, 500);
   };
 
   // 録画の一時停止
-  // 注: UI未実装（将来の拡張用）
   const pauseRecording = async () => {
+    doLog("pauseRecording");
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state !== 'recording') return;
 
     try {
       recorder.pause();
       setRecordingStatus('paused');
-      doLog('Recording paused');
+      doLog('paused');
     } catch (error) {
       doError('Recording pause failed:', error);
       setRecordingStatus('error');
@@ -1487,15 +1490,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   };
 
   // 録画の再開
-  // 注: UI未実装（将来の拡張用）
   const resumeRecording = async () => {
+    doLog("resumeRecording");
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state !== 'paused') return;
 
     try {
       recorder.resume();
       setRecordingStatus('recording');
-      doLog('Recording resumed');
+      doLog('resumed');
     } catch (error) {
       doError('Recording resume failed:', error);
       setRecordingStatus('error');
