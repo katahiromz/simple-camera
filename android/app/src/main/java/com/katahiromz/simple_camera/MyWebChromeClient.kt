@@ -222,7 +222,6 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         }
 
         return try {
-            // カンマが含まれている場合、それ以降のデータのみを抽出する修正
             val pureBase64 = if (base64Data.contains(",")) {
                 base64Data.substring(base64Data.lastIndexOf(",") + 1)
             } else {
@@ -244,23 +243,23 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 val contentValues = android.content.ContentValues().apply {
                     put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, filename)
                     put(android.provider.MediaStore.Images.Media.MIME_TYPE, mimeType)
-                    put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, 
+                    put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,
                         android.os.Environment.DIRECTORY_PICTURES + "/SimpleCamera")
                 }
-                
+
                 val uri = currentActivity.contentResolver.insert(
                     android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                     contentValues
                 )
-                
+
                 uri?.let {
                     currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
                         outputStream.write(imageBytes)
                     }
-                    
+
                     // Snackbar繧定｡ｨ遉ｺ
                     showFileOpenSnackbar(currentActivity, it, R.string.image_saved, "image/*")
-                    
+
                     true
                 } ?: false
             } else {
@@ -272,12 +271,12 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 if (!appDir.exists()) {
                     appDir.mkdirs()
                 }
-                
+
                 val file = java.io.File(appDir, filename)
                 java.io.FileOutputStream(file).use { outputStream ->
                     outputStream.write(imageBytes)
                 }
-                
+
                 // MediaScannerConnection繧剃ｽｿ縺｣縺ｦ繧ｮ繝｣繝ｩ繝ｪ繝ｼ縺ｫ騾夂衍
                 android.media.MediaScannerConnection.scanFile(
                     currentActivity,
@@ -285,11 +284,11 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     arrayOf(mimeType),
                     null
                 )
-                
+
                 // Snackbar繧定｡ｨ遉ｺ
                 val uri = android.net.Uri.fromFile(file)
                 showFileOpenSnackbar(currentActivity, uri, R.string.image_saved, "image/*")
-                
+
                 true
             }
         } catch (e: Exception) {
@@ -334,7 +333,6 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         }
 
         return try {
-            // カンマが含まれている場合、それ以降のデータのみを抽出する修正
             val pureBase64 = if (base64Data.contains(",")) {
                 base64Data.substring(base64Data.lastIndexOf(",") + 1)
             } else {
@@ -356,23 +354,23 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 val contentValues = android.content.ContentValues().apply {
                     put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, filename)
                     put(android.provider.MediaStore.Video.Media.MIME_TYPE, mimeType)
-                    put(android.provider.MediaStore.Video.Media.RELATIVE_PATH, 
+                    put(android.provider.MediaStore.Video.Media.RELATIVE_PATH,
                         android.os.Environment.DIRECTORY_MOVIES + "/SimpleCamera")
                 }
-                
+
                 val uri = currentActivity.contentResolver.insert(
                     android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
                     contentValues
                 )
-                
+
                 uri?.let {
                     currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
                         outputStream.write(videoBytes)
                     }
-                    
+
                     // Snackbar繧定｡ｨ遉ｺ
                     showFileOpenSnackbar(currentActivity, it, R.string.video_saved, "video/*")
-                    
+
                     true
                 } ?: false
             } else {
@@ -384,12 +382,12 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 if (!appDir.exists()) {
                     appDir.mkdirs()
                 }
-                
+
                 val file = java.io.File(appDir, filename)
                 java.io.FileOutputStream(file).use { outputStream ->
                     outputStream.write(videoBytes)
                 }
-                
+
                 // MediaScannerConnection繧剃ｽｿ縺｣縺ｦ繧ｮ繝｣繝ｩ繝ｪ繝ｼ縺ｫ騾夂衍
                 android.media.MediaScannerConnection.scanFile(
                     currentActivity,
@@ -397,11 +395,11 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     arrayOf(mimeType),
                     null
                 )
-                
+
                 // Snackbar繧定｡ｨ遉ｺ
                 val uri = android.net.Uri.fromFile(file)
                 showFileOpenSnackbar(currentActivity, uri, R.string.video_saved, "video/*")
-                
+
                 true
             }
         } catch (e: Exception) {

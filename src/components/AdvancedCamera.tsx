@@ -40,47 +40,6 @@ const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isAndroidApp = typeof window.android !== 'undefined';
 const isAndroidWebView = /Android/.test(navigator.userAgent) && /wv/.test(navigator.userAgent);
 
-// デバッグ
-const isDeepDebug = false;
-const getStack = () => {
-  try { throw Error('') } catch(err) { return err.stack; }
-};
-const expandArgs = (...args): string => {
-  let str: string = '';
-  for (let item of args) {
-    str += item.toString();
-  }
-  return str;
-};
-const getTraceString = (str, stack, what) => {
-  let stack_str = stack.toString();
-  let i0 = stack_str.search(/\bat\b/m);
-  stack_str = stack_str.substr(i0 + 2);
-  let i1 = stack_str.search(/\bat\b/m);
-  stack_str = stack_str.substr(i1 + 2);
-  let i2 = stack_str.search(/\bat\b/m);
-  stack_str = stack_str.substr(i2);
-  return str + " " + stack_str;
-};
-const doLog = (...args) => {
-  if (isDeepDebug) {
-    alert(getTraceString(expandArgs(args), getStack(), "Log"));
-  }
-  console.log(...args);
-};
-const doWarn = (...args) => {
-  if (isDeepDebug) {
-    alert(getTraceString(expandArgs(args), getStack(), "Warning"));
-  }
-  console.warn(...args);
-};
-const doError = (...args) => {
-  if (isDeepDebug) {
-    alert(getTraceString(expandArgs(args), getStack(), "Error"));
-  }
-  console.error(...args);
-};
-
 // ステータス定義
 type CameraStatus = 'initializing' | 'ready' | 'noPermission' | 'noDevice' | 'switching';
 
@@ -138,11 +97,12 @@ interface AdvancedCameraProps {
 const ANDROID_SAFE_OPTIONS: MediaRecorderOptions = {
   mimeType: 'video/webm;codecs=vp8',
   videoBitsPerSecond: isMobile ? MOBILE_VIDEO_BITRATE : undefined,
-  audioBitsPerSecond: 128_000,
+  audio: false
 };
 const DESKTOP_OPTIONS: MediaRecorderOptions = {
-  mimeType: 'video/mp4',
+  mimeType: 'video/webm',
   videoBitsPerSecond: undefined,
+  audio: false
 };
 
 // AdvancedCamera本体
@@ -176,8 +136,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const animeRequestRef = useRef<number>(); // アニメーションの要求
   const shutterAudioRef = useRef<HTMLAudioElement | null>(null); // シャッター音の Audio オブジェクト
@@ -185,8 +143,10 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const videoCompleteAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画完了音の Audio オブジェクト
   const dummyImageRef = useRef<HTMLImageElement | null>(null); // ダミー画像の Image オブジェクト
   const lastFrameTimeRef = useRef<number>(0);
-  const stopRequestedRef = useRef(false); // 録画停止要求
-  const finalizedRef = useRef(false); // 録画最終処理ガード
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null); // メディアレコーダー
+  const recordedChunksRef = useRef<Blob[]>([]); // 録画用のchunks
+  const finalizedRef = useRef<boolean>(false); // 録画の最終処理をしたか
+  const stopRequestedRef = useRef<boolean>(false); // 録画停止要求したか？
 
   // タッチ操作用のRef
   const lastTouchDistanceRef = useRef(0);
@@ -227,7 +187,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         return saved;
       }
     } catch (error) {
-      doWarn('Failed to load facingMode from localStorage:', error);
+      console.warn('Failed to load facingMode from localStorage:', error);
     }
     return 'environment'; // デフォルト値
   });
@@ -236,7 +196,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     try {
       localStorage.setItem('AdvancedCamera_facingMode', facingMode);
     } catch (error) {
-      doWarn('Failed to save facingMode to localStorage:', error);
+      console.warn('Failed to save facingMode to localStorage:', error);
     }
   }, [facingMode]);
 
@@ -284,7 +244,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         videoCompleteAudioRef.current.load();
       }
     } catch (error) {
-      doError('Failed to initialize shutter audio:', error);
+      console.error('Failed to initialize shutter audio:', error);
     }
   }, []); // 依存配列が空なのでマウント時に一度だけ実行される
 
@@ -293,7 +253,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (dummyImageSrc) {
       const img = new Image();
       img.onload = () => {
-        doLog("img.onload");
+        console.log("img.onload");
         dummyImageRef.current = img;
         setIsDummyImageLoaded(true);
         console.log('Dummy image loaded:', {
@@ -302,7 +262,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         });
       };
       img.onerror = (error) => {
-        doError('img.onerror: ', error);
+        console.error('img.onerror: ', error);
         setIsDummyImageLoaded(false);
       };
       img.src = dummyImageSrc;
@@ -338,7 +298,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         audio.play();
       }
     } catch (error) {
-      doWarn('sound playback failed:', error);
+      console.warn('sound playback failed:', error);
     }
   }
 
@@ -452,7 +412,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           });
           if (videoStream) break;
         } catch (error) {
-          doWarn('Constraint failed:', constraint);
+          console.warn('Constraint failed:', constraint);
           continue;
         }
       }
@@ -481,7 +441,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             }
           }
         } catch (error) {
-          doWarn('Failed to get camera facing mode:', error);
+          console.warn('Failed to get camera facing mode:', error);
         }
 
         // readyへの遷移を onloadedmetadata に委ねる (Promiseで待機)
@@ -497,7 +457,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
           // メタデータがロードされたら
           video.onloadedmetadata = () => {
-            doLog("video.onloadedmetadata");
+            console.log("video.onloadedmetadata");
             updateRenderMetrics('contain'); // 描画メトリクスを更新
             video.onloadedmetadata = null; // ハンドラを解除 (二重発火防止)
             resolve();
@@ -517,7 +477,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       setStatus('ready');
     } catch (error: any) {
-      doError('Camera Init Error:', error);
+      console.error('Camera Init Error:', error);
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
         setStatus('noPermission');
       } else {
@@ -549,12 +509,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           micPermissionRef.current = null;
         }
       } catch (e) {
-        doWarn('cleanupPermissionListeners failed', e);
+        console.warn('cleanupPermissionListeners failed', e);
       }
     };
 
     const handleCameraPermissionChange = () => {
-      doLog("video.handleCameraPermissionChange");
+      console.log("video.handleCameraPermissionChange");
       try {
         const state = cameraPermissionRef.current?.state;
         console.log('camera permission state:', state);
@@ -565,9 +525,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
             streamRef.current.getTracks().forEach(t => t.stop());
             streamRef.current = null;
           }
-          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-            mediaRecorderRef.current.stop();
-          }
           setStatus('noPermission');
         } else if (state === 'granted') {
           // 権限が付与されたら再初期化
@@ -576,12 +533,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           }
         }
       } catch (e) {
-        doWarn('handleCameraPermissionChange failed', e);
+        console.warn('handleCameraPermissionChange failed', e);
       }
     };
 
     const handleMicPermissionChange = () => {
-      doLog("handleMicPermissionChange");
+      console.log("handleMicPermissionChange");
       try {
         const state = micPermissionRef.current?.state;
         console.log('microphone permission state:', state);
@@ -593,13 +550,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           setHasMic(true);
         }
       } catch (e) {
-        doWarn('handleMicPermissionChange failed', e);
+        console.warn('handleMicPermissionChange failed', e);
       }
     };
 
     const setupPermissions = async () => {
       if (!navigator.permissions || !navigator.permissions.query) {
-        doLog('Permissions API not supported in this browser');
+        console.log('Permissions API not supported in this browser');
         return;
       }
 
@@ -619,13 +576,13 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         handleCameraPermissionChange();
         handleMicPermissionChange();
       } catch (error) {
-        doWarn('setupPermissions failed', error);
+        console.warn('setupPermissions failed', error);
       }
     };
 
     // devicechange をフォールバックとして監視（権限やデバイスの変更を検出できることがある）
     const onDeviceChange = () => {
-      doLog('onDeviceChange');
+      console.log('onDeviceChange');
       // 少し遅延して再初期化 (デバイスリストが更新されるのを待つ)
       setTimeout(() => {
         // 権限が denied になっていれば initCamera は no-op となる
@@ -656,7 +613,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
           (navigator.mediaDevices as any).ondevicechange = null;
         }
       } catch (e) {
-        doWarn('failed to cleanup devicechange listener', e);
+        console.warn('failed to cleanup devicechange listener', e);
       }
     };
   }, [initCamera, status]);
@@ -667,7 +624,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     // ダミー画像を使用している場合は切り替え不可
     if (dummyImageSrc) {
-      doLog('Camera switching is disabled when using dummy image');
+      console.log('Camera switching is disabled when using dummy image');
       return;
     }
 
@@ -853,7 +810,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         onDefaultImageProcess({canvas, video, ctx, x:offsetX, y:offsetY, width:renderWidth, height:renderHeight, zoom, pan, dummyImage, effectiveMirror});
       }
     } catch (error) {
-      doWarn('image processing failed', error);
+      console.warn('image processing failed', error);
     }
 
     ctx.restore();
@@ -884,7 +841,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     // アニメーション再開用の関数を登録
     (window as any).__advancedCamera.resumeAnimation = () => {
-      doLog('Resuming camera animation from native');
+      console.log('Resuming camera animation from native');
       // 安全性チェック: ready状態でのみ実行
       if (status === 'ready' && !animeRequestRef.current) {
         animeRequestRef.current = requestAnimationFrame(draw);
@@ -976,7 +933,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   let lastMouseX = 0, lastMouseY = 0;
 
   const handleMouseDown = useCallback((event: MouseEvent) => {
-    console.log("mouse button down");
     if (event.button === 1) { // 中央ボタン
       event.preventDefault();
       isDraggingRef.current = true;
@@ -986,7 +942,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
     if (!isDraggingRef.current) return;
-    console.log("mouse dragging");
     event.preventDefault();
 
     const dx = event.clientX - lastMousePosRef.current.x;
@@ -1000,7 +955,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   }, [clampPanWithResistance, zoom]);
 
   const handleMouseUp = useCallback(() => {
-    console.log("mouse button up");
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
 
@@ -1023,7 +977,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   const handleTouchStart = useCallback((event: TouchEvent) => {
     if (event.touches.length === 2) {
-      console.log("touch start");
       event.preventDefault();
       const distance = getDistance(event.touches[0], event.touches[1]);
       const center = getCenter(event.touches[0], event.touches[1]);
@@ -1041,7 +994,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   const handleTouchMove = useCallback((event: TouchEvent) => {
     if (event.touches.length === 2) { // 2本指操作
-      console.log("touch move (panning & zooming)");
       event.preventDefault();
 
       const t1 = event.touches[0], t2 = event.touches[1];
@@ -1124,16 +1076,16 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     console.assert(isAndroidApp);
     const reader = new FileReader();
     reader.onloadend = () => {
-      doLog("reader.onloadend");
+      console.log("reader.onloadend");
       const result = reader.result;
       const base64data = result.substr(result.lastIndexOf(',') + 1);
       if (typeof window.android.saveImageToGallery === 'function') {
         try {
           window.android.saveImageToGallery(base64data, fileName, mimeType);
-          doLog('Saved image:', fileName);
+          console.log('Saved image:', fileName);
         } catch (error) {
           console.assert(false);
-          doError('android インタフェース呼び出しエラー:', error);
+          console.error('android インタフェース呼び出しエラー:', error);
           downloadFallback(blob, fileName);
         }
       } else {
@@ -1178,7 +1130,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const photoCtx = photoCanvas.getContext('2d');
 
       if (!photoCtx) {
-        doError('Failed to get photo canvas context');
+        console.error('Failed to get photo canvas context');
         alert(t('camera_taking_photo_failed'));
         return;
       }
@@ -1223,7 +1175,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         }
       }, photoFormat, photoQuality);
     } catch (error) {
-      doError('Photo capture failed', error);
+      console.error('Photo capture failed', error);
       alert(t('camera_taking_photo_failed'));
     }
   };
@@ -1243,20 +1195,20 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     console.assert(isAndroidApp);
 
     // デバッグ: Blobの内容を確認
-    doLog('saveVideoToGallery called: ' + blob.size + ', ' + blob.type + ', ' + mimeType);
+    console.log('saveVideoToGallery called: ' + blob.size + ', ' + blob.type + ', ' + mimeType);
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      doLog("reader.onloadend");
+      console.log("reader.onloadend");
       const result = reader.result;
       // Base64エンコードされた文字列（データURI）を取得
       const base64data = result.substr(result.lastIndexOf(',') + 1);
       // Kotlin側の関数を呼び出す
       try {
         window.android.saveVideoToGallery(base64data, fileName, mimeType);
-        doLog('Saved video:', fileName);
+        console.log('Saved video:', fileName);
       } catch (error) {
-        doError('android インタフェース呼び出しエラー:', error);
+        console.error('android インタフェース呼び出しエラー:', error);
         alert(t('camera_saving_movie_failed', { error: error }));
       }
     };
@@ -1265,51 +1217,48 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // 録画の最終処理
   const finalizeRecording = (options) => {
-    doError('finalizeRecording');
+    console.log('finalizeRecording');
+    console.assert(!finalizedRef.current);
     if (finalizedRef.current) return;
     finalizedRef.current = true;
 
-    const recorder = mediaRecorderRef.current;
-    if (!recorder) return;
-
-    const mimeType = recorder.mimeType || 'video/webm';
-
-    // デバッグ: chunksの内容を確認
-    const totalSize = recordedChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0);
-    doLog('Finalizing recording: ' + totalSize + ', ' + mimeType);
-
-    const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-
-    stopRequestedRef.current = false;
-    mediaRecorderRef.current = null;
-
-    if (blob.size === 0) {
-      doError('Empty video blob');
+    if (!mediaRecorderRef.current) {
+      console.assert(false);
       return;
     }
 
-    setIsRecording(false);
-    setRecordingStatus('idle');
-    setRecordingTime(0);
+    // デバッグ: chunksの内容を確認
+    console.log('Finalizing recording:', {
+      chunkCount: recordedChunksRef.current.length,
+      totalSize: recordedChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0),
+      chunkSizes: recordedChunksRef.current.map(chunk => chunk.size)
+    });
 
     // ビデオ録画完了音を再生
     if (mustPlaySound(options)) {
       playSound(videoCompleteAudioRef.current);
     }
 
+    // chunksを統合して１つのBlob (Binary Large Object)を作成
+    const mimeType = 'video/webm';
+    const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+    console.assert(blob.size > 0);
+
+    // 録画データをクリア
+    recordedChunksRef.current = [];
+    stopRequestedRef.current = false;
+    mediaRecorderRef.current = null;
+
+    // 録音ステータスを更新
+    setIsRecording(false);
+    setRecordingStatus('idle');
+    setRecordingTime(0);
+
     const extension = videoFormatToExtension(mimeType); // 拡張子
     const fileName = generateFileName(t('camera_text_video') + '_', extension); // ファイル名
 
     // Blobの検証とログ出力
-    doLog('Video recording completed: ' + blob.size);
-
-    // Blobが空でないか確認
-    if (blob.size === 0) {
-      doError('Generated video blob is empty!');
-      setRecordingStatus('error');
-      alert(t('camera_recording_error', { error: 'Video file is empty' }));
-      return;
-    }
+    console.log('Video recording completed: ' + blob.size);
 
     if (isAndroidApp) {
       saveVideoToGallery(blob, fileName, mimeType);
@@ -1317,18 +1266,12 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       downloadFallback(blob, fileName);
     }
 
-    // MediaRecorderインスタンスをクリーンアップ
-    mediaRecorderRef.current = null;
-    recordedChunksRef.current = [];
-
-    doLog('MediaRecorder recording stopped and cleaned up');
+    console.log('MediaRecorder recording stopped and cleaned up');
   };
 
   // 録画開始
   const startRecording = async (options = null) => {
-    doLog("startRecording");
-    // 少なくとも1フレーム描画されていることを保証
-    await new Promise(r => requestAnimationFrame(() => r(null)));
+    console.log("startRecording");
 
     try {
       if (!canvasRef.current) {
@@ -1349,103 +1292,103 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         playSound(videoStartAudioRef.current);
       }
 
-      // 映像ストリーム
-      const canvasStream = canvasRef.current.captureStream(RECORDING_FPS);
+      // 録画データをクリア
+      recordedChunksRef.current = [];
+      finalizedRef.current = false;
+      stopRequestedRef.current = false;
+      let tracks = [];
 
-      // ストリームが有効か確認
+      // キャンバスから映像トラックを取得
+      const canvasStream = canvasRef.current.captureStream(RECORDING_FPS);
       const videoTracks = canvasStream.getVideoTracks();
       if (videoTracks.length === 0) {
         throw new Error('No video tracks available from canvas');
       }
+      tracks.push(...videoTracks);
 
-      const tracks = [...videoTracks];
+      console.log('Video track settings:', {
+        frameRate: videoTracks[0].getSettings().frameRate,
+        width: videoTracks[0].getSettings().width,
+        height: videoTracks[0].getSettings().height
+      });
 
-      // 音声ストリーム
+      // マイクから音声トラックを取得
       if (hasMic && micEnabled) {
         try {
           const audioStream = await navigator.mediaDevices.getUserMedia({
             audio: {
               echoCancellation: true,
-              noiseSuppression: true,
-              sampleRate: 48000
+              noiseSuppression: true
             }
           });
           const audioTracks = audioStream.getAudioTracks();
           if (audioTracks.length > 0) {
             tracks.push(...audioTracks);
-            doLog('Audio track added:', {
+            console.log('Audio track added:', {
               label: audioTracks[0].label,
               enabled: audioTracks[0].enabled,
               muted: audioTracks[0].muted,
               readyState: audioTracks[0].readyState
             });
           } else {
-            doWarn('No audio tracks found in audio stream');
+            console.warn('No audio tracks found in audio stream');
           }
         } catch (error) {
-          doError('Mic access failed during record start:', error);
+          console.error('Mic access failed during record start:', error);
           // 音声なしで録画を続行
         }
       }
 
-      // 結合
+      // トラックを結合
       const combinedStream = new MediaStream(tracks);
 
       // MediaRecorderインスタンスを作成
-      const recorder = new MediaRecorder(combinedStream,
-        isAndroidWebView ? ANDROID_SAFE_OPTIONS : DESKTOP_OPTIONS);
-
-      // 録画されたチャンクをクリア
-      recordedChunksRef.current = [];
-
-      // フラグをクリア
-      finalizedRef.current = false;
-      stopRequestedRef.current = false;
+      const recorderOptions = isAndroidWebView ? ANDROID_SAFE_OPTIONS : DESKTOP_OPTIONS;
+      console.log('Creating MediaRecorder with options:', recorderOptions);
+      mediaRecorderRef.current = new MediaRecorder(combinedStream, recorderOptions);
+      console.log(mediaRecorderRef.current);
 
       // データが利用可能になったときのイベントハンドラ
-      recorder.ondataavailable = (event) => {
-        doLog('recorder.ondataavailable');
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        console.log('ondataavailable');
 
         const data = event.data;
-        doLog("data: ", data.text().substr(0, 16), "...");
+        console.log("data.size: " + data.size);
+
         if (data && data.size > 0) {
           recordedChunksRef.current.push(data);
-        }
-
-        // stop要求済み & inactive になったら finalize
-        if (stopRequestedRef.current && recorder.state === 'inactive') {
-          finalizeRecording(options);
+          console.log("Total chunks: " + recordedChunksRef.current.length);
         }
       };
 
-      // 停止時もfinalize
-      recorder.onstop = () => {
-        doLog('recorder.onstop');
+      // 停止時にfinalize
+      mediaRecorderRef.current.onstop = (event) => {
+        console.log('onstop');
         if (!finalizedRef.current) {
           finalizeRecording(options);
         }
       };
 
       // エラーハンドラを追加
-      recorder.onerror = (event: any) => {
-        doLog('recorder.onerror: ', event.error);
+      mediaRecorderRef.current.onerror = (event: any) => {
+        console.log('onerror: ', event.error);
         setRecordingStatus('error');
         setIsRecording(false);
         stopRequestedRef.current = false;
-        mediaRecorderRef.current = null;
         recordedChunksRef.current = [];
-        finalizedRef.current = false;
       };
 
       // 録画開始
-      recorder.start();
-      mediaRecorderRef.current = recorder;
+      mediaRecorderRef.current.start(100); // 100msごとにデータを取得
       setIsRecording(true);
       setRecordingStatus('recording');
 
-      doLog('MediaRecorder recording started');
+      console.log('MediaRecorder recording started', {
+        state: mediaRecorderRef.currentstate,
+        mimeType: mediaRecorderRef.currentmimeType
+      });
     } catch (error) {
-      doError('Recording start failed', error);
+      console.error('Recording start failed', error);
       setRecordingStatus('error');
       setIsRecording(false);
       alert(t('camera_recording_cannot_start', { error }));
@@ -1454,53 +1397,71 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // 録画停止
   const stopRecording = async (options = null) => {
-    doLog("stopRecording");
-    const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state === 'inactive') return;
+    console.log("stopRecording");
+
+    if (!mediaRecorderRef.current) {
+      console.warn('MediaRecorder not found');
+      return;
+    }
+
+    if (mediaRecorderRef.current.state === 'inactive') {
+      console.warn('MediaRecorder already inactive');
+      return;
+    }
+
+    console.log('Current mediaRecorder state:', mediaRecorderRef.current.state);
 
     // 停止中フラグを設定
     setRecordingStatus('stopping');
-
-    // 停止要求
     stopRequestedRef.current = true;
 
-    // 先に吐かせる
-    recorder.requestData();
+    try {
+      // stateを確認してからstopを呼ぶ
+      if (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused') {
+        mediaRecorderRef.current.stop();
+        console.log('stop() called');
 
-    // WebView 対策の待ち
-    setTimeout(() => {
-      recorder.stop();
-    }, 500);
+        // すべてのトラックを停止
+        mediaRecorderRef.current.stream.getTracks().forEach(track => {
+          track.stop();
+          console.log('Track stopped:', track.kind);
+        });
+      }
+    } catch (error) {
+      console.error('Error stopping recorder:', error);
+      // エラー時も手動でfinalizeを呼ぶ
+      if (!finalizedRef.current) {
+        finalizeRecording(options);
+      }
+    }
   };
 
   // 録画の一時停止
   const pauseRecording = async () => {
-    doLog("pauseRecording");
-    const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state !== 'recording') return;
+    console.log("pauseRecording");
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') return;
 
     try {
-      recorder.pause();
+      mediaRecorderRef.current.pause();
       setRecordingStatus('paused');
-      doLog('paused');
+      console.log('paused');
     } catch (error) {
-      doError('Recording pause failed:', error);
+      console.error('Recording pause failed:', error);
       setRecordingStatus('error');
     }
   };
 
   // 録画の再開
   const resumeRecording = async () => {
-    doLog("resumeRecording");
-    const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state !== 'paused') return;
+    console.log("resumeRecording");
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'paused') return;
 
     try {
-      recorder.resume();
+      mediaRecorderRef.current.resume();
       setRecordingStatus('recording');
-      doLog('resumed');
+      console.log('resumed');
     } catch (error) {
-      doError('Recording resume failed:', error);
+      console.error('Recording resume failed:', error);
       setRecordingStatus('error');
     }
   };
