@@ -411,32 +411,40 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       { width: { min: 320 }, height: { min: 240 }, frameRate: { min: 10, max: 30 } },
     ];
 
-    let videoStream: MediaStream | null = null;
+    let stream: MediaStream | null = null;
 
     try {
       // 制約候補でループ
       for (const constraint of constraintsCandidates) {
         try {
-          videoStream = await navigator.mediaDevices.getUserMedia({
+          stream = await navigator.mediaDevices.getUserMedia({
             video: constraint,
-            audio: false // まず映像のみ取得
+            audio: true
           });
-          if (videoStream) break;
+          if (stream) break;
         } catch (error) {
           console.warn('Constraint failed:', constraint);
-          continue;
+        }
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: constraint,
+            audio: false
+          });
+          if (stream) break;
+        } catch (error) {
+          console.warn('Constraint failed:', constraint);
         }
       }
 
-      if (!videoStream) {
+      if (!stream) {
         throw new Error('No suitable camera device found');
       }
 
       if (videoRef.current) {
-        videoRef.current.srcObject = videoStream;
-        streamRef.current = videoStream;
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
 
-        console.log('Video tracks:', videoStream.getVideoTracks().map(t => ({
+        console.log('Video tracks:', stream.getVideoTracks().map(t => ({
           id: t.id,
           label: t.label,
           enabled: t.enabled,
@@ -444,11 +452,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         })));
 
         if (onUserMedia)
-          onUserMedia(videoStream);
+          onUserMedia(stream);
 
         // 実際に使用されているカメラのfacingModeを取得
         try {
-          const videoTrack = videoStream.getVideoTracks()[0];
+          const videoTrack = stream.getVideoTracks()[0];
           const settings = videoTrack.getSettings();
           if (settings.facingMode) {
             // 実際のfacingModeで状態を更新
@@ -488,10 +496,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       // マイクの確認
       try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        setHasMic(true);
-        // マイクストリームは録画時に結合するのでここでは保持せずトラックだけ確認して閉じる
-        audioStream.getTracks().forEach(t => t.stop());
+        const audioTracks = stream.getAudioTracks();
+        setHasMic(audioTracks ? true : false);
       } catch (error) {
         setHasMic(false);
       }
@@ -1342,14 +1348,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       // マイクから音声トラックを取得
       if (hasMic && micEnabled) {
         try {
-          const audioStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              sampleRate: 48000
-            }
-          });
-          const audioTracks = audioStream.getAudioTracks();
+          const audioTracks = streamRef.current.getAudioTracks();
           if (audioTracks.length > 0) {
             tracks.push(...audioTracks);
             console.log('Audio track added:', {
