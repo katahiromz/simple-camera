@@ -222,8 +222,15 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         }
 
         return try {
+            // カンマが含まれている場合、それ以降のデータのみを抽出する修正
+            val pureBase64 = if (base64Data.contains(",")) {
+                base64Data.substring(base64Data.lastIndexOf(",") + 1)
+            } else {
+                base64Data
+            }
+
             val imageBytes = try {
-                android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+                android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
             } catch (e: IllegalArgumentException) {
                 Timber.e(e, "Invalid base64 data")
                 currentActivity.runOnUiThread {
@@ -327,8 +334,15 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         }
 
         return try {
+            // カンマが含まれている場合、それ以降のデータのみを抽出する修正
+            val pureBase64 = if (base64Data.contains(",")) {
+                base64Data.substring(base64Data.lastIndexOf(",") + 1)
+            } else {
+                base64Data
+            }
+
             val videoBytes = try {
-                android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+                android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
             } catch (e: IllegalArgumentException) {
                 Timber.e(e, "Invalid base64 data")
                 currentActivity.runOnUiThread {

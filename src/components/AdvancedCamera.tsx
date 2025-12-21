@@ -1120,7 +1120,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     console.assert(isAndroidApp);
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64data = result.substr(result.indexOf('base64,') + 7);
+      const result = reader.result;
+      const base64data = result.substr(result.lastIndexOf(',') + 1);
       if (typeof window.android.saveImageToGallery === 'function') {
         try {
           window.android.saveImageToGallery(base64data, fileName, mimeType);
@@ -1241,11 +1242,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      // デバッグ: reader.resultの内容を確認
       const result = reader.result;
-      doLog('FileReader result: ' + (typeof result) + ', ' + result);
       // Base64エンコードされた文字列（データURI）を取得
-      const base64data = result.substr(result.indexOf('base64,') + 7);
+      const base64data = result.substr(result.lastIndexOf(',') + 1);
       // Kotlin側の関数を呼び出す
       try {
         window.android.saveVideoToGallery(base64data, fileName, mimeType);
