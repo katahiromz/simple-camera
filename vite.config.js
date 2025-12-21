@@ -45,8 +45,8 @@ export default defineConfig(({ mode }) => ({
     })
   ],
 
-  // 製品版では、コンソール出力とデバッグ出力をしない
-  esbuild: {
-    drop: ((mode === 'production') ? ['console', 'debugger'] : [])
-  },
+  // // 製品版では、コンソール出力とデバッグ出力をしない
+  // esbuild: {
+  //   drop: ((mode === 'production') ? ['console', 'debugger'] : [])
+  // },
 }));
