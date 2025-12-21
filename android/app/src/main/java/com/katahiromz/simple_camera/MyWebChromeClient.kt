@@ -16,6 +16,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import timber.log.Timber
@@ -193,19 +194,44 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
 
         // Android 9以前では権限チェック
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-            if (android.content.ContextCompat.checkSelfPermission(
+            if (ContextCompat.checkSelfPermission(
                     currentActivity,
                     android.Manifest.permission.WRITE_EXTERNAL_STORAGE
                 ) != android.content.pm.PackageManager.PERMISSION_GRANTED
             ) {
                 Timber.e("WRITE_EXTERNAL_STORAGE permission not granted")
+
+                // UIスレッドで権限リクエストを実行
+                currentActivity.runOnUiThread {
+                    currentActivity.triggerStorageFeature(
+                        onGranted = {
+                            // 権限取得後、再度保存を試行
+                            saveImageToGallery(base64Data, filename, mimeType)
+                        },
+                        onDenied = {
+                            Timber.w("Storage permission denied by user")
+                            currentActivity.showToast(
+                                currentActivity.getString(R.string.needs_storage),
+                                LONG_TOAST
+                            )
+                        }
+                    )
+                }
                 return false
             }
         }
 
         return try {
-            val imageBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
-            
+            val imageBytes = try {
+                android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            } catch (e: IllegalArgumentException) {
+                Timber.e(e, "Invalid base64 data")
+                currentActivity.runOnUiThread {
+                    currentActivity.showToast("Invalid image data", LONG_TOAST)
+                }
+                return false
+            }
+
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Android 10以降: MediaStore APIを使用
                 val contentValues = android.content.ContentValues().apply {
@@ -272,26 +298,45 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
 
         // Android 9以前では権限チェック
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-            if (android.content.ContextCompat.checkSelfPermission(
+            if (ContextCompat.checkSelfPermission(
                     currentActivity,
                     android.Manifest.permission.WRITE_EXTERNAL_STORAGE
                 ) != android.content.pm.PackageManager.PERMISSION_GRANTED
             ) {
                 Timber.e("WRITE_EXTERNAL_STORAGE permission not granted")
+
+                // UIスレッドで権限リクエストを実行
+                currentActivity.runOnUiThread {
+                    currentActivity.triggerStorageFeature(
+                        onGranted = {
+                            // 権限取得後、再度保存を試行
+                            saveVideoToGallery(base64Data, filename, mimeType)
+                        },
+                        onDenied = {
+                            Timber.w("Storage permission denied by user")
+                            currentActivity.showToast(
+                                currentActivity.getString(R.string.needs_storage),
+                                LONG_TOAST
+                            )
+                        }
+                    )
+                }
+
                 return false
             }
         }
 
         return try {
-            // カンマが含まれている場合、それ以降のデータのみを抽出する修正
-            val pureBase64 = if (base64Data.contains(",")) {
-                base64Data.substring(base64Data.indexOf(",") + 1)
-            } else {
-                base64Data
+            val videoBytes = try {
+                android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            } catch (e: IllegalArgumentException) {
+                Timber.e(e, "Invalid base64 data")
+                currentActivity.runOnUiThread {
+                    currentActivity.showToast("Invalid video data", LONG_TOAST)
+                }
+                return false
             }
 
-            val videoBytes = android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
-            
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Android 10以降: MediaStore APIを使用
                 val contentValues = android.content.ContentValues().apply {

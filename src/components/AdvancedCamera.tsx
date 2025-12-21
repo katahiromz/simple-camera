@@ -136,7 +136,7 @@ interface AdvancedCameraProps {
 
 // MediaRecorderオプション
 const ANDROID_SAFE_OPTIONS: MediaRecorderOptions = {
-  mimeType: 'video/webm;codecs=vp8,opus',
+  mimeType: 'video/webm;codecs=vp8',
   videoBitsPerSecond: isMobile ? MOBILE_VIDEO_BITRATE : undefined,
   audioBitsPerSecond: 128_000,
 };
@@ -1120,7 +1120,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     console.assert(isAndroidApp);
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64data = reader.result.split(',')[1];
+      const base64data = result.substr(result.indexOf('base64,') + 7);
       if (typeof window.android.saveImageToGallery === 'function') {
         try {
           window.android.saveImageToGallery(base64data, fileName, mimeType);
@@ -1235,13 +1235,20 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   // ビデオをギャラリーに保存(Android専用)
   const saveVideoToGallery = (blob, fileName, mimeType) => {
     console.assert(isAndroidApp);
+
+    // デバッグ: Blobの内容を確認
+    doLog('saveVideoToGallery called: ' + blob.size + ', ' + blob.type + ', ' + mimeType);
+
     const reader = new FileReader();
     reader.onloadend = () => {
+      // デバッグ: reader.resultの内容を確認
+      const result = reader.result;
+      doLog('FileReader result: ' + (typeof result) + ', ' + result);
       // Base64エンコードされた文字列（データURI）を取得
-      const base64Data = reader.result.split(',')[1];
+      const base64data = result.substr(result.indexOf('base64,') + 7);
       // Kotlin側の関数を呼び出す
       try {
-        window.android.saveVideoToGallery(base64Data, fileName, mimeType);
+        window.android.saveVideoToGallery(base64data, fileName, mimeType);
         doLog('Saved video:', fileName);
       } catch (error) {
         doError('android インタフェース呼び出しエラー:', error);
@@ -1260,6 +1267,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (!recorder) return;
 
     const mimeType = recorder.mimeType || 'video/webm';
+
+    // デバッグ: chunksの内容を確認
+    const totalSize = recordedChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0);
+    doLog('Finalizing recording: ' + totalSize + ', ' + mimeType);
+
     const blob = new Blob(recordedChunksRef.current, { type: mimeType });
 
     stopRequestedRef.current = false;
@@ -1268,12 +1280,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (blob.size === 0) {
       doError('Empty video blob');
       return;
-    }
-
-    const stream = recorder.stream;
-    if (stream) {
-      // audio track のみ stop（canvas video は生かす）
-      stream.getAudioTracks().forEach(t => t.stop());
     }
 
     setIsRecording(false);
@@ -1289,12 +1295,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     const fileName = generateFileName(t('camera_text_video') + '_', extension); // ファイル名
 
     // Blobの検証とログ出力
-    doLog('Video recording completed:', {
-      fileName,
-      mimeType,
-      blobSize: blob.size,
-      isValidBlob: blob.size > 0
-    });
+    doLog('Video recording completed: ' + blob.size);
 
     // Blobが空でないか確認
     if (blob.size === 0) {
