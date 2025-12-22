@@ -5,6 +5,9 @@ import './AdvancedCamera.css';
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera, Mic, MicOff, Video, VideoOff, RefreshCw, SwitchCamera, CameraOff, Square } from 'lucide-react';
 
+// WebMデータを修正する
+import { fixWebmDuration } from "@fix-webm-duration/fix";
+
 // 汎用関数群
 import {
   calculateVideoRenderMetrics,
@@ -35,6 +38,7 @@ const RECORDING_FPS = 30; // 録画用のFPS
 const BASE_URL = import.meta.env.BASE_URL;
 
 // フラグ
+const isDeepDebug = true;
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isAndroidApp = typeof window.android !== 'undefined';
 const isAndroidWebView = /Android/.test(navigator.userAgent) && /wv/.test(navigator.userAgent);
@@ -139,11 +143,15 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const videoStartAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画開始音の Audio オブジェクト
   const videoCompleteAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画完了音の Audio オブジェクト
   const dummyImageRef = useRef<HTMLImageElement | null>(null); // ダミー画像の Image オブジェクト
-  const lastFrameTimeRef = useRef<number>(0);
+  const lastFrameTimeRef = useRef<number>(0); // FPS用
+  const fpsArrayRef = useRef<number[]>([]); // FPS用
+  const fpsCounterRef = useRef<number>(0);  // FPS用
+  const fpsRef = useRef<number | null>(null);  // FPS用
   const mediaRecorderRef = useRef<MediaRecorder | null>(null); // メディアレコーダー
   const recordedChunksRef = useRef<Blob[]>([]); // 録画用のchunks
   const finalizedRef = useRef<boolean>(false); // 録画の最終処理をしたか
   const stopRequestedRef = useRef<boolean>(false); // 録画停止要求したか？
+  const RecordingStartTimeRef = useRef<number | null>(null); // 録画開始時間
 
   // タッチ操作用のRef
   const lastTouchDistanceRef = useRef(0);
@@ -790,16 +798,28 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     const canvas = canvasRef.current;
     if (!canvas || status !== 'ready') return;
 
-    // 録画中は描画頻度を下げる
-    const targetFPS = isRecording ? RECORDING_FPS : NORMAL_FPS;
-    const frameInterval = 1000 / targetFPS;
+    // 瞬間FPS計測
     const now = performance.now();
     const elapsed = now - (lastFrameTimeRef.current || 0);
-    if (elapsed < frameInterval) {
-      animeRequestRef.current = requestAnimationFrame(draw);
-      return;
-    }
     lastFrameTimeRef.current = now;
+    const currentFps = 1000 / elapsed;
+
+    // 平均FPS計測
+    if (isDeepDebug) {
+      const maxFpsCount = 500;
+      fpsArrayRef.current.push(currentFps);
+      if (fpsArrayRef.current.length >= maxFpsCount) {
+        fpsArrayRef.current.shift();
+      }
+      fpsCounterRef.current = (fpsCounterRef.current + 1) % 50;
+      if (fpsCounterRef.current == 0) {
+        let sum = 0;
+        for (let item of fpsArrayRef.current)
+          sum += item;
+        fpsRef.current = (sum / fpsArrayRef.current.length).toFixed(0);
+        console.log('fps:', fpsRef.current);
+      }
+    }
 
     // メトリクスが未設定、または画像がロードされていない場合は背景を黒く塗るだけで終了
     if (renderMetrics.renderWidth <= 0 || renderMetrics.renderHeight <= 0) {
@@ -1270,6 +1290,11 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     if (finalizedRef.current) return;
     finalizedRef.current = true;
 
+    // 録画時間を計算
+    console.assert(RecordingStartTimeRef.current !== null);
+    const duration = Date.now() - RecordingStartTimeRef.current;
+    console.log('duration:', duration);
+
     if (!mediaRecorderRef.current) {
       console.assert(false);
       return;
@@ -1282,35 +1307,44 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
     // chunksを統合して１つのBlob (Binary Large Object)を作成
     const mimeType = 'video/webm';
-    const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-    console.assert(blob.size > 0);
+    const buggyBlob = new Blob(recordedChunksRef.current, { type: mimeType });
+    console.assert(buggyBlob.size > 0);
 
     // デバッグ: chunksの内容を確認
-    console.log('Finalizing recording: ', blob.size);
+    console.log('Finalizing recording: ', buggyBlob.size);
 
     // 録画データをクリア
     recordedChunksRef.current = [];
     stopRequestedRef.current = false;
     mediaRecorderRef.current = null;
 
-    // 録音ステータスを更新
-    setIsRecording(false);
-    setRecordingStatus('idle');
-    setRecordingTime(0);
+    // 非同期でWebMを修正
+    new Promise<void>(async (resolve) => {
+      // blobを修正
+      console.log('buggyBlob: ' + buggyBlob.size);
+      console.log('duration: ' + duration);
+      const fixedBlob = await fixWebmDuration(buggyBlob, duration, { logger: false });
 
-    const extension = videoFormatToExtension(mimeType); // 拡張子
-    const fileName = generateFileName(t('camera_text_video') + '_', extension); // ファイル名
+      // 録音ステータスを更新
+      setIsRecording(false);
+      setRecordingStatus('idle');
+      setRecordingTime(0);
 
-    // Blobの検証とログ出力
-    console.log('Video recording completed: ' + blob.size);
+      const extension = videoFormatToExtension(mimeType); // 拡張子
+      const fileName = generateFileName(t('camera_text_video') + '_', extension); // ファイル名
 
-    if (isAndroidApp) {
-      saveVideoToGallery(blob, fileName, mimeType);
-    } else {
-      downloadFallback(blob, fileName);
-    }
+      // Blobの検証とログ出力
+      console.log('Video recording completed: ' + fixedBlob.size);
 
-    console.log('MediaRecorder recording stopped and cleaned up');
+      if (isAndroidApp) {
+        saveVideoToGallery(fixedBlob, fileName, mimeType);
+      } else {
+        downloadFallback(fixedBlob, fileName);
+      }
+
+      console.log('MediaRecorder recording stopped and cleaned up');
+      resolve();
+    });
   };
 
   // 録画開始
@@ -1400,7 +1434,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       };
 
       // 停止時にfinalize
-      mediaRecorderRef.current.onstop = (event) => {
+      mediaRecorderRef.current.onstop = async (event) => {
         console.log('onstop');
         if (!finalizedRef.current) {
           finalizeRecording(options);
@@ -1418,6 +1452,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       // 録画開始
       mediaRecorderRef.current.start(1000); // 1000msごとにデータを取得
+      RecordingStartTimeRef.current = Date.now();
       setIsRecording(true);
       setRecordingStatus('recording');
 

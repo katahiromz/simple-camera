@@ -11,6 +11,7 @@
     "postbuild": "bash postbuild.sh"
   },
   "dependencies": {
+    "@fix-webm-duration/fix": "^1.0.1",
     "i18next": "^25.7.2",
     "i18next-browser-languagedetector": "^8.2.0",
     "i18next-http-backend": "^3.0.2",
