@@ -1,3 +1,4 @@
+/* Camera02.tsx */
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Camera, Circle, Video, Square } from 'lucide-react';
 import './Camera02.css';
@@ -406,16 +407,16 @@ export default function Camera02() {
 
       <div className="camera02-controls">
         <button className="camera02-button" onClick={takePhoto}>
-          <Camera size={48} />
+          <Camera size={40} />
         </button>
 
         {!isRecording ? (
           <button className="camera02-button" onClick={startRecording}>
-            <Video size={48} />
+            <Video size={40} />
           </button>
         ) : (
           <button className="camera02-button camera02-button-recording" onClick={stopRecording}>
-            <Square size={48} />
+            <Square size={40} />
           </button>
         )}
       </div>
