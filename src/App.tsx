@@ -1,6 +1,7 @@
 // App.tsx --- アプリのTypeScriptソース
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import AdvancedCamera from './components/AdvancedCamera.tsx';
+import Camera02 from './components/Camera02.tsx';
 import { emulateInsets } from './utils.ts';
 import './App.css';
 
@@ -20,9 +21,15 @@ function App() {
   //const dummyImageSrc = !IS_PRODUCTION ? `${BASE_URL}example-qr-code.png` : null; // 非本番環境ではQRコード画像のパスを指定
   const dummyImageSrc = null; // ダミー画像を使わない
 
-  return (
-    <AdvancedCamera dummyImageSrc={dummyImageSrc} autoMirror="{true}" />
-  );
+  if (false) {
+    return (
+      <AdvancedCamera dummyImageSrc={dummyImageSrc} autoMirror="{true}" />
+    );
+  } else {
+    return (
+      <Camera02></Camera02>
+    );
+  }
 }
 
 export default App;
