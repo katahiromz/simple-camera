@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Camera, Circle, Square } from 'lucide-react';
+import './Camera02.css';
 
 export default function Camera02() {
   const videoRef = useRef(null);
@@ -29,9 +30,14 @@ export default function Camera02() {
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        videoRef.current.play();
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current.play().then(() => {
+            drawVideoToCanvas();
+          }).catch(err => {
+            console.error('ビデオの再生に失敗しました:', err);
+          });
+        };
       }
-      drawVideoToCanvas();
     } catch (err) {
       console.error('カメラへのアクセスに失敗しました:', err);
       alert('カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。');
@@ -122,56 +128,35 @@ export default function Camera02() {
   };
 
   return (
-    <div className="fixed inset-0 bg-black">
-      <div className="relative w-full h-full">
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full"
-          style={{ objectFit: 'contain' }}
-        />
-        
-        {isRecording && (
-          <div className="absolute top-4 right-4 flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-full">
-            <Circle className="w-4 h-4 fill-current animate-pulse" />
-            <span className="font-semibold">録画中</span>
-          </div>
-        )}
+    <div className="camera02-root">
+      <canvas
+        ref={canvasRef}
+        className="camera02-canvas"
+        style={{ objectFit: 'contain' }}
+      />
 
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex gap-4">
-          <button
-            onClick={takePhoto}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors shadow-lg"
-          >
-            <Camera className="w-5 h-5" />
-            写真を撮る
+      <div className="camera02-controls">
+        <button className="camera02-button" onClick={takePhoto}>
+          <Camera size={48} />
+        </button>
+
+        {!isRecording ? (
+          <button className="camera02-button" onClick={startRecording}>
+            <Circle size={48} />
           </button>
-
-          {!isRecording ? (
-            <button
-              onClick={startRecording}
-              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors shadow-lg"
-            >
-              <Circle className="w-5 h-5" />
-              録画開始
-            </button>
-          ) : (
-            <button
-              onClick={stopRecording}
-              className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors shadow-lg"
-            >
-              <Square className="w-5 h-5" />
-              録画停止
-            </button>
-          )}
-        </div>
-
-        <video
-          ref={videoRef}
-          style={{ visibility: 'hidden' }}
-          playsInline
-          muted
-        />
+        ) : (
+          <button className="camera02-button camera02-button-recording" onClick={stopRecording}>
+            <Square size={48} />
+          </button>
+        )}
       </div>
+
+      <video
+        ref={videoRef}
+        className="camera02-video"
+        playsInline
+        muted
+      />
     </div>
   );
 }
