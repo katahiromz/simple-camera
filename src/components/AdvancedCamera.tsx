@@ -33,6 +33,8 @@ const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
 
 const NORMAL_FPS = 30; // 通常のFPS
 const RECORDING_FPS = 30; // 録画用のFPS
+const MAX_RECORDING_CHUNKS = 30; // 最大チャンク数(メモリ管理用)
+const TIMESLICE_INTERVAL = 1000; // チャンク生成間隔(ミリ秒)
 
 // アプリケーションのベースパスを取得
 const BASE_URL = import.meta.env.BASE_URL;
@@ -97,14 +99,45 @@ interface AdvancedCameraProps {
 };
 
 // MediaRecorderオプション
-const ANDROID_SAFE_OPTIONS: MediaRecorderOptions = {
-  mimeType: 'video/webm;codecs=vp8',
-  videoBitsPerSecond: 1_000_000, // 1Mbps（より安定）
+// Androidでは複数のコーデックを試行する
+const getRecorderOptions = (): MediaRecorderOptions => {
+  // 試行するコーデックのリスト（優先度順）
+  const codecCandidates = isMobile ? [
+    'video/webm;codecs=vp8,opus',
+    'video/webm;codecs=vp8',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp9',
+    'video/webm',
+    'video/mp4;codecs=avc1.424028,mp4a.40.2',
+    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+    'video/mp4;codecs=avc1.4D401E,mp4a.40.2',
+    'video/mp4',
+  ] : [
+    'video/mp4;codecs=avc1.424028,mp4a.40.2',
+    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+    'video/mp4;codecs=avc1.4D401E,mp4a.40.2',
+    'video/mp4',
+    'video/webm;codecs=vp8,opus',
+    'video/webm;codecs=vp8',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp9',
+    'video/webm',
+  ];
+
+  // サポートされている最初のコーデックを使用
+  for (const mimeType of codecCandidates) {
+    if (MediaRecorder.isTypeSupported(mimeType)) {
+      console.log('Selected codec:', mimeType);
+      return { mimeType };
+    }
+  }
+
+  // フォールバック: オプションなし（ブラウザのデフォルト）
+  console.warn('No preferred codec supported, using browser default');
+  return {};
 };
-const DESKTOP_OPTIONS: MediaRecorderOptions = {
-  mimeType: 'video/webm',
-  videoBitsPerSecond: undefined,
-};
+
+const IS_WEBM = (getRecorderOptions().mimeType.indexOf('webm') != -1);
 
 // AdvancedCamera本体
 const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
@@ -149,6 +182,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
   const fpsRef = useRef<number | null>(null);  // FPS用
   const mediaRecorderRef = useRef<MediaRecorder | null>(null); // メディアレコーダー
   const recordedChunksRef = useRef<Blob[]>([]); // 録画用のchunks
+  const processedChunkCountRef = useRef<number>(0); // 処理済みチャンク数
+  const accumulatedBlobRef = useRef<Blob | null>(null); // 累積されたBlob
   const finalizedRef = useRef<boolean>(false); // 録画の最終処理をしたか
   const stopRequestedRef = useRef<boolean>(false); // 録画停止要求したか？
   const RecordingStartTimeRef = useRef<number | null>(null); // 録画開始時間
@@ -1124,29 +1159,28 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     URL.revokeObjectURL(url);
   };
 
-  // 画像の保存(Android用)
-  const saveImageToGallery = (blob, fileName, mimeType) => {
+  // メディアをギャラリーに保存(Android専用)
+  const saveMediaToGallery = (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => {
     console.assert(isAndroidApp);
     const reader = new FileReader();
     reader.onloadend = () => {
       console.log("reader.onloadend");
       const result = reader.result;
       const base64data = result.substr(result.lastIndexOf(',') + 1);
-      if (typeof window.android.saveImageToGallery === 'function') {
-        try {
-          window.android.saveImageToGallery(base64data, fileName, mimeType);
+      // Kotlin側の関数を呼び出す
+      try {
+        window.android.saveMediaToGallery(base64data, fileName, mimeType, isVideo);
+        if (isVideo)
+          console.log('Saved video:', fileName);
+        else
           console.log('Saved image:', fileName);
-        } catch (error) {
-          console.assert(false);
-          console.error('android インタフェース呼び出しエラー:', error);
-          downloadFallback(blob, fileName);
-        }
-      } else {
+      } catch (error) {
         console.assert(false);
+        console.error('android インタフェース呼び出しエラー:', error);
         downloadFallback(blob, fileName);
       }
     };
-    reader.readAsDataURL(blob);
+    reader.readAsDataURL(blob); // BlobをBase64に変換
   };
 
   // --- 写真撮影ロジック ---
@@ -1222,7 +1256,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
         // ファイルに保存
         if (isAndroidApp) {
-          saveImageToGallery(blob, fileName, photoFormat);
+          saveMediaToGallery(blob, fileName, photoFormat, false);
         } else {
           downloadFallback(blob, fileName);
         }
@@ -1250,6 +1284,37 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
   // --- 録画・マイク制御 ---
 
+  // メモリ管理: チャンクを定期的に統合してメモリを解放
+  const consolidateChunks = useCallback(() => {
+    if (recordedChunksRef.current.length === 0) return;
+
+    try {
+      const currentChunks = [...recordedChunksRef.current];
+      const newBlob = new Blob(currentChunks, { type: getRecorderOptions().mimeType });
+
+      // 既存の累積Blobと結合
+      if (accumulatedBlobRef.current) {
+        accumulatedBlobRef.current = new Blob(
+          [accumulatedBlobRef.current, newBlob],
+          { type: getRecorderOptions().mimeType }
+        );
+      } else {
+        accumulatedBlobRef.current = newBlob;
+      }
+
+      // チャンク配列をクリアしてメモリ解放
+      recordedChunksRef.current = [];
+      processedChunkCountRef.current += currentChunks.length;
+
+      console.log('Chunks consolidated:', {
+        processedChunks: processedChunkCountRef.current,
+        accumulatedSize: accumulatedBlobRef.current.size
+      });
+    } catch (error) {
+      console.error('Failed to consolidate chunks:', error);
+    }
+  }, []);
+
   // マイク切り替え
   const toggleMic = () => {
     const newState = audio && !micEnabled;
@@ -1258,33 +1323,8 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     localStorage.setItem('AdvancedCamera_micEnabled', String(newState));
   };
 
-  // ビデオをギャラリーに保存(Android専用)
-  const saveVideoToGallery = (blob, fileName, mimeType) => {
-    console.assert(isAndroidApp);
-
-    // デバッグ: Blobの内容を確認
-    console.log('saveVideoToGallery called: ' + blob.size + ', ' + blob.type + ', ' + mimeType);
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      console.log("reader.onloadend");
-      const result = reader.result;
-      // Base64エンコードされた文字列（データURI）を取得
-      const base64data = result.substr(result.lastIndexOf(',') + 1);
-      // Kotlin側の関数を呼び出す
-      try {
-        window.android.saveVideoToGallery(base64data, fileName, mimeType);
-        console.log('Saved video:', fileName);
-      } catch (error) {
-        console.error('android インタフェース呼び出しエラー:', error);
-        alert(t('camera_saving_movie_failed', { error: error }));
-      }
-    };
-    reader.readAsDataURL(blob); // BlobをBase64に変換
-  };
-
   // 録画の最終処理
-  const finalizeRecording = (options) => {
+  const finalizeRecording = useCallback((options) => {
     console.log('finalizeRecording');
     console.assert(!finalizedRef.current);
     if (finalizedRef.current) return;
@@ -1305,9 +1345,40 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       playSound(videoCompleteAudioRef.current);
     }
 
-    // chunksを統合して１つのBlob (Binary Large Object)を作成
-    const mimeType = 'video/webm';
-    const buggyBlob = new Blob(recordedChunksRef.current, { type: mimeType });
+    // 最後のチャンクを統合
+    consolidateChunks();
+
+    // 最終的なBlobを作成
+    const mimeType = getRecorderOptions().mimeType;
+    let buggyBlob: Blob;
+
+    // 累積Blobと残りのチャンクを結合
+    // チャンク統合を先に実行すると、最後のチャンクが失われる可能性がある
+    if (accumulatedBlobRef.current && recordedChunksRef.current.length > 0) {
+      // 累積Blob + 残りのチャンク
+      buggyBlob = new Blob(
+        [accumulatedBlobRef.current, ...recordedChunksRef.current],
+        { type: mimeType }
+      );
+      console.log('Final blob: accumulated + remaining chunks', {
+        accumulatedSize: accumulatedBlobRef.current.size,
+        remainingChunks: recordedChunksRef.current.length,
+        totalSize: buggyBlob.size
+      });
+    } else if (accumulatedBlobRef.current) {
+      // 累積Blobのみ
+      buggyBlob = accumulatedBlobRef.current;
+      console.log('Final blob: accumulated only', {
+        size: buggyBlob.size
+      });
+    } else {
+      // 残りのチャンクのみ（フォールバック）
+      buggyBlob = new Blob(recordedChunksRef.current, { type: mimeType });
+      console.log('Final blob: chunks only', {
+        chunks: recordedChunksRef.current.length,
+        size: buggyBlob.size
+      });
+    }
     console.assert(buggyBlob.size > 0);
 
     // デバッグ: chunksの内容を確認
@@ -1317,13 +1388,14 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
     recordedChunksRef.current = [];
     stopRequestedRef.current = false;
     mediaRecorderRef.current = null;
+    accumulatedBlobRef.current = null;
+    processedChunkCountRef.current = 0;
 
-    // 非同期でWebMを修正
     new Promise<void>(async (resolve) => {
-      // blobを修正
-      console.log('buggyBlob: ' + buggyBlob.size);
-      console.log('duration: ' + duration);
-      const fixedBlob = await fixWebmDuration(buggyBlob, duration, { logger: false });
+      // 必要ならWebMを修正
+      console.log('buggyBlob:', buggyBlob.size);
+      console.log('duration:', duration);
+      const fixedBlob = IS_WEBM ? await fixWebmDuration(buggyBlob, duration, { logger: false }) : buggyBlob;
 
       // 録音ステータスを更新
       setIsRecording(false);
@@ -1337,7 +1409,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       console.log('Video recording completed: ' + fixedBlob.size);
 
       if (isAndroidApp) {
-        saveVideoToGallery(fixedBlob, fileName, mimeType);
+        saveMediaToGallery(fixedBlob, fileName, mimeType, true);
       } else {
         downloadFallback(fixedBlob, fileName);
       }
@@ -1345,7 +1417,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       console.log('MediaRecorder recording stopped and cleaned up');
       resolve();
     });
-  };
+  }, [consolidateChunks, mustPlaySound, t]);
 
   // 録画開始
   const startRecording = async (options = null) => {
@@ -1415,7 +1487,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       const combinedStream = new MediaStream(tracks);
 
       // MediaRecorderインスタンスを作成
-      const recorderOptions = isAndroidWebView ? ANDROID_SAFE_OPTIONS : DESKTOP_OPTIONS;
+      const recorderOptions = getRecorderOptions();
       console.log('Creating MediaRecorder with options:', recorderOptions);
       mediaRecorderRef.current = new MediaRecorder(combinedStream, recorderOptions);
       console.log(mediaRecorderRef.current);
@@ -1427,9 +1499,17 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
         const data = event.data;
         console.log("data.size: " + data.size);
 
-        if (data && data.size > 0) {
+        if (data && data.size > 0) { // データが有効か？
           recordedChunksRef.current.push(data);
           console.log("Total chunks: " + recordedChunksRef.current.length);
+
+          // メモリ管理: チャンクが一定数溜まったら統合
+          if (recordedChunksRef.current.length >= MAX_RECORDING_CHUNKS &&
+              mediaRecorderRef.current?.state === 'recording')
+          {
+            console.log('Consolidating chunks to prevent memory overflow');
+            consolidateChunks();
+          }
         }
       };
 
@@ -1444,7 +1524,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
 
       // エラーハンドラを追加
       mediaRecorderRef.current.onerror = (event: any) => {
-        console.log('onerror: ', event.error);
+        console.log('onerror: ', event.error.name);
         setRecordingStatus('error');
         setIsRecording(false);
         stopRequestedRef.current = false;
@@ -1452,7 +1532,9 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       };
 
       // 録画開始
-      mediaRecorderRef.current.start();
+      // timesliceを設定して定期的にデータを取得
+      // これによりメモリ使用量を抑え、クラッシュ時でもデータが保存される
+      mediaRecorderRef.current.start(TIMESLICE_INTERVAL); // 定期的にondataavailableを呼び出す
       RecordingStartTimeRef.current = Date.now();
       setIsRecording(true);
       setRecordingStatus('recording');

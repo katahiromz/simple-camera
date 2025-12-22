@@ -74,7 +74,7 @@ export const generateFileName = (prefix: 'video_' | 'photo_', extension: string)
   const now = new Date();
   let timestamp = now.toLocaleDateString() + " " + now.toLocaleTimeString();
   // 空白文字やファイル名に使用できない文字を _ に置き換える
-  timestamp = timestamp.replace(/[:\.\\\/]/g, '_');
+  timestamp = timestamp.replace(/[ :\.\\\/]/g, '_');
   console.assert(extension[0] == '.');
   return `${prefix}${timestamp}${extension}`;
 };

@@ -811,8 +811,8 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         // allowFileAccessは有効のままにする（ただしfile://スキームの直接使用はしない）
         settings.allowFileAccess = true
         settings.allowContentAccess = false // コンテンツアクセスは無効化。
+        settings.cacheMode = WebSettings.LOAD_DEFAULT // キャッシュモードを最適化
         if (BuildConfig.DEBUG) {
-            settings.cacheMode = WebSettings.LOAD_NO_CACHE // デバッグ中はキャッシュしない。
             WebView.setWebContentsDebuggingEnabled(true) // デバッギングを有効にする。
         }
 

@@ -187,17 +187,19 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         }
     }
 
-    // 画像をギャラリーに保存する
-    @JavascriptInterface
-    fun saveImageToGallery(base64Data: String, filename: String, mimeType: String): Boolean {
+    // 画像または動画をギャラリーに保存する
+    private fun saveMediaToGallery(
+        base64Data: String,
+        filename: String,
+        mimeType: String,
+        isVideo: Boolean): Boolean
+    {
         val currentActivity = activity ?: return false
 
         // Android 9以前では権限チェック
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(
-                    currentActivity,
-                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (ContextCompat.checkSelfPermission(currentActivity, android.Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED
             ) {
                 Timber.e("WRITE_EXTERNAL_STORAGE permission not granted")
 
@@ -206,7 +208,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                     currentActivity.triggerStorageFeature(
                         onGranted = {
                             // 権限取得後、再度保存を試行
-                            saveImageToGallery(base64Data, filename, mimeType)
+                            saveMediaToGallery(base64Data, filename, mimeType, isVideo)
                         },
                         onDenied = {
                             Timber.w("Storage permission denied by user")
@@ -221,192 +223,87 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
             }
         }
 
-        return try {
-            val pureBase64 = if (base64Data.contains(",")) {
-                base64Data.substring(base64Data.lastIndexOf(",") + 1)
-            } else {
-                base64Data
-            }
+        val pureBase64 = if (base64Data.contains(",")) {
+            base64Data.substring(base64Data.lastIndexOf(",") + 1)
+        } else {
+            base64Data
+        }
 
-            val imageBytes = try {
-                android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
-            } catch (e: IllegalArgumentException) {
-                Timber.e(e, "Invalid base64 data")
-                currentActivity.runOnUiThread {
-                    currentActivity.showToast("Invalid image data", LONG_TOAST)
-                }
-                return false
-            }
-            Timber.i("imageBytes: " + imageBytes.size)
+        val mediaBytes = try {
+            android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
+        } catch (e: Exception) {
+            Timber.e("Exception: %s", e.toString())
+            return false;
+        }
+        Timber.i("mediaBytes: %s", mediaBytes.size.toString())
 
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                // Android 10以降: MediaStore APIを使用
-                val contentValues = android.content.ContentValues().apply {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            // Android 10以降: MediaStore APIを使用
+            val contentValues = android.content.ContentValues().apply {
+                if (isVideo) {
+                    put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, filename)
+                    put(android.provider.MediaStore.Video.Media.MIME_TYPE, mimeType)
+                    put(android.provider.MediaStore.Video.Media.RELATIVE_PATH,
+                        android.os.Environment.DIRECTORY_MOVIES + "/SimpleCamera")
+                } else {
                     put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, filename)
                     put(android.provider.MediaStore.Images.Media.MIME_TYPE, mimeType)
                     put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,
                         android.os.Environment.DIRECTORY_PICTURES + "/SimpleCamera")
                 }
+            }
 
-                val uri = currentActivity.contentResolver.insert(
-                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    contentValues
-                )
+            val uri = currentActivity.contentResolver.insert(
+                 if (isVideo) {
+                    android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                } else {
+                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                },
+                contentValues)
 
-                uri?.let {
-                    currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
-                        outputStream.write(imageBytes)
-                    }
+            currentActivity.contentResolver.openOutputStream(uri!!)?.use { outputStream ->
+                outputStream.write(mediaBytes)
+            }
 
-                    // Snackbarを表示
-                    showFileOpenSnackbar(currentActivity, it, R.string.image_saved, "image/*")
+            // Snackbarを表示
+            if (isVideo)
+                showFileOpenSnackbar(currentActivity, uri!!, R.string.video_saved, "video/*")
+            else
+                showFileOpenSnackbar(currentActivity, uri!!, R.string.image_saved, "image/*")
 
-                    true
-                } ?: false
-            } else {
-                // Android 9以前: 従来の方法
-                val picturesDir = android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_PICTURES
-                )
-                val appDir = java.io.File(picturesDir, "SimpleCamera")
-                if (!appDir.exists()) {
-                    appDir.mkdirs()
-                }
+            return true
+        } else {
+            // Android 9以前: 従来の方法
+            val mediaDir = android.os.Environment.getExternalStoragePublicDirectory(
+                if (isVideo) { android.os.Environment.DIRECTORY_MOVIES }
+                else { android.os.Environment.DIRECTORY_PICTURES }
+            )
+            val appDir = java.io.File(mediaDir, "SimpleCamera")
+            if (!appDir.exists()) {
+                appDir.mkdirs()
+            }
 
-                val file = java.io.File(appDir, filename)
-                java.io.FileOutputStream(file).use { outputStream ->
-                    outputStream.write(imageBytes)
-                }
+            val file = java.io.File(appDir, filename)
+            java.io.FileOutputStream(file).use { outputStream ->
+                outputStream.write(mediaBytes)
+            }
 
-                // MediaScannerConnectionを使ってギャラリーに通知
-                android.media.MediaScannerConnection.scanFile(
-                    currentActivity,
-                    arrayOf(file.absolutePath),
-                    arrayOf(mimeType),
-                    null
-                )
+            // MediaScannerConnectionを使ってギャラリーに通知
+            android.media.MediaScannerConnection.scanFile(
+                currentActivity,
+                arrayOf(file.absolutePath),
+                arrayOf(mimeType),
+                null
+            )
 
-                // Snackbarを表示
-                val uri = android.net.Uri.fromFile(file)
+            // Snackbarを表示
+            val uri = android.net.Uri.fromFile(file)
+            if (isVideo)
+                showFileOpenSnackbar(currentActivity, uri, R.string.video_saved, "video/*")
+            else
                 showFileOpenSnackbar(currentActivity, uri, R.string.image_saved, "image/*")
 
-                true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to save image")
-            false
-        }
-    }
-
-    // 動画をギャラリーに保存する
-    @JavascriptInterface
-    fun saveVideoToGallery(base64Data: String, filename: String, mimeType: String): Boolean {
-        val currentActivity = activity ?: return false
-
-        // Android 9以前では権限チェック
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(
-                    currentActivity,
-                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-            ) {
-                Timber.e("WRITE_EXTERNAL_STORAGE permission not granted")
-
-                // UIスレッドで権限リクエストを実行
-                currentActivity.runOnUiThread {
-                    currentActivity.triggerStorageFeature(
-                        onGranted = {
-                            // 権限取得後、再度保存を試行
-                            saveVideoToGallery(base64Data, filename, mimeType)
-                        },
-                        onDenied = {
-                            Timber.w("Storage permission denied by user")
-                            currentActivity.showToast(
-                                currentActivity.getString(R.string.needs_storage),
-                                LONG_TOAST
-                            )
-                        }
-                    )
-                }
-
-                return false
-            }
-        }
-
-        return try {
-            val pureBase64 = if (base64Data.contains(",")) {
-                base64Data.substring(base64Data.lastIndexOf(",") + 1)
-            } else {
-                base64Data
-            }
-
-            val videoBytes = try {
-                android.util.Base64.decode(pureBase64, android.util.Base64.DEFAULT)
-            } catch (e: IllegalArgumentException) {
-                Timber.e(e, "Invalid base64 data")
-                currentActivity.runOnUiThread {
-                    currentActivity.showToast("Invalid video data", LONG_TOAST)
-                }
-                return false
-            }
-            Timber.i("videoBytes: " + videoBytes.size)
-
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                // Android 10以降: MediaStore APIを使用
-                val contentValues = android.content.ContentValues().apply {
-                    put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, filename)
-                    put(android.provider.MediaStore.Video.Media.MIME_TYPE, mimeType)
-                    put(android.provider.MediaStore.Video.Media.RELATIVE_PATH,
-                        android.os.Environment.DIRECTORY_MOVIES + "/SimpleCamera")
-                }
-
-                val uri = currentActivity.contentResolver.insert(
-                    android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                    contentValues
-                )
-
-                uri?.let {
-                    currentActivity.contentResolver.openOutputStream(it)?.use { outputStream ->
-                        outputStream.write(videoBytes)
-                    }
-
-                    // Snackbarを表示
-                    showFileOpenSnackbar(currentActivity, it, R.string.video_saved, "video/*")
-
-                    true
-                } ?: false
-            } else {
-                // Android 9以前: 従来の方法
-                val moviesDir = android.os.Environment.getExternalStoragePublicDirectory(
-                    android.os.Environment.DIRECTORY_MOVIES
-                )
-                val appDir = java.io.File(moviesDir, "SimpleCamera")
-                if (!appDir.exists()) {
-                    appDir.mkdirs()
-                }
-
-                val file = java.io.File(appDir, filename)
-                java.io.FileOutputStream(file).use { outputStream ->
-                    outputStream.write(videoBytes)
-                }
-
-                // MediaScannerConnectionを使ってギャラリーに通知
-                android.media.MediaScannerConnection.scanFile(
-                    currentActivity,
-                    arrayOf(file.absolutePath),
-                    arrayOf(mimeType),
-                    null
-                )
-
-                // Snackbarを表示
-                val uri = android.net.Uri.fromFile(file)
-                showFileOpenSnackbar(currentActivity, uri, R.string.video_saved, "video/*")
-
-                true
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to save video")
-            false
+            return true
         }
     }
 

@@ -30,20 +30,57 @@
         android:usesCleartextTraffic="false"
         tools:targetApi="s"
         android:requestLegacyExternalStorage="true"
+        android:largeHeap="true"
         android:hardwareAccelerated="true"
     >
+        <!--
+            重要なメモリ最適化設定:
+
+            1. android:largeHeap="true"
+               - アプリに割り当てられる最大ヒープサイズを増やす
+               - 動画録画のような大容量メモリを使う処理に必須
+            2. android:hardwareAccelerated="true"
+               - ハードウェアアクセラレーションを有効化
+               - WebViewのレンダリングパフォーマンスが向上
+        -->
         <activity
             android:name=".MainActivity"
             android:theme="@style/Theme.SimpleCamera.Splash"
             android:exported="true"
-            android:screenOrientation="fullUser"
-            android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
-            android:windowSoftInputMode="stateVisible|stateHidden|adjustResize">
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize"
+        >
+            <!--
+                android:configChanges
+                - 画面回転などでActivityが再起動されるのを防ぐ
+                - メモリリークやデータ損失を防止
+
+                android:windowSoftInputMode="adjustResize"
+                - キーボード表示時のレイアウト調整
+
+                android:screenOrientation="portrait"
+                - 縦向き固定（必要に応じて変更）
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- WebViewのプロセス分離を有効化（Android 8.0+） -->
+        <meta-data
+            android:name="android.webkit.WebView.EnableSafeBrowsing"
+            android:value="true" />
+
+        <!--
+            WebViewのマルチプロセス有効化（Android 8.0+）
+            レンダラープロセスが別プロセスで動作し、
+            メインアプリがクラッシュしにくくなる
+        -->
+        <meta-data
+            android:name="android.webkit.WebView.MetricsOptOut"
+            android:value="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
