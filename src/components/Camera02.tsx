@@ -86,6 +86,7 @@ export default function Camera02() {
   // 現在のzoomの値を常にzoomRefに保持（タッチイベントで使用）
   useEffect(() => {
     zoomRef.current = zoom;
+    //console.log('zoom:', zoom);
   }, [zoom]);
 
   // シャッター音などの初期化
@@ -145,36 +146,52 @@ export default function Camera02() {
     }
   };
 
-  const drawVideoToCanvas = () => {
+  const draw = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
-
     const ctx = canvas.getContext('2d');
-    const draw = () => {
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
 
-        // カメラ映像を描画
+      let currentZoom = zoomRef.current;
+      // カメラ映像を描画
+      if (currentZoom === 1.0) { // ズームなし？
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // 丸を描画
-        ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.arc(canvas.width / 4, canvas.height / 3, 80, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // 四角を描画
-        ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
-        ctx.lineWidth = 5;
-        ctx.strokeRect(canvas.width / 2, canvas.height / 2, 150, 150);
+      } else { // ズームあり？
+        // ズーム時は中央部分を切り取って拡大描画
+        const sourceWidth = video.videoWidth / currentZoom;
+        const sourceHeight = video.videoHeight / currentZoom;
+        const sourceX = (video.videoWidth - sourceWidth) / 2;
+        const sourceY = (video.videoHeight - sourceHeight) / 2;
+
+        ctx.drawImage(
+          video,
+          sourceX, sourceY, sourceWidth, sourceHeight,  // ソース（切り取り範囲）
+          0, 0, canvas.width, canvas.height             // キャンバス全体に描画
+        );
       }
-      animationRef.current = requestAnimationFrame(draw);
-    };
+
+      // 丸を描画
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(canvas.width / 4, canvas.height / 3, 80, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // 四角を描画
+      ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
+      ctx.lineWidth = 5;
+      ctx.strokeRect(canvas.width / 2, canvas.height / 2, 150, 150);
+    }
+
+    animationRef.current = requestAnimationFrame(draw);
+  }, []);
+
+  const drawVideoToCanvas = useCallback(() => {
     draw();
-  };
+  }, []);
 
   const stopCamera = () => {
     if (stream) {
@@ -384,7 +401,7 @@ export default function Camera02() {
       <canvas
         ref={canvasRef}
         className="camera02-canvas"
-        style={{ objectFit:'contain', scale:(zoom * 100) + '%' }}
+        style={{ objectFit:'contain' }}
       />
 
       <div className="camera02-controls">
