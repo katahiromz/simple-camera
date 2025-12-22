@@ -1,6 +1,6 @@
 /* Camera02.tsx */
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Camera, Circle, Video, Square } from 'lucide-react';
+import { Camera, Circle, Video, Square, Mic, MicOff } from 'lucide-react';
 import './Camera02.css';
 
 const isAndroidApp = typeof window.android !== 'undefined';
@@ -36,28 +36,18 @@ const playSound = (audio: HTMLAudioElement | null) => {
     console.assert(false);
   }
   // 可能ならばシステム音量を変更する
-  try {
-    if (isAndroidApp)
-      window.android.onStartShutterSound();
-  } catch (error) {
-    alert(error);
-  }
+  if (isAndroidApp)
+    window.android?.onStartShutterSound();
 
   try {
-    if (audio) {
-      audio.addEventListener('ended', (event) => { // 再生終了時
-        // 可能ならばシステム音量を元に戻す
-        try {
-          if (isAndroidApp)
-            window.android.onEndShutterSound();
-        } catch (error) {
-          alert(error);
-        }
-      });
-      // 再生位置をリセットしてから再生
-      audio.currentTime = 0;
-      audio.play();
-    }
+    audio?.addEventListener('ended', (event) => { // 再生終了時
+      // 可能ならばシステム音量を元に戻す
+      if (isAndroidApp)
+        window.android.onEndShutterSound();
+    }, { once: true });
+    // 再生位置をリセットしてから再生
+    audio.currentTime = 0;
+    audio.play();
   } catch (error) {
     console.warn('sound playback failed:', error);
   }
@@ -65,19 +55,20 @@ const playSound = (audio: HTMLAudioElement | null) => {
 
 export default function Camera02() {
   // states
-  const [stream, setStream] = useState(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState(null);
-  const [recordedChunks, setRecordedChunks] = useState([]);
+  const [stream, setStream] = useState<MediaStream | null>(null); // メディア ストリーム
+  const [mediaRecorder, setMediaRecorder] = useState(null); // メディア レコーダー
+  const [isRecording, setIsRecording] = useState<boolean>(false); // 録画中？
+  const [recordedChunks, setRecordedChunks] = useState([]); // 録画中のデータ(chunks)
   const [zoom, setZoomState] = useState(1.0); // ズーム倍率
+  const [isMicEnabled, setIsMicEnabled] = useState(true); // マイクON/OFF状態
   // refs
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef(null);
-  const initialZoomRef = useRef(1.0); // ピンチ開始時のズーム倍率
-  const lastTouchDistanceRef = useRef(0); // タッチ距離
+  const initialZoomRef = useRef<number>(1.0); // ピンチ開始時のズーム倍率
+  const lastTouchDistanceRef = useRef<number>(0); // タッチ距離
   const lastTouchCenterRef = useRef({ x: 0, y: 0 }); // タッチ中心
-  const initialTouchDistanceRef = useRef(0); // ピンチ開始時の距離
+  const initialTouchDistanceRef = useRef<number>(0); // ピンチ開始時の距離
   const initialTouchCenterRef = useRef({ x: 0, y: 0 }); // ピンチ開始時の中心座標
   const zoomRef = useRef(zoom); // ズーム参照
   const shutterAudioRef = useRef<HTMLAudioElement | null>(null); // シャッター音の Audio オブジェクト
@@ -89,6 +80,13 @@ export default function Camera02() {
     zoomRef.current = zoom;
     //console.log('zoom:', zoom);
   }, [zoom]);
+
+  // マイクON/OFF切り替え時にストリームを更新
+  useEffect(() => {
+    if (stream) {
+      updateAudioTracks();
+    }
+  }, [isMicEnabled]);
 
   // シャッター音などの初期化
   useEffect(() => {
@@ -128,9 +126,10 @@ export default function Camera02() {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { width: 1280, height: 720 },
-        audio: true
+        audio: isMicEnabled
       });
       setStream(mediaStream);
+      console.assert(videoRef.current);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         videoRef.current.onloadedmetadata = () => {
@@ -142,8 +141,61 @@ export default function Camera02() {
         };
       }
     } catch (err) {
-      console.error('カメラへのアクセスに失敗しました:', err);
-      alert('カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。');
+      console.warn('カメラへのアクセスに失敗しました:', err);
+      
+      // マイクが原因で失敗した場合、マイクなしで再試行
+      if (isMicEnabled) {
+        console.log('マイクなしでカメラを起動します');
+        try {
+          const mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 1280, height: 720 },
+            audio: false
+          });
+          setStream(mediaStream);
+          setIsMicEnabled(false);
+
+          if (videoRef.current) {
+            videoRef.current.srcObject = mediaStream;
+            videoRef.current.onloadedmetadata = () => {
+              videoRef.current?.play()
+                .then(() => drawVideoToCanvas())
+                .catch(err => console.error('ビデオの再生に失敗しました:', err));
+            };
+          }
+        } catch (retryErr) {
+          console.error('カメラの起動に完全に失敗しました:', retryErr);
+          alert('カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。');
+        }
+      } else {
+        alert('カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。');
+      }
+    }
+  };
+
+  // 音声トラックを更新
+  const updateAudioTracks = async () => {
+    if (!stream) return;
+
+    // 既存のオーディオトラックを停止して削除
+    const existingAudioTracks = stream.getAudioTracks();
+    existingAudioTracks.forEach(track => {
+      track.stop();
+      stream.removeTrack(track);
+    });
+
+    // マイクが有効な場合、新しいオーディオトラックを追加
+    if (isMicEnabled) {
+      try {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioTrack = audioStream.getAudioTracks()[0];
+        if (audioTrack) {
+          stream.addTrack(audioTrack);
+        }
+      } catch (err) {
+        console.error('マイクの取得に失敗しました:', err);
+        setIsMicEnabled(false);
+        alert('マイクへのアクセスが拒否されました。');
+      }
     }
   };
 
@@ -268,7 +320,7 @@ export default function Camera02() {
 
     const canvasStream = canvas.captureStream(30);
     
-    if (stream) {
+    if (stream && isMicEnabled) {
       const audioTracks = stream.getAudioTracks();
       audioTracks.forEach(track => canvasStream.addTrack(track));
     }
@@ -316,6 +368,10 @@ export default function Camera02() {
       mediaRecorder.stop();
       setIsRecording(false);
     }
+  };
+
+  const toggleMic = () => {
+    setIsMicEnabled(prev => !prev);
   };
 
   // --- PC: マウスホイールでズーム ---
@@ -395,7 +451,7 @@ export default function Camera02() {
       canvas.removeEventListener('touchend', handleTouchEnd);
       canvas.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [handleWheel]);
+  }, [handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   return (
     <div className="camera02-root">
@@ -406,6 +462,12 @@ export default function Camera02() {
       />
 
       <div className="camera02-controls">
+        <button className="camera02-button camera02-button-microphone" onClick={toggleMic}>
+          {
+            isMicEnabled ? ( <Mic size={40} /> ) : ( <MicOff size={40} /> )
+          }
+        </button>
+
         <button className="camera02-button" onClick={takePhoto}>
           <Camera size={40} />
         </button>
