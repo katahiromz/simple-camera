@@ -1436,6 +1436,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       // 停止時にfinalize
       mediaRecorderRef.current.onstop = async (event) => {
         console.log('onstop');
+
         if (!finalizedRef.current) {
           finalizeRecording(options);
         }
@@ -1451,7 +1452,7 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       };
 
       // 録画開始
-      mediaRecorderRef.current.start(1000); // 1000msごとにデータを取得
+      mediaRecorderRef.current.start();
       RecordingStartTimeRef.current = Date.now();
       setIsRecording(true);
       setRecordingStatus('recording');
@@ -1493,12 +1494,6 @@ const AdvancedCamera: React.FC<AdvancedCameraProps> = ({
       if (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused') {
         mediaRecorderRef.current.stop();
         console.log('stop() called');
-
-        // すべてのトラックを停止
-        mediaRecorderRef.current.stream.getTracks().forEach(track => {
-          track.stop();
-          console.log('Track stopped:', track.kind);
-        });
       }
     } catch (error) {
       console.error('Error stopping recorder:', error);
