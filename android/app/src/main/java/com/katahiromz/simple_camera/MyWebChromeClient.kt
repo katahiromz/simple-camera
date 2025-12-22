@@ -188,7 +188,8 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
     }
 
     // 画像または動画をギャラリーに保存する
-    private fun saveMediaToGallery(
+    @JavascriptInterface
+    fun saveMediaToGallery(
         base64Data: String,
         filename: String,
         mimeType: String,
