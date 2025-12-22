@@ -1,11 +1,18 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Camera, Circle, Square } from 'lucide-react';
+import { Camera, Circle, Video, Square } from 'lucide-react';
 import './Camera02.css';
 
 const isAndroidApp = typeof window.android !== 'undefined';
 const MOUSE_WHEEL_DELTA = 0.004;
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
 const MAX_ZOOM = 4.0; // ズーム倍率の最大値
+
+// アプリケーションのベースパスを取得
+const BASE_URL = import.meta.env.BASE_URL;
+
+const shutterSoundUrl = `${BASE_URL}ac-camera-shutter-sound.mp3`;
+const videoStartSoundUrl = `${BASE_URL}ac-video-started.mp3`;
+const videoCompleteSoundUrl = `${BASE_URL}ac-video-completed.mp3`;
 
 const TOUCH_MOVE_RATIO = 1.5;
 
@@ -15,6 +22,44 @@ const getDistance = (t1: Touch, t2: Touch) => {
 
 const getCenter = (t1: Touch, t2: Touch) => {
   return { x: (t1.clientX + t2.clientX) / 2, y: (t1.clientY + t2.clientY) / 2 };
+};
+
+// 効果音を再生するかどうか決める関数
+const mustPlaySound = (): boolean => {
+  return true;
+};
+
+// 音声を再生する
+const playSound = (audio: HTMLAudioElement | null) => {
+  if (!audio) {
+    console.assert(false);
+  }
+  // 可能ならばシステム音量を変更する
+  try {
+    if (isAndroidApp)
+      window.android.onStartShutterSound();
+  } catch (error) {
+    alert(error);
+  }
+
+  try {
+    if (audio) {
+      audio.addEventListener('ended', (event) => { // 再生終了時
+        // 可能ならばシステム音量を元に戻す
+        try {
+          if (isAndroidApp)
+            window.android.onEndShutterSound();
+        } catch (error) {
+          alert(error);
+        }
+      });
+      // 再生位置をリセットしてから再生
+      audio.currentTime = 0;
+      audio.play();
+    }
+  } catch (error) {
+    console.warn('sound playback failed:', error);
+  }
 };
 
 export default function Camera02() {
@@ -34,11 +79,38 @@ export default function Camera02() {
   const initialTouchDistanceRef = useRef(0); // ピンチ開始時の距離
   const initialTouchCenterRef = useRef({ x: 0, y: 0 }); // ピンチ開始時の中心座標
   const zoomRef = useRef(zoom); // ズーム参照
+  const shutterAudioRef = useRef<HTMLAudioElement | null>(null); // シャッター音の Audio オブジェクト
+  const videoStartAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画開始音の Audio オブジェクト
+  const videoCompleteAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画完了音の Audio オブジェクト
 
   // 現在のzoomの値を常にzoomRefに保持（タッチイベントで使用）
   useEffect(() => {
     zoomRef.current = zoom;
   }, [zoom]);
+
+  // シャッター音などの初期化
+  useEffect(() => {
+    // Audioオブジェクトを作成し、Refに保持
+    try {
+      // シャッター音
+      if (shutterSoundUrl) {
+        shutterAudioRef.current = new Audio(shutterSoundUrl);
+        shutterAudioRef.current.load();
+      }
+      // ビデオ録画開始音
+      if (videoStartSoundUrl) {
+        videoStartAudioRef.current = new Audio(videoStartSoundUrl);
+        videoStartAudioRef.current.load();
+      }
+      // ビデオ録画完了音
+      if (videoCompleteSoundUrl) {
+        videoCompleteAudioRef.current = new Audio(videoCompleteSoundUrl);
+        videoCompleteAudioRef.current.load();
+      }
+    } catch (error) {
+      console.error('Failed to initialize shutter audio:', error);
+    }
+  }, []); // 依存配列が空なのでマウント時に一度だけ実行される
 
   useEffect(() => {
     startCamera();
@@ -146,6 +218,12 @@ export default function Camera02() {
   const takePhoto = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    // シャッター音再生
+    if (mustPlaySound()) {
+      playSound(shutterAudioRef.current);
+    }
+
     canvas.toBlob((blob) => {
       const filename = `photo_${Date.now()}.png`;
       if (isAndroidApp) {
@@ -164,6 +242,11 @@ export default function Camera02() {
   const startRecording = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    // ビデオ録画開始音を再生
+    if (mustPlaySound()) {
+      playSound(videoStartAudioRef.current);
+    }
 
     const canvasStream = canvas.captureStream(30);
     
@@ -184,7 +267,12 @@ export default function Camera02() {
       }
     };
 
-    recorder.onstop = () => {
+    recorder.onstop = () => { // レコーダー停止時の処理
+      // ビデオ録画完了音を再生
+      if (mustPlaySound()) {
+        playSound(videoCompleteAudioRef.current);
+      }
+
       const blob = new Blob(chunks, { type: 'video/webm' });
       const filename = `video_${Date.now()}.webm`;
       if (isAndroidApp) {
@@ -306,7 +394,7 @@ export default function Camera02() {
 
         {!isRecording ? (
           <button className="camera02-button" onClick={startRecording}>
-            <Circle size={48} />
+            <Video size={48} />
           </button>
         ) : (
           <button className="camera02-button camera02-button-recording" onClick={stopRecording}>
