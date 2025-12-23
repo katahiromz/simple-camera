@@ -53,6 +53,9 @@ const playSound = (audio: HTMLAudioElement | null) => {
   }
 };
 
+// 権限の状態を表す型
+type PermissionStatus = 'granted' | 'denied' | 'prompt' | 'unknown';
+
 export default function Camera02() {
   // states
   const [stream, setStream] = useState<MediaStream | null>(null); // メディア ストリーム
@@ -61,6 +64,8 @@ export default function Camera02() {
   const [recordedChunks, setRecordedChunks] = useState([]); // 録画中のデータ(chunks)
   const [zoom, setZoomState] = useState(1.0); // ズーム倍率
   const [isMicEnabled, setIsMicEnabled] = useState(true); // マイクON/OFF状態
+  const [cameraPermission, setCameraPermission] = useState<PermissionStatus>('unknown');
+  const [microphonePermission, setMicrophonePermission] = useState<PermissionStatus>('unknown');
   // refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -87,6 +92,55 @@ export default function Camera02() {
       updateAudioTracks();
     }
   }, [isMicEnabled]);
+
+  // 権限の監視
+  useEffect(() => {
+    checkPermissions();
+    
+    // Permissions APIが利用可能な場合、変更を監視
+    if (navigator.permissions) {
+      const watchPermission = async (name: PermissionName, setter: (status: PermissionStatus) => void) => {
+        try {
+          const result = await navigator.permissions.query({ name });
+          setter(result.state as PermissionStatus);
+          
+          // 権限の変更を監視
+          result.addEventListener('change', () => {
+            setter(result.state as PermissionStatus);
+            stopCamera();
+            startCamera();
+          });
+        } catch (error) {
+          console.warn(`Permission query for ${name} not supported:`, error);
+        }
+      };
+
+      watchPermission('camera' as PermissionName, setCameraPermission);
+      watchPermission('microphone' as PermissionName, setMicrophonePermission);
+    }
+  }, []);
+
+  // 権限をチェックする関数
+  const checkPermissions = async () => {
+    if (!navigator.permissions) {
+      console.warn('Permissions API not supported');
+      return;
+    }
+
+    try {
+      const cameraResult = await navigator.permissions.query({ name: 'camera' as PermissionName });
+      setCameraPermission(cameraResult.state as PermissionStatus);
+    } catch (error) {
+      console.warn('Camera permission query failed:', error);
+    }
+
+    try {
+      const micResult = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      setMicrophonePermission(micResult.state as PermissionStatus);
+    } catch (error) {
+      console.warn('Microphone permission query failed:', error);
+    }
+  };
 
   // シャッター音などの初期化
   useEffect(() => {
@@ -125,11 +179,17 @@ export default function Camera02() {
   const startCamera = async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720 },
+        video: true,
         audio: isMicEnabled
       });
       setStream(mediaStream);
-      console.assert(videoRef.current);
+
+      // 権限が取得できたことを反映
+      setCameraPermission('granted');
+      if (isMicEnabled) {
+        setMicrophonePermission('granted');
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         videoRef.current.onloadedmetadata = () => {
@@ -142,17 +202,29 @@ export default function Camera02() {
       }
     } catch (err) {
       console.warn('カメラへのアクセスに失敗しました:', err);
-      
+
+      // エラーの種類に応じて権限状態を更新
+      if (err instanceof Error) {
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setCameraPermission('denied');
+          if (isMicEnabled) {
+            setMicrophonePermission('denied');
+          }
+        }
+      }
+
       // マイクが原因で失敗した場合、マイクなしで再試行
       if (isMicEnabled) {
         console.log('マイクなしでカメラを起動します');
         try {
           const mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 1280, height: 720 },
+            video: true,
             audio: false
           });
           setStream(mediaStream);
           setIsMicEnabled(false);
+          setMicrophonePermission('denied');
+          setCameraPermission('granted');
 
           if (videoRef.current) {
             videoRef.current.srcObject = mediaStream;
@@ -163,11 +235,29 @@ export default function Camera02() {
             };
           }
         } catch (retryErr) {
-          console.error('カメラの起動に完全に失敗しました:', retryErr);
-          alert('カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。');
+          console.log('カメラなしでマイクを起動します');
+          setCameraPermission('denied');
+
+          try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({
+              audio: true
+            });
+            setStream(mediaStream);
+            setIsMicEnabled(true);
+            setMicrophonePermission('denied');
+            setCameraPermission('granted');
+            console.warn('マイクのみの起動に成功しました:', retryErr);
+            drawVideoToCanvas();
+          } catch (retryAgainErr) {
+            setCameraPermission('denied');
+            console.error('カメラの起動に完全に失敗しました:', retryErr);
+            drawVideoToCanvas();
+          }
         }
       } else {
-        alert('カメラへのアクセスが拒否されました。ブラウザの設定を確認してください。');
+        setCameraPermission('denied');
+        console.error('カメラの起動に完全に失敗しました:', retryErr);
+        drawVideoToCanvas();
       }
     }
   };
@@ -202,7 +292,10 @@ export default function Camera02() {
   const draw = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    if (!video || !canvas) {
+      animationRef.current = requestAnimationFrame(draw);
+      return;
+    }
     const ctx = canvas.getContext('2d');
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
       canvas.width = video.videoWidth;
@@ -453,6 +546,20 @@ export default function Camera02() {
     };
   }, [handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
+  // 権限ステータスに応じたスタイルを取得
+  const getPermissionIndicatorStyle = (permission: PermissionStatus) => {
+    switch (permission) {
+      case 'granted':
+        return { background: 'rgba(191, 255, 191, 20%)' }; // 緑
+      case 'denied':
+        return { background: 'rgba(255, 191, 191, 20%)' }; // 赤
+      case 'prompt':
+        return { background: 'rgba(255, 191, 255, 20%)' }; // オレンジ
+      default:
+        return { background: 'rgba(191, 191, 191, 20%)' }; // グレー
+    }
+  };
+
   return (
     <div className="camera02-root">
       <canvas
@@ -462,13 +569,13 @@ export default function Camera02() {
       />
 
       <div className="camera02-controls">
-        <button className="camera02-button camera02-button-microphone" onClick={toggleMic}>
+        <button className="camera02-button camera02-button-microphone" onClick={toggleMic} style={getPermissionIndicatorStyle(microphonePermission)}>
           {
             isMicEnabled ? ( <Mic size={40} /> ) : ( <MicOff size={40} /> )
           }
         </button>
 
-        <button className="camera02-button" onClick={takePhoto}>
+        <button className="camera02-button" onClick={takePhoto} style={getPermissionIndicatorStyle(cameraPermission)}>
           <Camera size={40} />
         </button>
 

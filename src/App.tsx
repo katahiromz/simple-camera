@@ -2,6 +2,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import AdvancedCamera from './components/AdvancedCamera.tsx';
 import Camera02 from './components/Camera02.tsx';
+import Camera03WithControls from './components/webcam03-with-controls';
 import { emulateInsets } from './utils.ts';
 import './App.css';
 
@@ -25,9 +26,13 @@ function App() {
     return (
       <AdvancedCamera dummyImageSrc={dummyImageSrc} autoMirror="{true}" />
     );
-  } else {
+  } else if (false) {
     return (
       <Camera02></Camera02>
+    );
+  } else {
+    return (
+      <Camera03WithControls />
     );
   }
 }
