@@ -3,6 +3,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import AdvancedCamera from './components/AdvancedCamera.tsx';
 import Camera02 from './components/Camera02.tsx';
 import Camera03WithControls from './components/webcam03-with-controls';
+import Webcam03WithCanvas from './components/webcam03-with-canvas';
 import { emulateInsets } from './utils.ts';
 import './App.css';
 
@@ -30,9 +31,13 @@ function App() {
     return (
       <Camera02></Camera02>
     );
-  } else {
+  } else if (false) {
     return (
       <Camera03WithControls />
+    );
+  } else {
+    return (
+      <Webcam03WithCanvas />
     );
   }
 }
