@@ -57,6 +57,7 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
     const [hasUserMedia, setHasUserMedia] = useState(false);
 
     const stopMediaStream = useCallback(() => {
+      console.log('stopMediaStream');
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
@@ -64,6 +65,7 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
     }, []);
 
     const requestUserMedia = useCallback(async () => {
+      console.log('requestUserMedia');
       stopMediaStream();
 
       const constraints: MediaStreamConstraints = {
@@ -87,11 +89,13 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
     }, [audio, audioConstraints, videoConstraints, onUserMedia, onUserMediaError, stopMediaStream]);
 
     useEffect(() => {
+      console.log('useEffect');
       requestUserMedia();
       return () => stopMediaStream();
-    }, [requestUserMedia, stopMediaStream]);
+    }, [videoConstraints, audioConstraints, audio]);
 
     const getCanvas = useCallback((dimensions?: ScreenshotDimensions): HTMLCanvasElement | null => {
+      console.log('getCanvas');
       const video = videoRef.current;
       if (!video || !hasUserMedia || !video.videoHeight) return null;
 
@@ -134,6 +138,7 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
     }, [hasUserMedia, imageSmoothing, mirrored, minScreenshotWidth, minScreenshotHeight, forceScreenshotSourceSize]);
 
     const getScreenshot = useCallback((dimensions?: ScreenshotDimensions) => {
+      console.log('getScreenshot');
       const canvas = getCanvas(dimensions);
       return canvas ? canvas.toDataURL(screenshotFormat, screenshotQuality) : null;
     }, [getCanvas, screenshotFormat, screenshotQuality]);
