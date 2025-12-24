@@ -26,6 +26,7 @@ function App() {
   useEffect(() => {
     console.log(canvasWithCamera.current.canvas);
     canvasWithCamera.current.setZoomRatio(2);
+    console.log(canvasWithCamera.current.getZoomRatio());
   }, []);
 
   return (

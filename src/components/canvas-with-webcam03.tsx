@@ -26,6 +26,7 @@ interface CanvasWithWebcam03Props {
 
 interface CanvasWithWebcam03Handle {
   canvas?: HTMLCanvasElement;
+  getZoomRatio?: () => number;
   setZoomRatio?: (ratio: number) => void;
   startRecording?: () => void;
   stopRecording?: () => void;
@@ -323,6 +324,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     };
   }, [handleWheel]);
 
+  function getZoomRatio() {
+    return zoomValue;
+  }
+
   function setZoomRatio(ratio: number) {
     const newRatio = clamp(MIN_ZOOM, ratio, MAX_ZOOM);
     setZoomValue(newRatio);
@@ -330,6 +335,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   useImperativeHandle(ref, () => ({
     canvas: canvasRef.current,
+    getZoomRatio: getZoomRatio.bind(this),
     setZoomRatio: setZoomRatio.bind(this),
     takePhoto: takePhoto.bind(this),
     startRecording: startRecording.bind(this),
