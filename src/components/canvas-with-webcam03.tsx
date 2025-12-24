@@ -44,6 +44,12 @@ interface CanvasWithWebcam03Handle {
   setPan?: (newPanX: number, newPanY: number) => void;
 };
 
+const getDistance = (touches: React.TouchList | TouchList) => {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
 const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam03Props>((
   {
     shutterSoundUrl = null,
@@ -79,6 +85,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const offsetRef = useRef(offset); // パン操作用
   const isDragging = useRef(false); // パン操作用
   const lastPos = useRef({ x: 0, y: 0 }); // パン操作用
+  const initialPinchDistance = useRef<number | null>(null); // 初期のピンチング距離
+  const initialZoomAtPinchStart = useRef<number>(1.0); // ピンチング開始時のズーム倍率
 
   useEffect(() => {
     offsetRef.current = offset;
@@ -364,11 +372,25 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   };
 
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!ENABLE_USER_PANNING) return;
-    if (USE_MIDDLE_BUTTON_FOR_PANNING && !('touches' in e)) {
-      if (e.button != 1) return; // 中央ボタンでなければ無視
+    if (!ENABLE_USER_PANNING && !ENABLE_USER_ZOOMING) return;
+
+    if ('touches' in e) {
+      if (e.touches.length === 2 && ENABLE_USER_ZOOMING) {
+        // ピンチ操作開始
+        isDragging.current = false; // パンを優先させない
+        initialPinchDistance.current = getDistance(e.touches);
+        initialZoomAtPinchStart.current = zoomRef.current;
+        return;
+      }
+      // 1本指ならパン操作へ
     }
-    e.preventDefault();
+
+    if (USE_MIDDLE_BUTTON_FOR_PANNING && !('touches' in e)) {
+      if (e.button != 1) return; // 中央ボタン？
+    }
+
+    if (e.button == 2) return; // 右ボタンは無視
+
     isDragging.current = true;
     const pos = 'touches' in e ? e.touches[0] : e;
     lastPos.current = { x: pos.clientX, y: pos.clientY };
@@ -381,8 +403,26 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   };
 
   const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!ENABLE_USER_PANNING) return;
-    if (!isDragging.current || zoomRef.current <= 1.0) return;
+    // 1. ピンチズーム処理 (2本指)
+    if ('touches' in e && e.touches.length === 2 && ENABLE_USER_ZOOMING) {
+      if (initialPinchDistance.current === null) return;
+      
+      e.preventDefault();
+      const currentDistance = getDistance(e.touches);
+      const pinchScale = currentDistance / initialPinchDistance.current;
+      
+      // 開始時のズーム倍率に変化率を掛ける
+      const newZoom = clamp(
+        MIN_ZOOM, 
+        initialZoomAtPinchStart.current * pinchScale, 
+        MAX_ZOOM
+      );
+      setZoomValue(newZoom);
+      return;
+    }
+
+    // 2. パン処理 (1本指またはマウス)
+    if (!ENABLE_USER_PANNING || !isDragging.current || zoomRef.current <= 1.0) return;
 
     e.preventDefault();
 
@@ -410,9 +450,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, [mirrored]);
 
   const handleMouseUp = (e: MouseEvent | TouchEvent) => {
-    if (!ENABLE_USER_PANNING) return;
-    e.preventDefault();
     isDragging.current = false;
+    initialPinchDistance.current = null;
   };
 
   // スタイルの整理
@@ -429,27 +468,33 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // イベントリスナーの設定
   useEffect(() => {
-    const target = eventTarget ? eventTarget : canvasRef.current;
-    if (!target) return;
-    let canvas = canvasRef.current;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    // リスナー登録 (passive: false)
+    // PCホイール
+    const target = eventTarget ? eventTarget : canvas;
     target.addEventListener('wheel', handleWheel, { passive: false });
+
+    // マウスイベント
     canvas.addEventListener('mousedown', handleMouseDown);
-    canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mousemove', handleMouseMove); // 枠外対応
+    window.addEventListener('mouseup', handleMouseUp);
+
+    // タッチイベント
+    canvas.addEventListener('touchstart', handleMouseDown, { passive: false });
     canvas.addEventListener('touchmove', handleMouseMove, { passive: false });
     canvas.addEventListener('touchend', handleMouseUp);
 
     return () => {
       target.removeEventListener('wheel', handleWheel);
       canvas.removeEventListener('mousedown', handleMouseDown);
-      canvas.removeEventListener('mousemove', handleMouseMove);
-      canvas.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('touchstart', handleMouseDown);
       canvas.removeEventListener('touchmove', handleMouseMove);
       canvas.removeEventListener('touchend', handleMouseUp);
     };
-  }, [handleWheel, eventTarget]);
+  }, [handleMouseMove, eventTarget]);
 
   const getZoomRatio = () => {
     return zoomValue;
