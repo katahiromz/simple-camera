@@ -375,16 +375,21 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (!ENABLE_USER_PANNING && !ENABLE_USER_ZOOMING) return;
 
-    if ('touches' in e) {
-      if (e.touches.length === 2 && ENABLE_USER_ZOOMING) {
-        // ピンチ操作開始
-        isDragging.current = false; // パンを優先させない
-        initialPinchDistance.current = getDistance(e.touches);
-        initialZoomAtPinchStart.current = zoomRef.current;
-        return;
-      }
-      // 1本指ならパン操作へ
+    if (ENABLE_USER_ZOOMING && ('touches' in e) && e.touches.length === 2) {
+      // ピンチ操作開始
+      isDragging.current = false; // パンを優先させない
+      initialPinchDistance.current = getDistance(e.touches);
+      initialZoomAtPinchStart.current = zoomRef.current;
+
+      // 二本指の中間点を初期位置として保存
+      lastPos.current = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+      };
+      return;
     }
+
+    // 1本指ならパン操作へ
 
     if (USE_MIDDLE_BUTTON_FOR_PANNING && !('touches' in e)) {
       if (e.button != 1) return; // 中央ボタン？
