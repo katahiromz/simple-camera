@@ -24,7 +24,8 @@ interface CanvasWithWebcam03Props {
   photoQuality?: number;
   recordingFormat?: "video/webm" | "video/mp4";
   downloadFile?: (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => void;
-  eventTarget?: HTMLElement
+  eventTarget?: HTMLElement;
+  showTime?: boolean;
 };
 
 interface CanvasWithWebcam03Handle {
@@ -53,6 +54,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     saveFile = null,
     downloadFile = null,
     eventTarget = null,
+    showTime = true,
     ...rest
   },
   ref
@@ -426,17 +428,17 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       )}
 
       {/* 録画時間表示 */}
-      {isRecordingNow && (
+      {showTime && isRecordingNow && (
         <div style={{
           position: 'absolute',
           top: '20px',
           left: '10px',
           color: 'red',
           pointerEvents: 'none',
-          color: "#f33",
+          color: "#f66",
           fontWeight: 'bold',
           padding: '3px',
-          border: '1px solid red',
+          border: '2px solid #f66',
           borderRadius: '20px',
         }}>
           {formatTime(recordingTime)}
