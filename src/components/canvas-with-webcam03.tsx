@@ -1,5 +1,5 @@
 // webcam03-with-canvas.tsx
-import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import Webcam03 from './webcam03';
 import Webcam03Controls from './webcam03-controls';
 import { PermissionManager, PermissionStatusValue } from './permission-watcher';
@@ -9,6 +9,7 @@ const isAndroidApp = typeof window.android !== 'undefined';
 const MOUSE_WHEEL_DELTA = 0.004;
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
 const MAX_ZOOM = 4.0; // ズーム倍率の最大値
+const ENABLE_SOUND_EFFECTS = true; // 効果音を有効にするか？
 
 interface CanvasWithWebcam03Props {
   shutterSoundUrl?: string;
@@ -23,7 +24,12 @@ interface CanvasWithWebcam03Props {
   recordingFormat?: "video/webm" | "video/mp4";
 };
 
-interface CanvasWithWebcam03Handle {};
+interface CanvasWithWebcam03Handle {
+  canvas?: HTMLCanvasElement;
+  setZoomRatio?: (ratio: number) => void;
+  startRecording?: () => void;
+  stopRecording?: () => void;
+};
 
 const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam03Props>((
   {
@@ -70,6 +76,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // シャッター音などの初期化
   useEffect(() => {
+    if (!ENABLE_SOUND_EFFECTS) return;
     try {
       // シャッター音
       if (shutterSoundUrl) {
@@ -84,6 +91,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     };
   }, [shutterSoundUrl]);
   useEffect(() => {
+    if (!ENABLE_SOUND_EFFECTS) return;
     try {
       // ビデオ録画開始音
       if (videoStartSoundUrl) {
@@ -98,6 +106,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     };
   }, [videoStartSoundUrl]);
   useEffect(() => {
+    if (!ENABLE_SOUND_EFFECTS) return;
     try {
       // ビデオ録画完了音
       if (videoCompleteSoundUrl) {
@@ -200,8 +209,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       return;
     }
 
-    // シャッター音再生
-    playSound(shutterAudioRef.current);
+    if (ENABLE_SOUND_EFFECTS) {
+      // シャッター音再生
+      playSound(shutterAudioRef.current);
+    }
 
     try {
       const imageSrc = canvasRef.current.toDataURL(photoFormat, photoQuality);
@@ -222,7 +233,9 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     console.log('startRecording');
     if (!canvasRef.current) return;
 
-    playSound(videoStartAudioRef.current);
+    if (ENABLE_SOUND_EFFECTS) {
+      playSound(videoStartAudioRef.current);
+    }
 
     chunksRef.current = [];
     // Canvasからストリームを取得 (30fps)
@@ -245,7 +258,9 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
     mediaRecorder.onstop = () => {
       console.log('onstop');
-      playSound(videoCompleteAudioRef.current);
+      if (ENABLE_SOUND_EFFECTS) {
+        playSound(videoCompleteAudioRef.current);
+      }
       const blob = new Blob(chunksRef.current, { type: recordingFormat });
       const extension = videoFormatToExtension(recordingFormat);
       const url = URL.createObjectURL(blob);
@@ -307,6 +322,18 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       canvas.removeEventListener('wheel', handleWheel);
     };
   }, [handleWheel]);
+
+  function setZoomRatio(ratio: number) {
+    setZoomState(ratio);
+  }
+
+  useImperativeHandle(ref, () => ({
+    canvas: canvasRef.current,
+    setZoomRatio: setZoomRatio.bind(this),
+    takePhoto: takePhoto.bind(this),
+    startRecording: startRecording.bind(this),
+    stopRecording: stopRecording.bind(this),
+  }));
 
   return (
     <div style={{

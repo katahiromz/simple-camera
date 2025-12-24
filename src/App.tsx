@@ -17,33 +17,26 @@ const shutterSoundUrl = `${BASE_URL}ac-camera-shutter-sound.mp3`;
 const videoStartSoundUrl = `${BASE_URL}ac-video-started.mp3`;
 const videoCompleteSoundUrl = `${BASE_URL}ac-video-completed.mp3`;
 
+if (!IS_PRODUCTION) { // 本番環境ではない場合、
+  emulateInsets(); // insetsをエミュレートする
+}
+
 // アプリ
 function App() {
-  if (!IS_PRODUCTION) { // 本番環境ではない場合、
-    emulateInsets(); // insetsをエミュレートする
-  }
-  
-  //const dummyImageSrc = !IS_PRODUCTION ? `${BASE_URL}dummy.jpg` : null; // 非本番環境ではダミー画像のパスを指定
-  //const dummyImageSrc = !IS_PRODUCTION ? `${BASE_URL}example-qr-code.png` : null; // 非本番環境ではQRコード画像のパスを指定
-  const dummyImageSrc = null; // ダミー画像を使わない
+  const canvasWithCamera = useRef(null);
 
-  if (false) {
-    return (
-      <AdvancedCamera dummyImageSrc={dummyImageSrc} autoMirror="{true}" />
-    );
-  } else if (false) {
-    return (
-      <Camera02></Camera02>
-    );
-  } else if (true) {
-    return (
-      <CanvasWithWebcam03
-        shutterSoundUrl={shutterSoundUrl}
-        videoStartSoundUrl={videoStartSoundUrl}
-        videoCompleteSoundUrl={videoCompleteSoundUrl}
-      />
-    );
-  }
+  useEffect(() => {
+    console.log(canvasWithCamera.current.canvas);
+  }, []);
+
+  return (
+    <CanvasWithWebcam03
+      ref={canvasWithCamera}
+      shutterSoundUrl={shutterSoundUrl}
+      videoStartSoundUrl={videoStartSoundUrl}
+      videoCompleteSoundUrl={videoCompleteSoundUrl}
+    />
+  );
 }
 
 export default App;
