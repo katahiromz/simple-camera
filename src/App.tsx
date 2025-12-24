@@ -12,6 +12,11 @@ const IS_PRODUCTION = import.meta.env.MODE === 'production';
 // アプリケーションのベースパスを取得
 const BASE_URL = import.meta.env.BASE_URL;
 
+// 音声のURL
+const shutterSoundUrl = `${BASE_URL}ac-camera-shutter-sound.mp3`;
+const videoStartSoundUrl = `${BASE_URL}ac-video-started.mp3`;
+const videoCompleteSoundUrl = `${BASE_URL}ac-video-completed.mp3`;
+
 // アプリ
 function App() {
   if (!IS_PRODUCTION) { // 本番環境ではない場合、
@@ -32,7 +37,11 @@ function App() {
     );
   } else if (true) {
     return (
-      <Webcam03WithCanvas />
+      <Webcam03WithCanvas
+        shutterSoundUrl={shutterSoundUrl}
+        videoStartSoundUrl={videoStartSoundUrl}
+        videoCompleteSoundUrl={videoCompleteSoundUrl}
+      />
     );
   }
 }

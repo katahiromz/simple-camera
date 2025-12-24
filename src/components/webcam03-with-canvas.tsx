@@ -1,14 +1,53 @@
 // webcam03-with-canvas.tsx
-import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef } from 'react';
 import Webcam03 from './webcam03';
 import Webcam03Controls from './webcam03-controls';
 import { PermissionManager, PermissionStatusValue } from './permission-watcher';
 
-const Webcam03WithCanvas = () => {
+const isAndroidApp = typeof window.android !== 'undefined';
+
+interface Props {
+  shutterSoundUrl: string | null;
+  videoStartSoundUrl: string | null;
+  videoCompleteSoundUrl: string | null;
+};
+
+interface Handle {};
+
+// 音声を再生する
+const playSound = (audio: HTMLAudioElement | null) => {
+  if (!audio) {
+    console.assert(false);
+  }
+  // 可能ならばシステム音量を変更する
+  if (isAndroidApp)
+    window.android?.onStartShutterSound();
+
+  try {
+    audio?.addEventListener('ended', (event) => { // 再生終了時
+      // 可能ならばシステム音量を元に戻す
+      if (isAndroidApp)
+        window.android.onEndShutterSound();
+    }, { once: true });
+    // 再生位置をリセットしてから再生
+    audio.currentTime = 0;
+    audio.play();
+  } catch (error) {
+    console.warn('sound playback failed:', error);
+  }
+};
+
+const Webcam03WithCanvas = forwardRef<Handle, Props>((
+  {
+    shutterSoundUrl = null,
+    videoStartSoundUrl = null,
+    videoCompleteSoundUrl = null,
+  },
+  ref
+) => {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
   const animationRef = useRef();
-  // 録画用のRef
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +58,55 @@ const Webcam03WithCanvas = () => {
   const [micPermission, setMicPermission] = useState<PermissionStatusValue>('prompt');
   // マイクを有効にするかどうかのフラグ
   const [isMicEnabled, setIsMicEnabled] = useState(true);
+
+  // シャッター音など
+  const shutterAudioRef = useRef<HTMLAudioElement | null>(null); // シャッター音の Audio オブジェクト
+  const videoStartAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画開始音の Audio オブジェクト
+  const videoCompleteAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画完了音の Audio オブジェクト
+
+  // シャッター音などの初期化
+  useEffect(() => {
+    try {
+      // シャッター音
+      if (shutterSoundUrl) {
+        shutterAudioRef.current = new Audio(shutterSoundUrl);
+        shutterAudioRef.current.load();
+      }
+    } catch (error) {
+      console.error('Failed to initialize shutter audio:', error);
+    }
+    return () => {
+      shutterAudioRef.current = null;
+    };
+  }, [shutterSoundUrl]);
+  useEffect(() => {
+    try {
+      // ビデオ録画開始音
+      if (videoStartSoundUrl) {
+        videoStartAudioRef.current = new Audio(videoStartSoundUrl);
+        videoStartAudioRef.current.load();
+      }
+    } catch (error) {
+      console.error('Failed to initialize shutter audio:', error);
+    }
+    return () => {
+      videoStartAudioRef.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    try {
+      // ビデオ録画完了音
+      if (videoCompleteSoundUrl) {
+        videoCompleteAudioRef.current = new Audio(videoCompleteSoundUrl);
+        videoCompleteAudioRef.current.load();
+      }
+    } catch (error) {
+      console.error('Failed to initialize shutter audio:', error);
+    }
+    return () => {
+      videoCompleteAudioRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     // インスタンスの生成
@@ -92,6 +180,9 @@ const Webcam03WithCanvas = () => {
       return;
     }
 
+    // シャッター音再生
+    playSound(shutterAudioRef.current);
+
     try {
       const imageSrc = canvasRef.current.toDataURL('image/webp', 1.0);
       const link = document.createElement('a');
@@ -109,6 +200,8 @@ const Webcam03WithCanvas = () => {
   const startRecording = useCallback(() => {
     console.log('startRecording');
     if (!canvasRef.current) return;
+
+    playSound(videoStartAudioRef.current);
 
     chunksRef.current = [];
     // Canvasからストリームを取得 (30fps)
@@ -131,6 +224,7 @@ const Webcam03WithCanvas = () => {
 
     mediaRecorder.onstop = () => {
       console.log('onstop');
+      playSound(videoCompleteAudioRef.current);
       const blob = new Blob(chunksRef.current, { type: 'video/webm' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -220,6 +314,6 @@ const Webcam03WithCanvas = () => {
       )}
     </div>
   );
-};
+});
 
 export default Webcam03WithCanvas;
