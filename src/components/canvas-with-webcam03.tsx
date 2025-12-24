@@ -7,6 +7,7 @@ import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtensio
 import { saveFile } from 'utils';
 
 const MOUSE_WHEEL_DELTA = 0.004;
+const ENABLE_USER_ZOOMING = true;
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
 const MAX_ZOOM = 4.0; // ズーム倍率の最大値
 const ENABLE_SOUND_EFFECTS = true; // 効果音を有効にするか？
@@ -298,6 +299,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const handleWheel = (event: WheelEvent) => {
     if (event.ctrlKey) { // Ctrl + ホイール
       event.preventDefault();
+      if (!ENABLE_USER_ZOOMING)
+        return;
       // 現在の zoomValue state を取得するために setZoomValue の関数形式を使用
       setZoomValue(prevZoom => {
         const delta = -event.deltaY * MOUSE_WHEEL_DELTA;
@@ -335,7 +338,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const getZoomRatio = () => {
     return zoomValue;
   };
-
   const setZoomRatio = (ratio: number) => {
     const newRatio = clamp(MIN_ZOOM, ratio, MAX_ZOOM);
     setZoomValue(newRatio);
@@ -344,11 +346,15 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const ZOOM_DELTA = 0.2;
 
   const zoomIn = useCallback(() => {
+    if (!ENABLE_USER_ZOOMING)
+      return;
     const newValue = clamp(MIN_ZOOM, zoomValue + ZOOM_DELTA, MAX_ZOOM);
     setZoomValue(newValue);
   }, [zoomValue]);
 
   const zoomOut = useCallback(() => {
+    if (!ENABLE_USER_ZOOMING)
+      return;
     const newValue = clamp(MIN_ZOOM, zoomValue - ZOOM_DELTA, MAX_ZOOM);
     setZoomValue(newValue);
   }, [zoomValue]);
