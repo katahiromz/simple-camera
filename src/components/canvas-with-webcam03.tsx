@@ -3,7 +3,7 @@ import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef, u
 import Webcam03 from './webcam03';
 import Webcam03Controls from './webcam03-controls';
 import { PermissionManager, PermissionStatusValue } from './permission-watcher';
-import { generateFileName, playSound, photoFormatToExtension, videoFormatToExtension } from './utils';
+import { clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension } from './utils';
 
 const isAndroidApp = typeof window.android !== 'undefined';
 const MOUSE_WHEEL_DELTA = 0.004;
@@ -54,8 +54,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const chunksRef = useRef<Blob[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [zoom, setZoomState] = useState(1.0); // ズーム倍率
-  const zoomRef = useRef(zoom); // ズーム参照
+  const [zoomValue, setZoomValue] = useState(1.0); // ズーム倍率
+  const zoomRef = useRef(zoomValue); // ズーム参照
 
   // --- 権限状態の管理 ---
   const [cameraPermission, setCameraPermission] = useState<PermissionStatusValue>('prompt');
@@ -68,11 +68,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const videoStartAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画開始音の Audio オブジェクト
   const videoCompleteAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画完了音の Audio オブジェクト
 
-  // 現在のzoomの値を常にzoomRefに保持（タッチイベントで使用）
+  // 現在のzoomValueの値を常にzoomRefに保持（タッチイベントで使用）
   useEffect(() => {
-    zoomRef.current = zoom;
-    //console.log('zoom:', zoom);
-  }, [zoom]);
+    zoomRef.current = zoomValue;
+    //console.log('zoomValue:', zoomValue);
+  }, [zoomValue]);
 
   // シャッター音などの初期化
   useEffect(() => {
@@ -289,8 +289,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const handleWheel = (event: WheelEvent) => {
     if (event.ctrlKey) { // Ctrl + ホイール
       event.preventDefault();
-      // 現在の zoom state を取得するために setZoomState の関数形式を使用
-      setZoomState(prevZoom => {
+      // 現在の zoomValue state を取得するために setZoomValue の関数形式を使用
+      setZoomValue(prevZoom => {
         const delta = -event.deltaY * MOUSE_WHEEL_DELTA;
         const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + delta));
         return newZoom;
@@ -324,7 +324,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, [handleWheel]);
 
   function setZoomRatio(ratio: number) {
-    setZoomState(ratio);
+    const newRatio = clamp(MIN_ZOOM, ratio, MAX_ZOOM);
+    setZoomValue(newRatio);
   }
 
   useImperativeHandle(ref, () => ({

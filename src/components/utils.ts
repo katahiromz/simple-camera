@@ -139,3 +139,10 @@ export const playSound = (audio: HTMLAudioElement | null) => {
     console.warn('sound playback failed:', error);
   }
 };
+
+/**
+ * 数値を区間内に制限する
+ */
+export const clamp = (minValue: number, value: number, maxValue: number) => {
+  return Math.max(minValue, Math.min(value, maxValue));
+};

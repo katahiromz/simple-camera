@@ -1,7 +1,5 @@
 // App.tsx --- アプリのTypeScriptソース
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import AdvancedCamera from './components/AdvancedCamera.tsx';
-import Camera02 from './components/Camera02.tsx';
 import CanvasWithWebcam03 from './components/canvas-with-webcam03';
 import { emulateInsets } from './utils.ts';
 import './App.css';
@@ -27,6 +25,7 @@ function App() {
 
   useEffect(() => {
     console.log(canvasWithCamera.current.canvas);
+    canvasWithCamera.current.setZoomRatio(2);
   }, []);
 
   return (
