@@ -331,8 +331,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // スタイルの整理
   const combinedCanvasStyle: React.CSSProperties = {
-    maxWidth: '100%',
-    maxHeight: '100%',
+    width: '100%',
+    height: '100%',
     backgroundColor: '#000',
     objectFit: 'contain', // 映像全体を表示（余白は黒）。隙間なく埋めるなら 'cover'
     display: 'block',
@@ -435,7 +435,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           position: 'absolute',
           top: '20px',
           left: '10px',
-          color: 'red',
           pointerEvents: 'none',
           color: "#f66",
           fontWeight: 'bold',
