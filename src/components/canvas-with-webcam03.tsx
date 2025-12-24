@@ -9,7 +9,6 @@ import { saveFile } from './utils';
 const MOUSE_WHEEL_DELTA = 0.004;
 const ENABLE_USER_ZOOMING = true;
 const ENABLE_USER_PANNING = true;
-const ENABLE_HIGH_SENSE_PINCHING = true;
 const USE_MIDDLE_BUTTON_FOR_PANNING = true;
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
 const MAX_ZOOM = 4.0; // ズーム倍率の最大値
@@ -89,6 +88,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const initialPinchDistance = useRef<number | null>(null); // 初期のピンチング距離
   const initialZoomAtPinchStart = useRef<number>(1.0); // ピンチング開始時のズーム倍率
 
+  // 常にoffsetRefをoffset stateに合わせる
   useEffect(() => {
     offsetRef.current = offset;
   }, [offset]);
@@ -233,7 +233,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           // clampを使って、ソースの範囲がビデオの外に出ないように制限します
           const maxOffsetX = (video.videoWidth - sourceWidth) / 2;
           const maxOffsetY = (video.videoHeight - sourceHeight) / 2;
-          
+
           const sourceX = maxOffsetX + offsetRef.current.x;
           const sourceY = maxOffsetY + offsetRef.current.y;
 
@@ -251,7 +251,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           ctx.beginPath();
           ctx.arc(canvas.width / 4, canvas.height / 3, 80, 0, Math.PI * 2);
           ctx.stroke();
-          
+
           // 四角形を描画
           ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
           ctx.lineWidth = 5;
@@ -404,69 +404,69 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   };
 
   const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!ENABLE_USER_ZOOMING && !ENABLE_USER_PANNING) return;
     const video = webcamRef.current?.video;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
 
-    // 1. ピンチズーム処理 (2本指)
-    if ('touches' in e && e.touches.length === 2 && ENABLE_USER_ZOOMING) {
+    // 1. 二本指操作（ズーム ＋ パン）
+    if ('touches' in e && e.touches.length === 2) {
       if (initialPinchDistance.current === null) return;
-      
+
       e.preventDefault();
+
+      // --- ズーム計算 ---
       const currentDistance = getDistance(e.touches);
       const pinchScale = currentDistance / initialPinchDistance.current;
+      const oldZoom = zoomRef.current;
+      const newZoom = clamp(
+        MIN_ZOOM,
+        initialZoomAtPinchStart.current * pinchScale,
+        MAX_ZOOM
+      );
 
-      if (ENABLE_HIGH_SENSE_PINCHING) {
-        // --- 高度なパン補正ロジック開始 ---
-        
-        // ① ピンチの中心点を計算 (スクリーン座標)
-        const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      // --- 中心点の移動（パン）計算 ---
+      const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
 
-        // ② キャンバス内の相対座標に変換 (0.0 ~ 1.0)
-        const rect = canvas.getBoundingClientRect();
-        let relX = (centerX - rect.left) / rect.width;
-        let relY = (centerY - rect.top) / rect.height;
+      // 前回の中心点からの移動量を計算（lastPos に中心点を保存しておく必要があるため handleMouseDown も後述の通り修正）
+      const dx = centerX - lastPos.current.x;
+      const dy = centerY - lastPos.current.y;
 
-        // 鏡像(mirrored)の場合は、左右の相対位置を反転
-        if (mirrored) relX = 1 - relX;
+      // ビデオ座標系への変換
+      const scaleX = video.videoWidth / canvas.clientWidth;
+      const scaleY = video.videoHeight / canvas.clientHeight;
+      const moveX = mirrored ? -dx * scaleX : dx * scaleX;
+      const moveY = dy * scaleY;
 
-        // ③ ビデオ座標系（解像度）での中心位置を計算 (-0.5 ~ +0.5)
-        // 0がビデオの真ん中
-        const focalX = (relX - 0.5) * video.videoWidth;
-        const focalY = (relY - 0.5) * video.videoHeight;
+      // --- 状態の更新 ---
 
-        // ④ 新しいズーム倍率の決定
-        const oldZoom = zoomRef.current;
-        const newZoom = clamp(
-          MIN_ZOOM, 
-          initialZoomAtPinchStart.current * pinchScale,
-          MAX_ZOOM
-        );
-
-        if (oldZoom !== newZoom) {
-          setZoomValue(newZoom);
-
-          // ⑤ ズーム中心を維持するためのパン補正
-          // ズームが変化した際の「ズレ」を相殺するように offset を更新
-          setOffset(prev => {
-            const factor = (1 / oldZoom - 1 / newZoom);
-            const nextX = prev.x + focalX * factor;
-            const nextY = prev.y + focalY * factor;
-            
-            return clampPan(nextX, nextY);
-          });
-        }
-      } else {
-        // 開始時のズーム倍率に変化率を掛ける
-        const newZoom = clamp(
-          MIN_ZOOM, 
-          initialZoomAtPinchStart.current * pinchScale, 
-          MAX_ZOOM
-        );
+      if (ENABLE_USER_ZOOMING)
         setZoomValue(newZoom);
+
+      if (ENABLE_USER_PANNING) {
+        setOffset(prev => {
+          // A. 高度なズーム補正（指の間の位置を固定する）
+          const rect = canvas.getBoundingClientRect();
+          let relX = (centerX - rect.left) / rect.width;
+          let relY = (centerY - rect.top) / rect.height;
+          if (mirrored) relX = 1 - relX;
+
+          const focalX = (relX - 0.5) * video.videoWidth;
+          const focalY = (relY - 0.5) * video.videoHeight;
+          const zoomFactor = (1 / oldZoom - 1 / newZoom);
+
+          // B. 二本の指の移動によるパン
+          // ズーム補正分に、指自体の移動(moveX, moveY)を加算する
+          const nextX = prev.x + focalX * zoomFactor - moveX;
+          const nextY = prev.y + focalY * zoomFactor - moveY;
+
+          return clampPan(nextX, nextY);
+        });
       }
 
+      // 次回計算用に中心点を保存
+      lastPos.current = { x: centerX, y: centerY };
       return;
     }
 
@@ -494,7 +494,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     });
 
     lastPos.current = { x: pos.clientX, y: pos.clientY };
-  }, [mirrored]);
+  }, [mirrored, clampPan]);
 
   const handleMouseUp = (e: MouseEvent | TouchEvent) => {
     isDragging.current = false;
@@ -646,7 +646,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
       {/* カメラ権限が拒否されていない場合のみWebcamを起動 */}
       {cameraPermission !== 'denied' && (
-        <Webcam03 
+        <Webcam03
           ref={webcamRef}
           audio={audio && isMicEnabled}
           muted={true}
@@ -654,7 +654,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             position: 'absolute',
             top: '0',
             left: '0',
-            width: '1px', 
+            width: '1px',
             height: '1px',
             opacity: 0,
             pointerEvents: 'none',
