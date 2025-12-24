@@ -1,7 +1,8 @@
 // App.tsx --- アプリのTypeScriptソース
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import CanvasWithWebcam03 from './components/canvas-with-webcam03';
-import { isAndroidApp, emulateInsets, saveFile, saveFileEx } from './utils.ts';
+import { isAndroidApp, emulateInsets } from './utils.ts';
+import { saveFile, saveFileEx } from './components/utils.ts';
 import './App.css';
 
 // 製品版か？

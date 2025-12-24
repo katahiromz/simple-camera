@@ -4,7 +4,7 @@ import Webcam03 from './webcam03';
 import Webcam03Controls from './webcam03-controls';
 import { PermissionManager, PermissionStatusValue } from './permission-watcher';
 import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension } from './utils';
-import { saveFile } from '../utils';
+import { saveFile } from 'utils';
 
 const MOUSE_WHEEL_DELTA = 0.004;
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
