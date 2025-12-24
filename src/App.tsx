@@ -30,6 +30,18 @@ function App() {
     console.log(canvasWithCamera.current.getZoomRatio());
   }, []);
 
+  // 物理の音量ボタンを押されたら撮影
+  useEffect(() => {
+    // Android側から呼ばれるグローバル関数を定義
+    (window as any).onPhysicalVolumeButton = () => {
+      canvasWithCamera.current?.takePhoto();
+    };
+    // コンポーネントがアンマウントされる時にクリーンアップ
+    return () => {
+      delete (window as any).onPhysicalVolumeButton;
+    };
+  }, []);
+
   return (
     <CanvasWithWebcam03
       ref={canvasWithCamera}
