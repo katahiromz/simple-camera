@@ -3,45 +3,38 @@ import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef } 
 import Webcam03 from './webcam03';
 import Webcam03Controls from './webcam03-controls';
 import { PermissionManager, PermissionStatusValue } from './permission-watcher';
+import { generateFileName, playSound, photoFormatToExtension, videoFormatToExtension } from './utils';
 
 const isAndroidApp = typeof window.android !== 'undefined';
 
-interface Props {
-  shutterSoundUrl: string | null;
-  videoStartSoundUrl: string | null;
-  videoCompleteSoundUrl: string | null;
+interface CanvasWithWebcam03Props {
+  shutterSoundUrl?: string;
+  videoStartSoundUrl?: string;
+  videoCompleteSoundUrl?: string;
+  audio?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
+  mirrored?: boolean;
+  photoFormat?: "image/png" | "image/webp" | "image/jpeg";
+  photoQuality?: number;
+  recordingFormat?: "video/webm" | "video/mp4";
 };
 
-interface Handle {};
+interface CanvasWithWebcam03Handle {};
 
-// 音声を再生する
-const playSound = (audio: HTMLAudioElement | null) => {
-  if (!audio) {
-    console.assert(false);
-  }
-  // 可能ならばシステム音量を変更する
-  if (isAndroidApp)
-    window.android?.onStartShutterSound();
-
-  try {
-    audio?.addEventListener('ended', (event) => { // 再生終了時
-      // 可能ならばシステム音量を元に戻す
-      if (isAndroidApp)
-        window.android.onEndShutterSound();
-    }, { once: true });
-    // 再生位置をリセットしてから再生
-    audio.currentTime = 0;
-    audio.play();
-  } catch (error) {
-    console.warn('sound playback failed:', error);
-  }
-};
-
-const Webcam03WithCanvas = forwardRef<Handle, Props>((
+const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam03Props>((
   {
     shutterSoundUrl = null,
     videoStartSoundUrl = null,
     videoCompleteSoundUrl = null,
+    audio = true,
+    mirrored = true,
+    photoFormat = "image/png",
+    photoQuality = 0.92,
+    recordingFormat = "video/mp4",
+    style,
+    className,
+    ...rest
   },
   ref
 ) => {
@@ -92,7 +85,7 @@ const Webcam03WithCanvas = forwardRef<Handle, Props>((
     return () => {
       videoStartAudioRef.current = null;
     };
-  }, []);
+  }, [videoStartSoundUrl]);
   useEffect(() => {
     try {
       // ビデオ録画完了音
@@ -106,7 +99,7 @@ const Webcam03WithCanvas = forwardRef<Handle, Props>((
     return () => {
       videoCompleteAudioRef.current = null;
     };
-  }, []);
+  }, [videoCompleteSoundUrl]);
 
   useEffect(() => {
     // インスタンスの生成
@@ -184,10 +177,11 @@ const Webcam03WithCanvas = forwardRef<Handle, Props>((
     playSound(shutterAudioRef.current);
 
     try {
-      const imageSrc = canvasRef.current.toDataURL('image/webp', 1.0);
+      const imageSrc = canvasRef.current.toDataURL(photoFormat, photoQuality);
+      const extension = photoFormatToExtension(photoFormat);
       const link = document.createElement('a');
       link.href = imageSrc;
-      link.download = `photo_${Date.now()}.webp`;
+      link.download = generateFileName('photo_', extension);
       link.click();
       console.log("Photo taken");
     } catch (err) {
@@ -213,7 +207,7 @@ const Webcam03WithCanvas = forwardRef<Handle, Props>((
       audioTracks.forEach(track => stream.addTrack(track));
     }
 
-    const options = { mimeType: 'video/webm; codecs=vp9' };
+    const options = { mimeType: recordingFormat };
     const mediaRecorder = new MediaRecorder(stream, options);
 
     mediaRecorder.ondataavailable = (event) => {
@@ -225,11 +219,12 @@ const Webcam03WithCanvas = forwardRef<Handle, Props>((
     mediaRecorder.onstop = () => {
       console.log('onstop');
       playSound(videoCompleteAudioRef.current);
-      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      const blob = new Blob(chunksRef.current, { type: recordingFormat });
+      const extension = videoFormatToExtension(recordingFormat);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `video_${Date.now()}.webm`;
+      link.download = generateFileName('video_', extension);
       link.click();
       URL.revokeObjectURL(url);
     };
@@ -248,16 +243,35 @@ const Webcam03WithCanvas = forwardRef<Handle, Props>((
     }
   }, [isRecording]);
 
+// スタイルの整理
+  const combinedCanvasStyle: React.CSSProperties = {
+    maxWidth: '100%',
+    maxHeight: '100%',
+    backgroundColor: '#000',
+    objectFit: 'contain', // 映像全体を表示（余白は黒）。隙間なく埋めるなら 'cover'
+    display: 'block',
+    ...style,
+    // 左右反転の処理を最後に結合
+    transform: `${style?.transform || ""} ${mirrored ? "scaleX(-1)" : ""}`.trim(),
+  };
+
   return (
-    <div style={{ 
-      position: 'relative', 
-      width: '100%', 
-      height: '100vh',
-      backgroundColor: '#000',
+    <div style={{
+      position: 'relative',
+      width: '100%',
+      height: '100%',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'center'
+      justifyContent: 'center',
     }}>
+      {/* キャンバス */}
+      <canvas
+        ref={canvasRef}
+        style={combinedCanvasStyle}
+        className={className}
+        {...rest}
+      />
+
       {/* 権限エラーまたはその他のエラー表示 */}
       {(cameraPermission === 'denied') && (
         <div style={{
@@ -276,20 +290,11 @@ const Webcam03WithCanvas = forwardRef<Handle, Props>((
         </div>
       )}
 
-      <canvas 
-        ref={canvasRef} 
-        style={{ 
-          maxWidth: '100%',
-          maxHeight: '100%',
-          objectFit: 'contain'
-        }} 
-      />
-      
       {/* カメラ権限が拒否されていない場合のみWebcamを起動 */}
       {cameraPermission !== 'denied' && (
         <Webcam03 
           ref={webcamRef}
-          audio={isMicEnabled}
+          audio={audio && isMicEnabled}
           muted={true}
           style={{
             position: 'absolute',
@@ -316,4 +321,4 @@ const Webcam03WithCanvas = forwardRef<Handle, Props>((
   );
 });
 
-export default Webcam03WithCanvas;
+export default CanvasWithWebcam03;

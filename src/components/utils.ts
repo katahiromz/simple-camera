@@ -1,6 +1,8 @@
 // utils.ts
 // 汎用のユーティリティ関数は utils.ts に分離
 
+const isAndroidApp = typeof window.android !== 'undefined';
+
 export interface RenderMetrics {
   renderWidth: number;
   renderHeight: number;
@@ -111,4 +113,29 @@ export const videoFormatToExtension = (format: string): string => {
   if (format.includes('mp4')) return '.mp4';
   if (format.includes('webm')) return '.webm';
   return '.webm'; // default
+};
+
+/**
+ * 音声を再生する
+ */
+export const playSound = (audio: HTMLAudioElement | null) => {
+  if (!audio) {
+    console.assert(false);
+  }
+  // 可能ならばシステム音量を変更する
+  if (isAndroidApp)
+    window.android?.onStartShutterSound();
+
+  try {
+    audio?.addEventListener('ended', (event) => { // 再生終了時
+      // 可能ならばシステム音量を元に戻す
+      if (isAndroidApp)
+        window.android.onEndShutterSound();
+    }, { once: true });
+    // 再生位置をリセットしてから再生
+    audio.currentTime = 0;
+    audio.play();
+  } catch (error) {
+    console.warn('sound playback failed:', error);
+  }
 };

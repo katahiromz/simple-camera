@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import AdvancedCamera from './components/AdvancedCamera.tsx';
 import Camera02 from './components/Camera02.tsx';
-import Webcam03WithCanvas from './components/webcam03-with-canvas';
+import CanvasWithWebcam03 from './components/canvas-with-webcam03';
 import { emulateInsets } from './utils.ts';
 import './App.css';
 
@@ -37,7 +37,7 @@ function App() {
     );
   } else if (true) {
     return (
-      <Webcam03WithCanvas
+      <CanvasWithWebcam03
         shutterSoundUrl={shutterSoundUrl}
         videoStartSoundUrl={videoStartSoundUrl}
         videoCompleteSoundUrl={videoCompleteSoundUrl}
