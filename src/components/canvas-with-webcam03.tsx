@@ -25,6 +25,7 @@ interface CanvasWithWebcam03Props {
   recordingFormat?: "video/webm" | "video/mp4";
   downloadFile?: (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => void;
   eventTarget?: HTMLElement;
+  showControls?: boolean;
   showTime?: boolean;
 };
 
@@ -54,6 +55,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     saveFile = null,
     downloadFile = null,
     eventTarget = null,
+    showControls = true,
     showTime = true,
     ...rest
   },
@@ -462,14 +464,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             overflow: 'hidden'
           }}
         >
-          {() => (
+          {showControls ? (() => (
             <Webcam03Controls
               isRecording={isRecordingNow}
               takePhoto={takePhoto}
               startRecording={startRecording}
               stopRecording={stopRecording}
             />
-          )}
+          )) : (() => (<></>))}
         </Webcam03>
       )}
     </div>
