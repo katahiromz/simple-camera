@@ -42,6 +42,25 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      switch(event.key) {
+      case '+': // ズームイン
+      case ';': // (日本語キーボード対応用)
+        event.preventDefault();
+        canvasWithCamera.current?.zoomIn();
+        break;
+      case '-': // ズームアウト
+        event.preventDefault();
+        canvasWithCamera.current?.zoomOut();
+        break;
+      }
+    };
+
+    document.body.addEventListener('keydown', handleKeyDown);
+    return () => document.body.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <CanvasWithWebcam03
       ref={canvasWithCamera}

@@ -32,6 +32,8 @@ interface CanvasWithWebcam03Handle {
   setZoomRatio?: (ratio: number) => void;
   startRecording?: () => void;
   stopRecording?: () => void;
+  zoomIn?: () => void;
+  zoomOut?: () => void;
 };
 
 const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam03Props>((
@@ -330,14 +332,26 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     };
   }, [handleWheel, eventTarget]);
 
-  function getZoomRatio() {
+  const getZoomRatio = () => {
     return zoomValue;
-  }
+  };
 
-  function setZoomRatio(ratio: number) {
+  const setZoomRatio = (ratio: number) => {
     const newRatio = clamp(MIN_ZOOM, ratio, MAX_ZOOM);
     setZoomValue(newRatio);
-  }
+  };
+
+  const ZOOM_DELTA = 0.2;
+
+  const zoomIn = useCallback(() => {
+    const newValue = clamp(MIN_ZOOM, zoomValue + ZOOM_DELTA, MAX_ZOOM);
+    setZoomValue(newValue);
+  }, [zoomValue]);
+
+  const zoomOut = useCallback(() => {
+    const newValue = clamp(MIN_ZOOM, zoomValue - ZOOM_DELTA, MAX_ZOOM);
+    setZoomValue(newValue);
+  }, [zoomValue]);
 
   useImperativeHandle(ref, () => ({
     canvas: canvasRef.current,
@@ -346,6 +360,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     takePhoto: takePhoto.bind(this),
     startRecording: startRecording.bind(this),
     stopRecording: stopRecording.bind(this),
+    zoomIn: zoomIn.bind(this),
+    zoomOut: zoomOut.bind(this),
   }));
 
   return (
