@@ -23,6 +23,7 @@ interface CanvasWithWebcam03Props {
   photoQuality?: number;
   recordingFormat?: "video/webm" | "video/mp4";
   downloadFile?: (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => void;
+  eventTarget?: HTMLElement
 };
 
 interface CanvasWithWebcam03Handle {
@@ -47,6 +48,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     className,
     saveFile = null,
     downloadFile = null,
+    eventTarget = null,
     ...rest
   },
   ref
@@ -317,16 +319,16 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // イベントリスナーの設定
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const target = eventTarget ? eventTarget : canvasRef.current;
+    if (!target) return;
 
     // リスナー登録 (passive: false)
-    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    target.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
-      canvas.removeEventListener('wheel', handleWheel);
+      target.removeEventListener('wheel', handleWheel);
     };
-  }, [handleWheel]);
+  }, [handleWheel, eventTarget]);
 
   function getZoomRatio() {
     return zoomValue;

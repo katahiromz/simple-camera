@@ -49,6 +49,7 @@ function App() {
       videoStartSoundUrl={videoStartSoundUrl}
       videoCompleteSoundUrl={videoCompleteSoundUrl}
       downloadFile={isAndroidApp ? saveFileEx : saveFile}
+      eventTarget={document.body}
     />
   );
 }
