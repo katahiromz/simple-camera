@@ -6,6 +6,9 @@ import { PermissionManager, PermissionStatusValue } from './permission-watcher';
 import { generateFileName, playSound, photoFormatToExtension, videoFormatToExtension } from './utils';
 
 const isAndroidApp = typeof window.android !== 'undefined';
+const MOUSE_WHEEL_DELTA = 0.004;
+const MIN_ZOOM = 1.0; // ズーム倍率の最小値
+const MAX_ZOOM = 4.0; // ズーム倍率の最大値
 
 interface CanvasWithWebcam03Props {
   shutterSoundUrl?: string;
@@ -45,6 +48,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const chunksRef = useRef<Blob[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [zoom, setZoomState] = useState(1.0); // ズーム倍率
+  const zoomRef = useRef(zoom); // ズーム参照
 
   // --- 権限状態の管理 ---
   const [cameraPermission, setCameraPermission] = useState<PermissionStatusValue>('prompt');
@@ -56,6 +61,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const shutterAudioRef = useRef<HTMLAudioElement | null>(null); // シャッター音の Audio オブジェクト
   const videoStartAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画開始音の Audio オブジェクト
   const videoCompleteAudioRef = useRef<HTMLAudioElement | null>(null); // 動画録画完了音の Audio オブジェクト
+
+  // 現在のzoomの値を常にzoomRefに保持（タッチイベントで使用）
+  useEffect(() => {
+    zoomRef.current = zoom;
+    //console.log('zoom:', zoom);
+  }, [zoom]);
 
   // シャッター音などの初期化
   useEffect(() => {
@@ -137,7 +148,23 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
         }
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        let currentZoom = zoomRef.current;
+        if (currentZoom === 1.0) { // ズームなし？
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        } else { // ズームあり？
+          // ズーム時は中央部分を切り取って拡大描画
+          const sourceWidth = video.videoWidth / currentZoom;
+          const sourceHeight = video.videoHeight / currentZoom;
+          const sourceX = (video.videoWidth - sourceWidth) / 2;
+          const sourceY = (video.videoHeight - sourceHeight) / 2;
+
+          ctx.drawImage(
+            video,
+            sourceX, sourceY, sourceWidth, sourceHeight,  // ソース（切り取り範囲）
+            0, 0, canvas.width, canvas.height             // キャンバス全体に描画
+          );
+        }
 
         if (canvas.width > 2 && canvas.height > 2) {
           // 円を描画
@@ -243,7 +270,20 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     }
   }, [isRecording]);
 
-// スタイルの整理
+  // --- PC: マウスホイールでズーム ---
+  const handleWheel = (event: WheelEvent) => {
+    if (event.ctrlKey) { // Ctrl + ホイール
+      event.preventDefault();
+      // 現在の zoom state を取得するために setZoomState の関数形式を使用
+      setZoomState(prevZoom => {
+        const delta = -event.deltaY * MOUSE_WHEEL_DELTA;
+        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + delta));
+        return newZoom;
+      });
+    }
+  };
+
+  // スタイルの整理
   const combinedCanvasStyle: React.CSSProperties = {
     maxWidth: '100%',
     maxHeight: '100%',
@@ -254,6 +294,19 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     // 左右反転の処理を最後に結合
     transform: `${style?.transform || ""} ${mirrored ? "scaleX(-1)" : ""}`.trim(),
   };
+
+  // イベントリスナーの設定
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // リスナー登録 (passive: false)
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [handleWheel]);
 
   return (
     <div style={{
