@@ -3,11 +3,13 @@ import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef, u
 import Webcam03 from './webcam03';
 import Webcam03Controls from './webcam03-controls';
 import { PermissionManager, PermissionStatusValue } from './permission-watcher';
-import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime } from './utils';
+import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset } from './utils';
 import { saveFile } from './utils';
 
 const MOUSE_WHEEL_DELTA = 0.004;
 const ENABLE_USER_ZOOMING = true;
+const ENABLE_USER_PANNING = true;
+const USE_MIDDLE_BUTTON_FOR_PANNING = true;
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
 const MAX_ZOOM = 4.0; // ズーム倍率の最大値
 const ENABLE_SOUND_EFFECTS = true; // 効果音を有効にするか？
@@ -38,6 +40,8 @@ interface CanvasWithWebcam03Handle {
   zoomIn?: () => void;
   zoomOut?: () => void;
   isRecording?: () => boolean;
+  getPan?: () => { x: number, y: number };
+  setPan?: (newPanX: number, newPanY: number) => void;
 };
 
 const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam03Props>((
@@ -71,6 +75,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const [zoomValue, setZoomValue] = useState(1.0); // ズーム倍率
   const zoomRef = useRef(zoomValue); // ズーム参照
   const [recordingTime, setRecordingTime] = useState(0); // 録画時間量
+  const [offset, setOffset] = useState({ x: 0, y: 0 }); // パン操作用
+  const offsetRef = useRef(offset); // パン操作用
+  const isDragging = useRef(false); // パン操作用
+  const lastPos = useRef({ x: 0, y: 0 }); // パン操作用
+
+  useEffect(() => {
+    offsetRef.current = offset;
+  }, [offset]);
 
   // 録画タイマー
   useEffect(() => {
@@ -98,6 +110,21 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   useEffect(() => {
     zoomRef.current = zoomValue;
     //console.log('zoomValue:', zoomValue);
+  }, [zoomValue]);
+
+  // ズーム変更時にオフセットを境界内に戻す
+  useEffect(() => {
+    if (!ENABLE_USER_PANNING) return;
+    if (!webcamRef.current?.video) return;
+    const video = webcamRef.current.video;
+
+    setOffset(prev => {
+      const max = getMaxOffset(video.videoWidth, video.videoHeight, zoomValue);
+      return {
+        x: Math.max(-max.x, Math.min(max.x, prev.x)),
+        y: Math.max(-max.y, Math.min(max.y, prev.y))
+      };
+    });
   }, [zoomValue]);
 
   // シャッター音などの初期化
@@ -188,16 +215,23 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         if (currentZoom === 1.0) { // ズームなし？
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         } else { // ズームあり？
-          // ズーム時は中央部分を切り取って拡大描画
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
           const sourceWidth = video.videoWidth / currentZoom;
           const sourceHeight = video.videoHeight / currentZoom;
-          const sourceX = (video.videoWidth - sourceWidth) / 2;
-          const sourceY = (video.videoHeight - sourceHeight) / 2;
+
+          // Offsetを含めた中央基準の計算
+          // clampを使って、ソースの範囲がビデオの外に出ないように制限します
+          const maxOffsetX = (video.videoWidth - sourceWidth) / 2;
+          const maxOffsetY = (video.videoHeight - sourceHeight) / 2;
+          
+          const sourceX = maxOffsetX + offsetRef.current.x;
+          const sourceY = maxOffsetY + offsetRef.current.y;
 
           ctx.drawImage(
             video,
-            sourceX, sourceY, sourceWidth, sourceHeight,  // ソース（切り取り範囲）
-            0, 0, canvas.width, canvas.height             // キャンバス全体に描画
+            sourceX, sourceY, sourceWidth, sourceHeight,
+            0, 0, canvas.width, canvas.height
           );
         }
 
@@ -329,6 +363,58 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     }
   };
 
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!ENABLE_USER_PANNING) return;
+    if (USE_MIDDLE_BUTTON_FOR_PANNING && !('touches' in e)) {
+      if (e.button != 1) return; // 中央ボタンでなければ無視
+    }
+    e.preventDefault();
+    isDragging.current = true;
+    const pos = 'touches' in e ? e.touches[0] : e;
+    lastPos.current = { x: pos.clientX, y: pos.clientY };
+  };
+
+  const clampPan = (x: number, y: number) => {
+    const video = webcamRef.current.video;
+    const max = getMaxOffset(video.videoWidth, video.videoHeight, zoomRef.current);
+    return { x: clamp(-max.x, x, max.x), y: clamp(-max.y, y, max.y) };
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!ENABLE_USER_PANNING) return;
+    if (!isDragging.current || zoomRef.current <= 1.0) return;
+
+    e.preventDefault();
+
+    const pos = 'touches' in e ? (e as TouchEvent).touches[0] : (e as MouseEvent);
+    const dx = pos.clientX - lastPos.current.x;
+    const dy = pos.clientY - lastPos.current.y;
+
+    // 1. 画面上のピクセル移動量をビデオの座標系（解像度）に変換
+    // キャンバスの表示サイズとビデオの実際の解像度の比率を考慮
+    const canvas = canvasRef.current;
+    const video = webcamRef.current.video;
+    const scaleX = video.videoWidth / canvas.clientWidth;
+    const scaleY = video.videoHeight / canvas.clientHeight;
+
+    // 2. 左右反転(mirrored)している場合は、X軸の移動方向を補正
+    const moveX = mirrored ? -dx * scaleX : dx * scaleX;
+    const moveY = dy * scaleY;
+
+    setOffset(prev => {
+      const nextX = prev.x - moveX, nextY = prev.y - moveY;
+      return clampPan(nextX, nextY);
+    });
+
+    lastPos.current = { x: pos.clientX, y: pos.clientY };
+  }, [mirrored]);
+
+  const handleMouseUp = (e: MouseEvent | TouchEvent) => {
+    if (!ENABLE_USER_PANNING) return;
+    e.preventDefault();
+    isDragging.current = false;
+  };
+
   // スタイルの整理
   const combinedCanvasStyle: React.CSSProperties = {
     width: '100%',
@@ -345,12 +431,23 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   useEffect(() => {
     const target = eventTarget ? eventTarget : canvasRef.current;
     if (!target) return;
+    let canvas = canvasRef.current;
 
     // リスナー登録 (passive: false)
     target.addEventListener('wheel', handleWheel, { passive: false });
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    canvas.addEventListener('touchmove', handleMouseMove, { passive: false });
+    canvas.addEventListener('touchend', handleMouseUp);
 
     return () => {
       target.removeEventListener('wheel', handleWheel);
+      canvas.removeEventListener('mousedown', handleMouseDown);
+      canvas.removeEventListener('mousemove', handleMouseMove);
+      canvas.removeEventListener('mouseup', handleMouseUp);
+      canvas.removeEventListener('touchmove', handleMouseMove);
+      canvas.removeEventListener('touchend', handleMouseUp);
     };
   }, [handleWheel, eventTarget]);
 
@@ -382,10 +479,19 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     return isRecordingNow;
   }, [isRecordingNow]);
 
+  const getPan = useCallback(() => {
+    return offset;
+  }, [offset]);
+  const setPan = useCallback((newPanX: number, newPanY: number) => {
+    setOffset({ x: clamp(-max.x, newPanX, max.x), y: clamp(-max.y, newPanY, max.y) });
+  }, []);
+
   useImperativeHandle(ref, () => ({
     canvas: canvasRef.current,
     getZoomRatio: getZoomRatio.bind(this),
     setZoomRatio: setZoomRatio.bind(this),
+    getPan: getPan.bind(this),
+    setPan: setPan.bind(this),
     takePhoto: takePhoto.bind(this),
     startRecording: startRecording.bind(this),
     stopRecording: stopRecording.bind(this),

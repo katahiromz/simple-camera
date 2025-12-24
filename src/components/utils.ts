@@ -11,6 +11,18 @@ export interface RenderMetrics {
 }
 
 /**
+ * ズーム倍率に応じた最大移動可能オフセットを計算する
+ */
+export const getMaxOffset = (videoWidth: number, videoHeight: number, zoom: number) => {
+  const sourceWidth = videoWidth / zoom;
+  const sourceHeight = videoHeight / zoom;
+  return {
+    x: (videoWidth - sourceWidth) / 2,
+    y: (videoHeight - sourceHeight) / 2
+  };
+};
+
+/**
  * 「object-fit: cover」または「object-fit: contain」の動作を再現し、描画サイズとオフセットを計算する
  */
 export const calculateVideoRenderMetrics = (
