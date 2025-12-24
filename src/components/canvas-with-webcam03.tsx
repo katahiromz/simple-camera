@@ -9,6 +9,7 @@ import { saveFile } from './utils';
 const MOUSE_WHEEL_DELTA = 0.004;
 const ENABLE_USER_ZOOMING = true;
 const ENABLE_USER_PANNING = true;
+const ENABLE_HIGH_SENSE_PINCHING = true;
 const USE_MIDDLE_BUTTON_FOR_PANNING = true;
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
 const MAX_ZOOM = 4.0; // ズーム倍率の最大値
@@ -403,6 +404,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   };
 
   const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
+    const video = webcamRef.current?.video;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
     // 1. ピンチズーム処理 (2本指)
     if ('touches' in e && e.touches.length === 2 && ENABLE_USER_ZOOMING) {
       if (initialPinchDistance.current === null) return;
@@ -410,14 +415,58 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       e.preventDefault();
       const currentDistance = getDistance(e.touches);
       const pinchScale = currentDistance / initialPinchDistance.current;
-      
-      // 開始時のズーム倍率に変化率を掛ける
-      const newZoom = clamp(
-        MIN_ZOOM, 
-        initialZoomAtPinchStart.current * pinchScale, 
-        MAX_ZOOM
-      );
-      setZoomValue(newZoom);
+
+      if (ENABLE_HIGH_SENSE_PINCHING) {
+        // --- 高度なパン補正ロジック開始 ---
+        
+        // ① ピンチの中心点を計算 (スクリーン座標)
+        const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+        // ② キャンバス内の相対座標に変換 (0.0 ~ 1.0)
+        const rect = canvas.getBoundingClientRect();
+        let relX = (centerX - rect.left) / rect.width;
+        let relY = (centerY - rect.top) / rect.height;
+
+        // 鏡像(mirrored)の場合は、左右の相対位置を反転
+        if (mirrored) relX = 1 - relX;
+
+        // ③ ビデオ座標系（解像度）での中心位置を計算 (-0.5 ~ +0.5)
+        // 0がビデオの真ん中
+        const focalX = (relX - 0.5) * video.videoWidth;
+        const focalY = (relY - 0.5) * video.videoHeight;
+
+        // ④ 新しいズーム倍率の決定
+        const oldZoom = zoomRef.current;
+        const newZoom = clamp(
+          MIN_ZOOM, 
+          initialZoomAtPinchStart.current * pinchScale,
+          MAX_ZOOM
+        );
+
+        if (oldZoom !== newZoom) {
+          setZoomValue(newZoom);
+
+          // ⑤ ズーム中心を維持するためのパン補正
+          // ズームが変化した際の「ズレ」を相殺するように offset を更新
+          setOffset(prev => {
+            const factor = (1 / oldZoom - 1 / newZoom);
+            const nextX = prev.x + focalX * factor;
+            const nextY = prev.y + focalY * factor;
+            
+            return clampPan(nextX, nextY);
+          });
+        }
+      } else {
+        // 開始時のズーム倍率に変化率を掛ける
+        const newZoom = clamp(
+          MIN_ZOOM, 
+          initialZoomAtPinchStart.current * pinchScale, 
+          MAX_ZOOM
+        );
+        setZoomValue(newZoom);
+      }
+
       return;
     }
 
@@ -432,8 +481,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
     // 1. 画面上のピクセル移動量をビデオの座標系（解像度）に変換
     // キャンバスの表示サイズとビデオの実際の解像度の比率を考慮
-    const canvas = canvasRef.current;
-    const video = webcamRef.current.video;
     const scaleX = video.videoWidth / canvas.clientWidth;
     const scaleY = video.videoHeight / canvas.clientHeight;
 
