@@ -1,7 +1,7 @@
 // utils.ts
 // 汎用のユーティリティ関数は utils.ts に分離
 
-const isAndroidApp = typeof window.android !== 'undefined';
+export const isAndroidApp = typeof window.android !== 'undefined';
 
 export interface RenderMetrics {
   renderWidth: number;
@@ -122,6 +122,7 @@ export const playSound = (audio: HTMLAudioElement | null) => {
   if (!audio) {
     console.assert(false);
   }
+
   // 可能ならばシステム音量を変更する
   if (isAndroidApp)
     window.android?.onStartShutterSound();

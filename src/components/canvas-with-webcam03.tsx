@@ -3,9 +3,9 @@ import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef, u
 import Webcam03 from './webcam03';
 import Webcam03Controls from './webcam03-controls';
 import { PermissionManager, PermissionStatusValue } from './permission-watcher';
-import { clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension } from './utils';
+import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension } from './utils';
+import { saveFile } from '../utils';
 
-const isAndroidApp = typeof window.android !== 'undefined';
 const MOUSE_WHEEL_DELTA = 0.004;
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
 const MAX_ZOOM = 4.0; // ズーム倍率の最大値
@@ -22,6 +22,7 @@ interface CanvasWithWebcam03Props {
   photoFormat?: "image/png" | "image/webp" | "image/jpeg";
   photoQuality?: number;
   recordingFormat?: "video/webm" | "video/mp4";
+  downloadFile?: (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => void;
 };
 
 interface CanvasWithWebcam03Handle {
@@ -41,9 +42,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     mirrored = true,
     photoFormat = "image/png",
     photoQuality = 0.92,
-    recordingFormat = "video/mp4",
+    recordingFormat = "video/webm",
     style,
     className,
+    saveFile = null,
+    downloadFile = null,
     ...rest
   },
   ref
@@ -216,13 +219,15 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     }
 
     try {
-      const imageSrc = canvasRef.current.toDataURL(photoFormat, photoQuality);
       const extension = photoFormatToExtension(photoFormat);
-      const link = document.createElement('a');
-      link.href = imageSrc;
-      link.download = generateFileName('photo_', extension);
-      link.click();
-      console.log("Photo taken");
+      const fileName = generateFileName('photo_', extension);
+      canvasRef.current.toBlob((blob) => {
+        if (downloadFile)
+          downloadFile(blob, fileName, blob.type, false);
+        else
+          saveFile(blob, fileName, blob.type, false);
+        console.log("Photo taken");
+      }, photoFormat, photoQuality);
     } catch (err) {
       console.error("Failed to take photo:", err);
       setError("写真撮影に失敗しました");
@@ -264,12 +269,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       }
       const blob = new Blob(chunksRef.current, { type: recordingFormat });
       const extension = videoFormatToExtension(recordingFormat);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = generateFileName('video_', extension);
-      link.click();
-      URL.revokeObjectURL(url);
+      const fileName = generateFileName('video_', extension);
+      if (downloadFile)
+        downloadFile(blob, fileName, blob.type, true);
+      else
+        saveFile(blob, fileName, blob.type, true);
     };
 
     mediaRecorder.start();
