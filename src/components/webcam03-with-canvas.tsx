@@ -158,7 +158,9 @@ const Webcam03WithCanvas = () => {
       />
       
       <Webcam03 
-        ref={webcamRef} 
+        ref={webcamRef}
+        audio={true}
+        muted
         style={{
           position: 'absolute',
           top: '0',
