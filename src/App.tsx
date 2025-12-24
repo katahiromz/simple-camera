@@ -47,12 +47,22 @@ function App() {
       switch(event.key) {
       case '+': // ズームイン
       case ';': // (日本語キーボード対応用)
-        event.preventDefault();
-        canvasWithCamera.current?.zoomIn();
+        if (!event.ctrlKey && !event.altKey) { // CtrlキーやAltキーが押されていない？
+          event.preventDefault();
+          canvasWithCamera.current?.zoomIn(); // ズームイン
+        }
         break;
       case '-': // ズームアウト
-        event.preventDefault();
-        canvasWithCamera.current?.zoomOut();
+        if (!event.ctrlKey && !event.altKey) { // CtrlキーやAltキーが押されていない？
+          event.preventDefault();
+          canvasWithCamera.current?.zoomOut(); // ズームアウト
+        }
+        break;
+      case ' ': // スペース キー
+        if (!event.ctrlKey && !event.altKey) { // CtrlキーやAltキーが押されていない？
+          event.preventDefault();
+          canvasWithCamera.current?.takePhoto(); // 写真撮影
+        }
         break;
       }
     };
