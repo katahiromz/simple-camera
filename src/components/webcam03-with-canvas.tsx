@@ -2,6 +2,7 @@
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import Webcam03 from './webcam03';
 import Webcam03Controls from './webcam03-controls';
+import { PermissionManager, PermissionStatusValue } from './permission-watcher';
 
 const Webcam03WithCanvas = () => {
   const webcamRef = useRef(null);
@@ -12,6 +13,37 @@ const Webcam03WithCanvas = () => {
   const chunksRef = useRef<Blob[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+
+  // --- 権限状態の管理 ---
+  const [cameraPermission, setCameraPermission] = useState<PermissionStatusValue>('prompt');
+  const [micPermission, setMicPermission] = useState<PermissionStatusValue>('prompt');
+  // マイクを有効にするかどうかのフラグ
+  const [isMicEnabled, setIsMicEnabled] = useState(true);
+
+  useEffect(() => {
+    // インスタンスの生成
+    const cameraManager = new PermissionManager('camera' as PermissionName);
+    const micManager = new PermissionManager('microphone' as PermissionName);
+
+    // 購読開始
+    const unsubscribeCamera = cameraManager.subscribe((status) => {
+      setCameraPermission(status);
+      if (status === 'denied') {
+        setError("カメラの使用が拒否されています。ブラウザの設定から許可してください。");
+      }
+    });
+
+    const unsubscribeMic = micManager.subscribe((status) => {
+      setMicPermission(status);
+      // マイクが拒否されている場合は強制的に無効化
+      setIsMicEnabled(status !== 'denied');
+    });
+
+    return () => {
+      unsubscribeCamera();
+      unsubscribeMic();
+    };
+  }, []);
 
   const render = useCallback(() => {
     if (webcamRef.current?.video && canvasRef.current) {
@@ -83,7 +115,7 @@ const Webcam03WithCanvas = () => {
     const stream = canvasRef.current.captureStream(30);
     
     // 必要に応じてWebcamからの音声トラックを追加
-    if (webcamRef.current?.video?.srcObject) {
+    if (isMicEnabled && webcamRef.current?.video?.srcObject) {
       const audioTracks = (webcamRef.current.video.srcObject as MediaStream).getAudioTracks();
       audioTracks.forEach(track => stream.addTrack(track));
     }
@@ -132,7 +164,8 @@ const Webcam03WithCanvas = () => {
       alignItems: 'center',
       justifyContent: 'center'
     }}>
-      {error && (
+      {/* 権限エラーまたはその他のエラー表示 */}
+      {(cameraPermission === 'denied') && (
         <div style={{
           position: 'absolute',
           top: '20px',
@@ -142,12 +175,13 @@ const Webcam03WithCanvas = () => {
           backgroundColor: 'rgba(244, 67, 54, 0.9)',
           color: 'white',
           borderRadius: '5px',
-          zIndex: 20
+          zIndex: 20,
+          textAlign: 'center'
         }}>
-          {error}
+          カメラのアクセス権限が必要です。設定を確認してください。
         </div>
       )}
-      
+
       <canvas 
         ref={canvasRef} 
         style={{ 
@@ -157,30 +191,33 @@ const Webcam03WithCanvas = () => {
         }} 
       />
       
-      <Webcam03 
-        ref={webcamRef}
-        audio={true}
-        muted
-        style={{
-          position: 'absolute',
-          top: '0',
-          left: '0',
-          width: '1px', 
-          height: '1px',
-          opacity: 0,
-          pointerEvents: 'none',
-          overflow: 'hidden'
-        }}
-      >
-        {() => (
-          <Webcam03Controls
-            isRecording={isRecording}
-            takePhoto={takePhoto}
-            startRecording={startRecording}
-            stopRecording={stopRecording}
-          />
-        )}
-      </Webcam03>
+      {/* カメラ権限が拒否されていない場合のみWebcamを起動 */}
+      {cameraPermission !== 'denied' && (
+        <Webcam03 
+          ref={webcamRef}
+          audio={isMicEnabled}
+          muted={true}
+          style={{
+            position: 'absolute',
+            top: '0',
+            left: '0',
+            width: '1px', 
+            height: '1px',
+            opacity: 0,
+            pointerEvents: 'none',
+            overflow: 'hidden'
+          }}
+        >
+          {() => (
+            <Webcam03Controls
+              isRecording={isRecording}
+              takePhoto={takePhoto}
+              startRecording={startRecording}
+              stopRecording={stopRecording}
+            />
+          )}
+        </Webcam03>
+      )}
     </div>
   );
 };
