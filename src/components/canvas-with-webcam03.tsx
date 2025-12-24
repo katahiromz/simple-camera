@@ -3,7 +3,7 @@ import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef, u
 import Webcam03 from './webcam03';
 import Webcam03Controls from './webcam03-controls';
 import { PermissionManager, PermissionStatusValue } from './permission-watcher';
-import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension } from './utils';
+import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime } from './utils';
 import { saveFile } from './utils';
 
 const MOUSE_WHEEL_DELTA = 0.004;
@@ -66,6 +66,18 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const [isRecordingNow, setIsRecordingNow] = useState(false);
   const [zoomValue, setZoomValue] = useState(1.0); // ズーム倍率
   const zoomRef = useRef(zoomValue); // ズーム参照
+  const [recordingTime, setRecordingTime] = useState(0); // 録画時間量
+
+  // 録画タイマー
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isRecording) {
+      interval = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRecordingNow]);
 
   // --- 権限状態の管理 ---
   const [cameraPermission, setCameraPermission] = useState<PermissionStatusValue>('prompt');
@@ -250,9 +262,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     }
 
     chunksRef.current = [];
+
     // Canvasからストリームを取得 (30fps)
     const stream = canvasRef.current.captureStream(30);
-    
+
     // 必要に応じてWebcamからの音声トラックを追加
     if (isMicEnabled && webcamRef.current?.video?.srcObject) {
       const audioTracks = (webcamRef.current.video.srcObject as MediaStream).getAudioTracks();
@@ -285,6 +298,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     mediaRecorder.start();
     mediaRecorderRef.current = mediaRecorder;
     setIsRecordingNow(true);
+    setRecordingTime(0);
   }, []);
 
   // --- 録画停止機能 ---
@@ -408,6 +422,24 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           textAlign: 'center'
         }}>
           カメラのアクセス権限が必要です。設定を確認してください。
+        </div>
+      )}
+
+      {/* 録画時間表示 */}
+      {isRecordingNow && (
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '10px',
+          color: 'red',
+          pointerEvents: 'none',
+          color: "#f33",
+          fontWeight: 'bold',
+          padding: '3px',
+          border: '1px solid red',
+          borderRadius: '20px',
+        }}>
+          {formatTime(recordingTime)}
         </div>
       )}
 
