@@ -42,6 +42,7 @@ function App() {
     };
   }, []);
 
+  // キーボード操作を可能にする
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       switch(event.key) {
@@ -62,6 +63,17 @@ function App() {
         if (!event.ctrlKey && !event.altKey) { // CtrlキーやAltキーが押されていない？
           event.preventDefault();
           canvasWithCamera.current?.takePhoto(); // 写真撮影
+        }
+        break;
+      case 'Enter': // Enterキー
+        if (!event.ctrlKey && !event.altKey) { // CtrlキーやAltキーが押されていない？
+          event.preventDefault();
+          // 録画開始・録画停止を切り替える
+          if (canvasWithCamera.current?.isRecording()) {
+            canvasWithCamera.current?.stopRecording();
+          } else {
+            canvasWithCamera.current?.startRecording();
+          }
         }
         break;
       }

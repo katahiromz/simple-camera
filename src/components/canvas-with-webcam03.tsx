@@ -35,6 +35,7 @@ interface CanvasWithWebcam03Handle {
   stopRecording?: () => void;
   zoomIn?: () => void;
   zoomOut?: () => void;
+  isRecording?: () => boolean;
 };
 
 const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam03Props>((
@@ -62,7 +63,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
+  const [isRecordingNow, setIsRecordingNow] = useState(false);
   const [zoomValue, setZoomValue] = useState(1.0); // ズーム倍率
   const zoomRef = useRef(zoomValue); // ズーム参照
 
@@ -283,17 +284,17 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
     mediaRecorder.start();
     mediaRecorderRef.current = mediaRecorder;
-    setIsRecording(true);
+    setIsRecordingNow(true);
   }, []);
 
   // --- 録画停止機能 ---
   const stopRecording = useCallback(() => {
     console.log('stopRecording');
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && isRecordingNow) {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
+      setIsRecordingNow(false);
     }
-  }, [isRecording]);
+  }, [isRecordingNow]);
 
   // --- PC: マウスホイールでズーム ---
   const handleWheel = (event: WheelEvent) => {
@@ -359,6 +360,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     setZoomValue(newValue);
   }, [zoomValue]);
 
+  const isRecording = useCallback(() => {
+    return isRecordingNow;
+  }, [isRecordingNow]);
+
   useImperativeHandle(ref, () => ({
     canvas: canvasRef.current,
     getZoomRatio: getZoomRatio.bind(this),
@@ -366,6 +371,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     takePhoto: takePhoto.bind(this),
     startRecording: startRecording.bind(this),
     stopRecording: stopRecording.bind(this),
+    isRecording: isRecording.bind(this),
     zoomIn: zoomIn.bind(this),
     zoomOut: zoomOut.bind(this),
   }));
@@ -424,7 +430,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         >
           {() => (
             <Webcam03Controls
-              isRecording={isRecording}
+              isRecording={isRecordingNow}
               takePhoto={takePhoto}
               startRecording={startRecording}
               stopRecording={stopRecording}
