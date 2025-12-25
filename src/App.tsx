@@ -11,6 +11,10 @@ const IS_PRODUCTION = import.meta.env.MODE === 'production';
 // アプリケーションのベースパスを取得
 const BASE_URL = import.meta.env.BASE_URL;
 
+// ダミー画像
+const dummyImageUrl = `${BASE_URL}dummy.jpg`;
+const USE_DUMMY_IMAGE = false;
+
 // 音声のURL
 const shutterSoundUrl = `${BASE_URL}ac-camera-shutter-sound.mp3`;
 const videoStartSoundUrl = `${BASE_URL}ac-video-started.mp3`;
@@ -94,7 +98,7 @@ function App() {
         canvasWithCamera.current?.panLeft();
         break;
       default:
-        console.log(event.key);
+        //console.log(event.key);
         break;
       }
     };
@@ -112,6 +116,7 @@ function App() {
       downloadFile={isAndroidApp ? saveFileEx : saveFile}
       eventTarget={document.body}
       autoMirror={true}
+      dummyImageSrc={ USE_DUMMY_IMAGE ? dummyImageUrl : null }
     />
   );
 }

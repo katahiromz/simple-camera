@@ -28,6 +28,23 @@ const MOUSE_WHEEL_PAN_SPEED = 0.1; // マウスホイールによるパンの速
 const PAN_SPEED = 10; // パンの速度
 const BACKGROUND_IS_WHITE = false; // 背景は白か？
 
+// 画像処理用のデータ
+export interface ImageProcessData {
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  src: HTMLImageElement | HTMLVideoElement,
+  srcWidth: number,
+  srcHeight: number,
+  video?: HTMLVideoElement,
+  canvas: HTMLCanvasElement,
+  isMirrored: boolean,
+  currentZoom: number,
+  offset: { x: number, y: number },
+};
+
 // CanvasWithWebcam03のprops
 interface CanvasWithWebcam03Props {
   shutterSoundUrl?: string;
@@ -50,6 +67,8 @@ interface CanvasWithWebcam03Props {
   showTakePhoto?: boolean;
   showRecording?: boolean;
   showCameraSwitch?: boolean;
+  onImageProcess: (data: ImageProcessData) => void;
+  dummyImageSrc?: string;
 };
 
 // カメラ付きキャンバスのハンドル
@@ -94,6 +113,67 @@ const applyResistance = (current: number, limit: number) => {
   return current;
 };
 
+// デフォルトの画像処理関数
+const onDefaultImageProcess = (data: ImageProcessData) => {
+  const { ctx, x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset } = data;
+
+  ctx.save(); // 現在のキャンバス状態を保存
+
+  // 鏡像なら左右反転
+  if (isMirrored) {
+    ctx.translate(width, 0);
+    ctx.scale(-1, 1);
+  }
+
+  if (currentZoom === 1.0 && offset.x == 0 && offset.y == 0) {
+    // ズームなし、パンなしなら、イメージをそのまま転送
+    ctx.drawImage(src, x, y, width, height);
+  } else { // ズームありか、パンあり？
+    // 背景を塗りつぶす
+    if (BACKGROUND_IS_WHITE) {
+      ctx.fillStyle = 'white';
+      ctx.fillRect(x, y, width, height);
+    } else {
+      ctx.clearRect(x, y, width, height);
+    }
+
+    // ズーム前のソースのサイズ
+    const sourceWidth = srcWidth / currentZoom;
+    const sourceHeight = srcHeight / currentZoom;
+
+    // Offsetを含めた中央基準の計算
+    const maxOffsetX = (srcWidth - sourceWidth) / 2;
+    const maxOffsetY = (srcHeight - sourceHeight) / 2;
+
+    // ソースの位置
+    const sourceX = maxOffsetX + offset.x;
+    const sourceY = maxOffsetY + offset.y;
+
+    // イメージを拡大縮小して転送
+    ctx.drawImage(
+      src, sourceX, sourceY, sourceWidth, sourceHeight,
+      x, y, width, height
+    );
+  }
+
+  // ちょっと図形を描いてみる
+  if (width > 2 && height > 2) {
+    // 円を描画
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(width / 4, height / 3, (width + height) / 10, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 四角形を描画
+    ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
+    ctx.lineWidth = 5;
+    ctx.strokeRect(width / 2, height / 2, (width + height) / 6, (width + height) / 6);
+  }
+
+  ctx.restore();
+};
+
 // カメラ付きキャンバス CanvasWithWebcam03 の本体
 const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam03Props>((
   {
@@ -118,6 +198,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     showTakePhoto = true,
     showRecording = true,
     showCameraSwitch = true,
+    onImageProcess = onDefaultImageProcess,
+    dummyImageSrc = null,
     ...rest
   },
   ref
@@ -126,6 +208,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const canvasRef = useRef(null); // キャンバスへの参照
   const controlsRef = useRef(null); // コントロール パネル (Webcam03Controls)への参照
   const animationRef = useRef(null); // アニメーションフレーム要求への参照
+  const dummyImageRef = useRef<HTMLAudioElement | null>(null); // ダミー画像への参照
   const mediaRecorderRef = useRef<MediaRecorder | null>(null); // メディア レコーダー
   const chunksRef = useRef<Blob[]>([]); // 録画用のchunkデータ
   const [errorString, setErrorString] = useState<string | null>(null); // エラー文字列
@@ -144,11 +227,27 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const [isInitialized, setIsInitialized] = useState(false); // 初期化済みか？
   const [isMirrored, setIsMirrored] = useState(autoMirror ? (facingMode === 'user') : mirrored);
 
+  // ビデオの制約
   const videoConstraints = useMemo(() => ({
     facingMode: { ideal: facingMode },
     width: { max: 1600, min: 160 },
     height: { max: 1600, min: 160 },
   }), [facingMode]);
+
+  // ダミー画像
+  useEffect(() => {
+    try {
+      if (dummyImageSrc) {
+        dummyImageRef.current = new Image();
+        dummyImageRef.current.src = dummyImageSrc;
+      }
+    } catch (err) {
+      console.error('Failed to initialize dummy image:', err);
+    }
+    return () => {
+      dummyImageRef.current = null;
+    };
+  }, [dummyImageSrc]);
 
   // 常にoffsetRefをoffset stateに合わせる
   useEffect(() => {
@@ -186,11 +285,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   // ズーム変更時にオフセットを境界内に戻す
   useEffect(() => {
     if (!ENABLE_USER_PANNING) return;
-    if (!webcamRef.current?.video) return;
-    const video = webcamRef.current.video;
+
+    const { src, srcWidth, srcHeight } = getSourceInfo();
+    if (!src) return;
 
     setOffset(prev => {
-      const max = getMaxOffset(video.videoWidth, video.videoHeight, zoomValue);
+      const max = getMaxOffset(srcWidth, srcHeight, zoomValue);
       return {
         x: Math.max(-max.x, Math.min(max.x, prev.x)),
         y: Math.max(-max.y, Math.min(max.y, prev.y))
@@ -213,7 +313,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       shutterAudioRef.current = null;
     };
   }, [shutterSoundUrl]);
-
 
   // ビデオ録画開始音
   useEffect(() => {
@@ -273,77 +372,49 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     };
   }, []);
 
+  // ソース情報を種痘
+  const getSourceInfo = () => {
+    let src, srcWidth, srcHeight;
+    if (dummyImageRef.current) {
+      src = dummyImageRef.current.complete ? dummyImageRef.current : null;
+      srcWidth = dummyImageRef.current.width;
+      srcHeight = dummyImageRef.current.height;
+    } else {
+      const video = webcamRef.current?.video;
+      src = video;
+      srcWidth = video ? video.videoWidth : 0;
+      srcHeight = video ? video.videoHeight : 0;
+    }
+    return { src, srcWidth, srcHeight };
+  };
+
   // アニメーションフレームを次々と描画する関数
   const draw = useCallback(() => {
-    if (webcamRef.current?.video && canvasRef.current) {
-      const video = webcamRef.current.video;
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
+    const video = webcamRef.current?.video;
+    const canvas = canvasRef.current;
+    const { src, srcWidth, srcHeight } = getSourceInfo();
 
-      if (ctx && video.readyState === video.HAVE_ENOUGH_DATA) { // ビデオに十分なデータがある？
-        // キャンバスをビデオのサイズに合わせる
-        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+    if (canvas && src && (dummyImageSrc || video.readyState === video.HAVE_ENOUGH_DATA)) {
+      // キャンバスをビデオのサイズに合わせる
+      if (canvas.width !== srcWidth || canvas.height !== srcHeight) {
+        canvas.width = srcWidth;
+        canvas.height = srcHeight;
+      }
+
+      if (src && srcWidth > 0 && srcHeight > 0) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          onImageProcess({
+            ctx,
+            x: 0, y: 0, width: canvas.width, height: canvas.height,
+            src, srcWidth, srcHeight,
+            video: video,
+            canvas: canvas,
+            currentZoom: zoomRef.current,
+            offset: offsetRef.current,
+            isMirrored: isMirrored && !dummyImageRef.current,
+          });
         }
-
-        ctx.save(); // 現在のキャンバス状態を保存
-
-        if (isMirrored) { // mirrored ではなくステートの isMirrored を使用
-          ctx.translate(canvas.width, 0);
-          ctx.scale(-1, 1);
-        }
-
-        let currentZoom = zoomRef.current;
-        if (currentZoom === 1.0 && offsetRef.current.x == 0 && offsetRef.current.y == 0) {
-          // ズームなし、パンなし？
-          // イメージをそのまま転送
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        } else { // ズームありか、パンあり？
-          // 背景を塗りつぶす
-          if (BACKGROUND_IS_WHITE) {
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-          } else {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-          }
-
-          // ソースのサイズ
-          const sourceWidth = video.videoWidth / currentZoom;
-          const sourceHeight = video.videoHeight / currentZoom;
-
-          // Offsetを含めた中央基準の計算
-          const maxOffsetX = (video.videoWidth - sourceWidth) / 2;
-          const maxOffsetY = (video.videoHeight - sourceHeight) / 2;
-
-          /// ソースの位置
-          const sourceX = maxOffsetX + offsetRef.current.x;
-          const sourceY = maxOffsetY + offsetRef.current.y;
-
-          // イメージを拡大縮小して転送
-          ctx.drawImage(
-            video,
-            sourceX, sourceY, sourceWidth, sourceHeight,
-            0, 0, canvas.width, canvas.height
-          );
-        }
-
-        // ちょっと図形を描いてみる
-        if (canvas.width > 2 && canvas.height > 2) {
-          // 円を描画
-          ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-          ctx.lineWidth = 5;
-          ctx.beginPath();
-          ctx.arc(canvas.width / 4, canvas.height / 3, 80, 0, Math.PI * 2);
-          ctx.stroke();
-
-          // 四角形を描画
-          ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
-          ctx.lineWidth = 5;
-          ctx.strokeRect(canvas.width / 2, canvas.height / 2, 150, 150);
-        }
-
-        ctx.restore();
       }
     }
 
@@ -477,6 +548,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // --- PC: マウスホイールでズーム ---
   const handleWheel = (event: WheelEvent) => {
+    //console.log('handleWheel');
     if (event.ctrlKey) { // Ctrl + ホイール
       event.preventDefault();
       if (!ENABLE_USER_ZOOMING)
@@ -506,6 +578,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // マウスのボタンが押された／タッチが開始された
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    //console.log('handleMouseDown');
     if (!ENABLE_USER_PANNING && !ENABLE_USER_ZOOMING) return;
 
     if (ENABLE_USER_ZOOMING && ('touches' in e) && e.touches.length === 2) {
@@ -538,8 +611,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // パン操作(平行移動)を制限する関数
   const clampPan = (x: number, y: number, newZoom: number | null = null) => {
-    const video = webcamRef.current.video;
-    const max = getMaxOffset(video.videoWidth, video.videoHeight, newZoom ? newZoom : zoomRef.current);
+    const { src, srcWidth, srcHeight } = getSourceInfo();
+    const max = getMaxOffset(srcWidth, srcHeight, newZoom ? newZoom : zoomRef.current);
     return { x: clamp(-max.x, x, max.x), y: clamp(-max.y, y, max.y) };
   };
 
@@ -548,10 +621,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     if (!ENABLE_PANNING_REGISTANCE)
       return clampPan(x, y, newZoom);
 
-    const video = webcamRef.current?.video;
-    if (!video) return { x, y };
+    const { src, srcWidth, srcHeight } = getSourceInfo();
+    if (!src) return { x, y };
 
-    const max = getMaxOffset(video.videoWidth, video.videoHeight, newZoom ? newZoom : zoomRef.current);
+    const max = getMaxOffset(srcWidth, srcHeight, newZoom ? newZoom : zoomRef.current);
 
     return {
       x: applyResistance(x, max.x),
@@ -561,10 +634,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // マウスが動いた／タッチが動いた
   const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
+    //console.log('handleMouseMove');
     if (!ENABLE_USER_ZOOMING && !ENABLE_USER_PANNING) return;
-    const video = webcamRef.current?.video;
     const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    const { src, srcWidth, srcHeight } = getSourceInfo();
+    if (!src || !canvas) return;
 
     // 1. 二本指操作（ズーム ＋ パン）
     if ('touches' in e && e.touches.length === 2) {
@@ -589,12 +663,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       // 前回の中心点からの移動量を計算（lastPos に中心点を保存しておく必要があるため handleMouseDown も後述の通り修正）
       let dx = centerX - lastPos.current.x, dy = centerY - lastPos.current.y;
 
-      if (isMirrored) dx = -dx;
+      if (isMirrored && !dummyImageSrc) dx = -dx;
 
       // ビデオ座標系への変換
-      const scaleX = video.videoWidth / canvas.clientWidth;
-      const scaleY = video.videoHeight / canvas.clientHeight;
-      const moveX = mirrored ? -dx * scaleX : dx * scaleX;
+      const scaleX = srcWidth / canvas.clientWidth;
+      const scaleY = srcHeight / canvas.clientHeight;
+      const moveX = isMirrored ? -dx * scaleX : dx * scaleX;
       const moveY = dy * scaleY;
 
       // --- 状態の更新 ---
@@ -610,8 +684,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           let relY = (centerY - rect.top) / rect.height;
           if (mirrored) relX = 1 - relX;
 
-          const focalX = (relX - 0.5) * video.videoWidth;
-          const focalY = (relY - 0.5) * video.videoHeight;
+          const focalX = (relX - 0.5) * srcWidth;
+          const focalY = (relY - 0.5) * srcHeight;
           const zoomFactor = (1 / oldZoom - 1 / newZoom);
 
           // B. 二本の指の移動によるパン
@@ -637,12 +711,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     let dx = pos.clientX - lastPos.current.x;
     let dy = pos.clientY - lastPos.current.y;
 
-    if (isMirrored) dx = -dx;
+    if (isMirrored && !dummyImageRef.current) dx = -dx;
 
     // 1. 画面上のピクセル移動量をビデオの座標系（解像度）に変換
     // キャンバスの表示サイズとビデオの実際の解像度の比率を考慮
-    const scaleX = video.videoWidth / canvas.clientWidth;
-    const scaleY = video.videoHeight / canvas.clientHeight;
+    const scaleX = srcWidth / canvas.clientWidth;
+    const scaleY = srcHeight / canvas.clientHeight;
 
     const moveX = dx * scaleX, moveY = dy * scaleY;
 
@@ -656,6 +730,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // マウスのボタンが離された／タッチが離された
   const handleMouseUp = (e: MouseEvent | TouchEvent) => {
+    //console.log('handleMouseUp');
     isDragging.current = false;
     initialPinchDistance.current = null;
 
