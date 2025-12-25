@@ -5,20 +5,31 @@ import Webcam03Controls from './Webcam03Controls';
 import { PermissionManager, PermissionStatusValue } from './permission-watcher';
 import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset } from './utils';
 import { saveFile } from './utils';
+
+/* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera } from 'lucide-react';
 
-const MOUSE_WHEEL_DELTA = 0.004;
-const ENABLE_USER_ZOOMING = true;
-const ENABLE_USER_PANNING = true;
+const MOUSE_WHEEL_SPEED = 0.004; // マウスホイールの速度
+const ENABLE_USER_ZOOMING = true; // ユーザーによるズームを有効にするか？
+const ENABLE_USER_PANNING = true; // ユーザーによるパン操作を有効にするか？
+const ENABLE_SOUND_EFFECTS = true; // 効果音を有効にするか？
+const ENABLE_CAMERA_SWITCH = true; // ユーザーによるカメラ切り替えを有効にするか？
 const USE_MIDDLE_BUTTON_FOR_PANNING = true;
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
 const MAX_ZOOM = 4.0; // ズーム倍率の最大値
-const ENABLE_SOUND_EFFECTS = true; // 効果音を有効にするか？
+const SHOW_RECORDING_TIME = true; // 録画時間を表示するか？
+const SHOW_CONTROLS = true; // コントロール パネルを表示するか？
+const SHOW_ERROR = true; // エラーを表示するか？
+const SHOW_TAKE_PHOTO = true; // 写真撮影ボタンを表示するか？
+const SHOW_RECORDING = true; // 録画開始・録画停止ボタンを表示するか？
 
+// CanvasWithWebcam03のprops
 interface CanvasWithWebcam03Props {
   shutterSoundUrl?: string;
   videoStartSoundUrl?: string;
   videoCompleteSoundUrl?: string;
+  onUserMedia?: (stream: MediaStream) => void;
+  onUserMediaError?: (error: string | DOMException) => void;
   audio?: boolean;
   className?: string;
   style?: React.CSSProperties;
@@ -29,11 +40,16 @@ interface CanvasWithWebcam03Props {
   downloadFile?: (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => void;
   eventTarget?: HTMLElement;
   showControls?: boolean;
-  showTime?: boolean;
+  showRecordingTime?: boolean;
+  showTakePhoto?: boolean;
+  showRecording?: boolean;
+  showCameraSwitch?: boolean;
 };
 
+// カメラ付きキャンバスのハンドル
 interface CanvasWithWebcam03Handle {
   canvas?: HTMLCanvasElement;
+  controls?: HTMLElement;
   getZoomRatio?: () => number;
   setZoomRatio?: (ratio: number) => void;
   startRecording?: () => void;
@@ -46,17 +62,21 @@ interface CanvasWithWebcam03Handle {
   getRealFacingMode?: () => string | null;
 };
 
+// タッチ距離を計算
 const getDistance = (touches: React.TouchList | TouchList) => {
   const dx = touches[0].clientX - touches[1].clientX;
   const dy = touches[0].clientY - touches[1].clientY;
   return Math.sqrt(dx * dx + dy * dy);
 };
 
+// カメラ付きキャンバス CanvasWithWebcam03 の本体
 const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam03Props>((
   {
     shutterSoundUrl = null,
     videoStartSoundUrl = null,
     videoCompleteSoundUrl = null,
+    onUserMedia = null,
+    onUserMediaError = null,
     audio = true,
     mirrored = true,
     photoFormat = "image/png",
@@ -68,17 +88,21 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     downloadFile = null,
     eventTarget = null,
     showControls = true,
-    showTime = true,
+    showRecordingTime = true,
+    showTakePhoto = true,
+    showRecording = true,
+    showCameraSwitch = true,
     ...rest
   },
   ref
 ) => {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
-  const animationRef = useRef();
+  const controlsRef = useRef(null);
+  const animationRef = useRef(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [errorString, setErrorString] = useState<string | null>(null);
   const [isRecordingNow, setIsRecordingNow] = useState(false);
   const [zoomValue, setZoomValue] = useState(1.0); // ズーム倍率
   const zoomRef = useRef(zoomValue); // ズーム参照
@@ -91,7 +115,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const initialZoomAtPinchStart = useRef<number>(1.0); // ピンチング開始時のズーム倍率
   const [facingMode, setFacingMode] = useState<FacingMode>('environment'); // カメラの前面・背面
   const [isSwitching, setIsSwitching] = useState(false); // カメラ切り替え中？
-  const [isIniting, setIsIniting] = useState(true); // 初期化中か？
+  const [isInitialized, setIsInitialized] = useState(false); // 初期化済みか？
 
   // videoConstraints をメモ化する (重要)
   const videoConstraints = useMemo(() => ({
@@ -157,8 +181,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         shutterAudioRef.current = new Audio(shutterSoundUrl);
         shutterAudioRef.current.load();
       }
-    } catch (error) {
-      console.error('Failed to initialize shutter audio:', error);
+    } catch (err) {
+      console.error('Failed to initialize shutter audio:', err);
     }
     return () => {
       shutterAudioRef.current = null;
@@ -172,8 +196,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         videoStartAudioRef.current = new Audio(videoStartSoundUrl);
         videoStartAudioRef.current.load();
       }
-    } catch (error) {
-      console.error('Failed to initialize shutter audio:', error);
+    } catch (err) {
+      console.error('Failed to initialize shutter audio:', err);
     }
     return () => {
       videoStartAudioRef.current = null;
@@ -187,8 +211,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         videoCompleteAudioRef.current = new Audio(videoCompleteSoundUrl);
         videoCompleteAudioRef.current.load();
       }
-    } catch (error) {
-      console.error('Failed to initialize shutter audio:', error);
+    } catch (err) {
+      console.error('Failed to initialize shutter audio:', err);
     }
     return () => {
       videoCompleteAudioRef.current = null;
@@ -204,7 +228,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     const unsubscribeCamera = cameraManager.subscribe((status) => {
       setCameraPermission(status);
       if (status === 'denied') {
-        setError("カメラの使用が拒否されています。ブラウザの設定から許可してください。");
+        setErrorString("カメラの使用が拒否されています。アプリまたはブラウザの設定から許可してください。");
       }
     });
 
@@ -307,7 +331,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       }, photoFormat, photoQuality);
     } catch (err) {
       console.error("Failed to take photo:", err);
-      setError("写真撮影に失敗しました");
+      setErrorString("写真撮影に失敗しました");
     }
   }, []);
 
@@ -382,10 +406,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     setOffset({ x: 0, y: 0 });
 
     setFacingMode(prev => {
-      // カメラが起動し、映像が安定するまで少し待ってから非表示にする（1秒程度）
+      // カメラが起動し、映像が安定するまで少し待ってから非表示にする（0.75秒程度）
       setTimeout(() => {
         setIsSwitching(false);
-      }, 1000);
+      }, 750);
 
       return (prev === "user" ? "environment" : "user");
     });
@@ -399,7 +423,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         return;
       // 現在の zoomValue state を取得するために setZoomValue の関数形式を使用
       setZoomValue(prevZoom => {
-        const delta = -event.deltaY * MOUSE_WHEEL_DELTA;
+        const delta = -event.deltaY * MOUSE_WHEEL_SPEED;
         const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + delta));
         return newZoom;
       });
@@ -621,16 +645,21 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     return webcamRef.current?.getRealFacingMode();
   }, []);
 
-  const onUserMedia = useCallback((stream: MediaStream) => {
-    setIsIniting(false);
+  const onUserMediaBridge = useCallback((stream: MediaStream) => {
+    setIsInitialized(true);
+    setErrorString('');
+    if (onUserMedia) onUserMedia(stream);
   }, []);
 
-  const onUserMediaError = useCallback((error: string | DOMException) => {
-    setIsIniting(false);
+  const onUserMediaErrorBridge = useCallback((error: string | DOMException) => {
+    setIsInitialized(true);
+    setErrorString(error.toString());
+    if (onUserMediaError) onUserMediaError(error);
   }, []);
 
   useImperativeHandle(ref, () => ({
     canvas: canvasRef.current,
+    controls: controlsRef.current,
     getZoomRatio: getZoomRatio.bind(this),
     setZoomRatio: setZoomRatio.bind(this),
     getPan: getPan.bind(this),
@@ -662,7 +691,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       />
 
       {/* カメラのメッセージ */}
-      {(isIniting || isSwitching) && (
+      {(!isInitialized || isSwitching) && (
         <div style={{
           position: 'absolute',
           top: '50%',
@@ -681,7 +710,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           textAlign: 'center',
           border: '1px solid white',
         }}>
-          {(isIniting ? (
+          {(!isInitialized ? (
             <span><Camera size={50} color="white" /> <br />カメラ起動中...</span>
           ) : (
             <span><Camera size={50} color="white" /> <br />カメラを切り替え中...</span>
@@ -690,7 +719,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       )}
 
       {/* 権限エラーまたはその他のエラー表示 */}
-      {(cameraPermission === 'denied') && (
+      {SHOW_ERROR && (errorString || cameraPermission === 'denied') && (
         <div style={{
           position: 'absolute',
           top: '20px',
@@ -703,12 +732,16 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           zIndex: 20,
           textAlign: 'center'
         }}>
-          カメラのアクセス権限が必要です。設定を確認してください。
+          {errorString ? (
+            errorString
+          ) : (
+            <span>カメラのアクセス権限が必要です。設定を確認してください。</span>
+          )}
         </div>
       )}
 
       {/* 録画時間表示 */}
-      {showTime && isRecordingNow && (
+      {SHOW_RECORDING_TIME && showRecordingTime && isRecordingNow && (
         <div style={{
           position: 'absolute',
           top: '20px',
@@ -731,8 +764,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           audio={audio && isMicEnabled}
           videoConstraints={videoConstraints}
           muted={true}
-          onUserMedia={onUserMedia}
-          onUserMediaError={onUserMediaError}
+          onUserMedia={onUserMediaBridge}
+          onUserMediaError={onUserMediaErrorBridge}
           style={{
             position: 'absolute',
             top: '0',
@@ -744,13 +777,17 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             overflow: 'hidden'
           }}
         >
-          {showControls ? (() => (
+          {SHOW_CONTROLS && showControls ? (() => (
             <Webcam03Controls
+              ref={controlsRef}
               isRecording={isRecordingNow}
               takePhoto={takePhoto}
               startRecording={startRecording}
               stopRecording={stopRecording}
               toggleCamera={toggleCamera}
+              showTakePhoto={SHOW_TAKE_PHOTO && showTakePhoto}
+              showRecording={SHOW_RECORDING && showRecording}
+              showCameraSwitch={ENABLE_CAMERA_SWITCH && showCameraSwitch}
             />
           )) : (() => (<></>))}
         </Webcam03>
