@@ -9,20 +9,24 @@ import { saveFile } from './utils';
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera } from 'lucide-react';
 
-const MOUSE_WHEEL_SPEED = 0.004; // マウスホイールの速度
 const ENABLE_USER_ZOOMING = true; // ユーザーによるズームを有効にするか？
 const ENABLE_USER_PANNING = true; // ユーザーによるパン操作を有効にするか？
 const ENABLE_SOUND_EFFECTS = true; // 効果音を有効にするか？
 const ENABLE_CAMERA_SWITCH = true; // ユーザーによるカメラ切り替えを有効にするか？
-const USE_MIDDLE_BUTTON_FOR_PANNING = true;
-const MIN_ZOOM = 1.0; // ズーム倍率の最小値
-const MAX_ZOOM = 4.0; // ズーム倍率の最大値
+const ENABLE_PANNING_REGISTANCE = true; // パン操作に抵抗を導入するか？
 const SHOW_RECORDING_TIME = true; // 録画時間を表示するか？
 const SHOW_CONTROLS = true; // コントロール パネルを表示するか？
 const SHOW_ERROR = true; // エラーを表示するか？
 const SHOW_TAKE_PHOTO = true; // 写真撮影ボタンを表示するか？
 const SHOW_RECORDING = true; // 録画開始・録画停止ボタンを表示するか？
+const USE_MIDDLE_BUTTON_FOR_PANNING = true; // パン操作にマウスの中央ボタンを使用するか？
+const MIN_ZOOM = 1.0; // ズーム倍率の最小値
+const MAX_ZOOM = 4.0; // ズーム倍率の最大値
 const ZOOM_DELTA = 0.2; // ズーム倍率のステップ
+const MOUSE_WHEEL_SPEED = 0.004; // マウスホイールの速度
+const MOUSE_WHEEL_PAN_SPEED = 0.1; // マウスホイールによるパンの速度
+const PAN_SPEED = 10; // パンの速度
+const BACKGROUND_IS_WHITE = false; // 背景は白か？
 
 // CanvasWithWebcam03のprops
 interface CanvasWithWebcam03Props {
@@ -61,6 +65,10 @@ interface CanvasWithWebcam03Handle {
   getPan?: () => { x: number, y: number };
   setPan?: (newPanX: number, newPanY: number) => void;
   getRealFacingMode?: () => string | null;
+  panLeft?: () => void;
+  panRight?: () => void;
+  panUp?: () => void;
+  panDown?: () => void;
 };
 
 // タッチ距離を計算
@@ -68,6 +76,21 @@ const getDistance = (touches: React.TouchList | TouchList) => {
   const dx = touches[0].clientX - touches[1].clientX;
   const dy = touches[0].clientY - touches[1].clientY;
   return Math.sqrt(dx * dx + dy * dy);
+};
+
+// 抵抗付きの値制限
+const applyResistance = (current: number, limit: number) => {
+  const RESISTANCE = 0.8; // 境界外での移動効率
+  if (current > limit) {
+    // 右/下側の境界を超えた場合
+    const overflow = current - limit;
+    return limit + (overflow * RESISTANCE);
+  } else if (current < -limit) {
+    // 左/上側の境界を超えた場合
+    const overflow = current + limit;
+    return -limit + (overflow * RESISTANCE);
+  }
+  return current;
 };
 
 // カメラ付きキャンバス CanvasWithWebcam03 の本体
@@ -253,29 +276,40 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
 
-      if (ctx && video.readyState === video.HAVE_ENOUGH_DATA) {
+      if (ctx && video.readyState === video.HAVE_ENOUGH_DATA) { // ビデオに十分なデータがある？
+        // キャンバスをビデオのサイズに合わせる
         if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
         }
 
         let currentZoom = zoomRef.current;
-        if (currentZoom === 1.0) { // ズームなし？
+        if (currentZoom === 1.0 && offsetRef.current.x == 0 && offsetRef.current.y == 0) {
+          // ズームなし、パンなし？
+          // イメージをそのまま転送
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        } else { // ズームあり？
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        } else { // ズームありか、パンあり？
+          // 背景を塗りつぶす
+          if (BACKGROUND_IS_WHITE) {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+          }
 
+          // ソースのサイズ
           const sourceWidth = video.videoWidth / currentZoom;
           const sourceHeight = video.videoHeight / currentZoom;
 
           // Offsetを含めた中央基準の計算
-          // clampを使って、ソースの範囲がビデオの外に出ないように制限します
           const maxOffsetX = (video.videoWidth - sourceWidth) / 2;
           const maxOffsetY = (video.videoHeight - sourceHeight) / 2;
 
+          /// ソースの位置
           const sourceX = maxOffsetX + offsetRef.current.x;
           const sourceY = maxOffsetY + offsetRef.current.y;
 
+          // イメージを拡大縮小して転送
           ctx.drawImage(
             video,
             sourceX, sourceY, sourceWidth, sourceHeight,
@@ -283,6 +317,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           );
         }
 
+        // ちょっと図形を描いてみる
         if (canvas.width > 2 && canvas.height > 2) {
           // 円を描画
           ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
@@ -298,10 +333,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         }
       }
     }
+
+    // 次のアニメーション フレームを要求
     animationRef.current = requestAnimationFrame(draw);
   }, []);
 
-  // アニメーションフレームを起動・終了
+  // アニメーション フレームを起動・終了
   useEffect(() => {
     animationRef.current = requestAnimationFrame(draw);
     return () => {
@@ -437,6 +474,20 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + delta));
         return newZoom;
       });
+
+      if (ENABLE_PANNING_REGISTANCE) {
+        setOffset(prev => {
+          return clampPan(prev.x, prev.y);
+        });
+      }
+    } else if (event.shiftKey) { // Shift+ホイール
+      setOffset(prev => {
+        return clampPan(prev.x - event.deltaY * MOUSE_WHEEL_PAN_SPEED, prev.y);
+      });
+    } else {
+      setOffset(prev => {
+        return clampPan(prev.x, prev.y - event.deltaY * MOUSE_WHEEL_PAN_SPEED);
+      });
     }
   };
 
@@ -455,6 +506,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
         y: (e.touches[0].clientY + e.touches[1].clientY) / 2
       };
+
       return;
     }
 
@@ -472,11 +524,27 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   };
 
   // パン操作(平行移動)を制限する関数
-  const clampPan = (x: number, y: number) => {
+  const clampPan = (x: number, y: number, newZoom: number | null = null) => {
     const video = webcamRef.current.video;
-    const max = getMaxOffset(video.videoWidth, video.videoHeight, zoomRef.current);
+    const max = getMaxOffset(video.videoWidth, video.videoHeight, newZoom ? newZoom : zoomRef.current);
     return { x: clamp(-max.x, x, max.x), y: clamp(-max.y, y, max.y) };
   };
+
+  // 境界での抵抗を考慮したパン制限関数
+  const clampPanWithResistance = useCallback((x: number, y: number, newZoom: number | null = null) => {
+    if (!ENABLE_PANNING_REGISTANCE)
+      return clampPan(x, y, newZoom);
+
+    const video = webcamRef.current?.video;
+    if (!video) return { x, y };
+
+    const max = getMaxOffset(video.videoWidth, video.videoHeight, newZoom ? newZoom : zoomRef.current);
+
+    return {
+      x: applyResistance(x, max.x),
+      y: applyResistance(y, max.y)
+    };
+  }, []);
 
   // マウスが動いた／タッチが動いた
   const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
@@ -537,7 +605,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           const nextX = prev.x + focalX * zoomFactor - moveX;
           const nextY = prev.y + focalY * zoomFactor - moveY;
 
-          return clampPan(nextX, nextY);
+          return clampPanWithResistance(nextX, nextY, newZoom);
         });
       }
 
@@ -547,7 +615,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     }
 
     // 2. パン処理 (1本指またはマウス)
-    if (!ENABLE_USER_PANNING || !isDragging.current || zoomRef.current <= 1.0) return;
+    if (!ENABLE_USER_PANNING || !isDragging.current || (!ENABLE_PANNING_REGISTANCE && zoomRef.current <= 1.0)) return;
 
     e.preventDefault();
 
@@ -566,16 +634,20 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
     setOffset(prev => {
       const nextX = prev.x - moveX, nextY = prev.y - moveY;
-      return clampPan(nextX, nextY);
+      return clampPanWithResistance(nextX, nextY);
     });
 
     lastPos.current = { x: pos.clientX, y: pos.clientY };
-  }, [mirrored, clampPan]);
+  }, [mirrored, clampPanWithResistance]);
 
   // マウスのボタンが離された／タッチが離された
   const handleMouseUp = (e: MouseEvent | TouchEvent) => {
     isDragging.current = false;
     initialPinchDistance.current = null;
+
+    setOffset(prev => {
+      return clampPan(prev.x, prev.y);
+    });
   };
 
   // スタイルの整理
@@ -643,8 +715,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     if (!ENABLE_USER_ZOOMING)
       return;
     const newValue = clamp(MIN_ZOOM, zoomValue - ZOOM_DELTA, MAX_ZOOM);
+    setOffset(prev => {
+      return clampPan(prev.x, prev.y, newValue);
+    });
     setZoomValue(newValue);
-  }, [zoomValue]);
+  }, [zoomValue, clampPan]);
 
   // 録画中かを返す
   const isRecording = useCallback(() => {
@@ -669,13 +744,35 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     setIsInitialized(true);
     setErrorString('');
     if (onUserMedia) onUserMedia(stream);
-  }, []);
+  }, [onUserMedia]);
 
   const onUserMediaErrorBridge = useCallback((error: string | DOMException) => {
     setIsInitialized(true);
     setErrorString(error.toString());
     if (onUserMediaError) onUserMediaError(error);
-  }, []);
+  }, [onUserMediaError]);
+
+  // キーボードでパンを操作する？
+  const panLeft = useCallback(() => {
+    setOffset(prev => {
+      return clampPan(prev.x - PAN_SPEED, prev.y);
+    });
+  }, [clampPan]);
+  const panRight = useCallback(() => {
+    setOffset(prev => {
+      return clampPan(prev.x + PAN_SPEED, prev.y);
+    });
+  }, [clampPan]);
+  const panUp = useCallback(() => {
+    setOffset(prev => {
+      return clampPan(prev.x, prev.y - PAN_SPEED);
+    });
+  }, [clampPan]);
+  const panDown = useCallback(() => {
+    setOffset(prev => {
+      return clampPan(prev.x, prev.y + PAN_SPEED);
+    });
+  }, [clampPan]);
 
   useImperativeHandle(ref, () => ({
     canvas: canvasRef.current,
@@ -691,6 +788,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     zoomIn: zoomIn.bind(this),
     zoomOut: zoomOut.bind(this),
     getRealFacingMode: getRealFacingMode.bind(this),
+    panLeft: panLeft.bind(this),
+    panRight: panRight.bind(this),
+    panUp: panUp.bind(this),
+    panDown: panDown.bind(this),
   }));
 
   return (

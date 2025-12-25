@@ -76,6 +76,26 @@ function App() {
           }
         }
         break;
+      // パン操作 (矢印)
+      case 'ArrowUp':
+        event.preventDefault();
+        canvasWithCamera.current?.panUp();
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        canvasWithCamera.current?.panDown();
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        canvasWithCamera.current?.panRight();
+        break;
+      case 'ArrowRight':
+        event.preventDefault();
+        canvasWithCamera.current?.panLeft();
+        break;
+      default:
+        console.log(event.key);
+        break;
       }
     };
 
