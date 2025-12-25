@@ -9,16 +9,17 @@ const SHOW_CAMERA_SWITCH = true; // カメラ切り替えボタンを表示す�
 
 // Controls コンポーネント
 interface Camera03ControlsProps {
-  isRecording: boolean;
-  takePhoto: () => void;
-  startRecording: () => void;
-  stopRecording: () => void;
-  toggleCamera: () => void;
-  showTakePhoto: boolean;
-  showRecording: boolean;
-  showCameraSwitch: boolean;
+  isRecording: boolean; // 録画中か？
+  takePhoto: () => void; // 写真を撮る
+  startRecording: () => void; // 録画を開始
+  stopRecording: () => void; // 録画を停止
+  toggleCamera: () => void; // カメラの切り替え
+  showTakePhoto: boolean; // 写真撮影ボタンを表示するか？
+  showRecording: boolean; // 録画開始・録画停止ボタンを表示するか？
+  showCameraSwitch: boolean; // カメラ切り替えボタンを表示するか？
 };
 
+// カメラCamera03のコントロール パネル (Camera03Controls) 本体
 const Camera03Controls: React.FC<Camera03ControlsProps> = ({
   isRecording,
   takePhoto,
@@ -49,7 +50,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
             height: '60px',
             borderRadius: '50%',
             border: '3px solid white',
-            backgroundColor: isRecording ? '#666' : '#4C50AF',
+            backgroundColor: isRecording ? '#666' : '#3f3',
             cursor: isRecording ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -57,7 +58,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
             opacity: isRecording ? 0.5 : 1
           }}
         >
-          <SwitchCamera size={30} color="white" />
+          <SwitchCamera size={30} color="black" />
         </button>
       )}
 
@@ -71,7 +72,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
             height: '60px',
             borderRadius: '50%',
             border: '3px solid white',
-            backgroundColor: isRecording ? '#666' : '#4CAF50',
+            backgroundColor: isRecording ? '#666' : '#ff3',
             cursor: isRecording ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -79,7 +80,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
             opacity: isRecording ? 0.5 : 1
           }}
         >
-          <Camera size={30} color="white" />
+          <Camera size={30} color="black" />
         </button>
       )}
 
@@ -92,14 +93,14 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
             height: '60px',
             borderRadius: '50%',
             border: '3px solid white',
-            backgroundColor: '#2196F3',
+            backgroundColor: '#c66',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
           }}
         >
-          <Video size={30} color="white" />
+          <Video size={30} color="black" />
         </button>
       ) : (
         <button 
@@ -109,7 +110,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
             height: '60px',
             borderRadius: '50%',
             border: '3px solid white',
-            backgroundColor: '#f44336',
+            backgroundColor: '#f33',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',

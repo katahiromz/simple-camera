@@ -22,6 +22,7 @@ const SHOW_CONTROLS = true; // コントロール パネルを表示するか？
 const SHOW_ERROR = true; // エラーを表示するか？
 const SHOW_TAKE_PHOTO = true; // 写真撮影ボタンを表示するか？
 const SHOW_RECORDING = true; // 録画開始・録画停止ボタンを表示するか？
+const ZOOM_DELTA = 0.2; // ズーム倍率のステップ
 
 // CanvasWithWebcam03のprops
 interface CanvasWithWebcam03Props {
@@ -96,14 +97,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   },
   ref
 ) => {
-  const webcamRef = useRef(null);
-  const canvasRef = useRef(null);
-  const controlsRef = useRef(null);
-  const animationRef = useRef(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const [errorString, setErrorString] = useState<string | null>(null);
-  const [isRecordingNow, setIsRecordingNow] = useState(false);
+  const webcamRef = useRef(null); // Webcam03への参照
+  const canvasRef = useRef(null); // キャンバスへの参照
+  const controlsRef = useRef(null); // コントロール パネル (Webcam03Controls)への参照
+  const animationRef = useRef(null); // アニメーションフレーム要求への参照
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null); // メディア レコーダー
+  const chunksRef = useRef<Blob[]>([]); // 録画用のchunkデータ
+  const [errorString, setErrorString] = useState<string | null>(null); // エラー文字列
+  const [isRecordingNow, setIsRecordingNow] = useState(false); // 録画中か？
   const [zoomValue, setZoomValue] = useState(1.0); // ズーム倍率
   const zoomRef = useRef(zoomValue); // ズーム参照
   const [recordingTime, setRecordingTime] = useState(0); // 録画時間量
@@ -120,8 +121,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   // videoConstraints をメモ化する (重要)
   const videoConstraints = useMemo(() => ({
     facingMode: { ideal: facingMode },
-    width: { ideal: 1920 },
-    height: { ideal: 1080 }
   }), [facingMode]);
 
   // 常にoffsetRefをoffset stateに合わせる
@@ -172,11 +171,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     });
   }, [zoomValue]);
 
-  // シャッター音などの初期化
+  // シャッター音
   useEffect(() => {
     if (!ENABLE_SOUND_EFFECTS) return;
     try {
-      // シャッター音
       if (shutterSoundUrl) {
         shutterAudioRef.current = new Audio(shutterSoundUrl);
         shutterAudioRef.current.load();
@@ -188,10 +186,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       shutterAudioRef.current = null;
     };
   }, [shutterSoundUrl]);
+
+
+  // ビデオ録画開始音
   useEffect(() => {
     if (!ENABLE_SOUND_EFFECTS) return;
     try {
-      // ビデオ録画開始音
       if (videoStartSoundUrl) {
         videoStartAudioRef.current = new Audio(videoStartSoundUrl);
         videoStartAudioRef.current.load();
@@ -203,10 +203,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       videoStartAudioRef.current = null;
     };
   }, [videoStartSoundUrl]);
+
+  // ビデオ録画完了音
   useEffect(() => {
     if (!ENABLE_SOUND_EFFECTS) return;
     try {
-      // ビデオ録画完了音
       if (videoCompleteSoundUrl) {
         videoCompleteAudioRef.current = new Audio(videoCompleteSoundUrl);
         videoCompleteAudioRef.current.load();
@@ -219,6 +220,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     };
   }, [videoCompleteSoundUrl]);
 
+  // カメラとマイクの監視を管理
   useEffect(() => {
     // インスタンスの生成
     const cameraManager = new PermissionManager('camera' as PermissionName);
@@ -244,7 +246,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     };
   }, []);
 
-  const render = useCallback(() => {
+  // アニメーションフレームを次々と描画する関数
+  const draw = useCallback(() => {
     if (webcamRef.current?.video && canvasRef.current) {
       const video = webcamRef.current.video;
       const canvas = canvasRef.current;
@@ -295,18 +298,21 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         }
       }
     }
-    animationRef.current = requestAnimationFrame(render);
+    animationRef.current = requestAnimationFrame(draw);
   }, []);
 
+  // アニメーションフレームを起動・終了
   useEffect(() => {
-    render();
+    animationRef.current = requestAnimationFrame(draw);
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
       }
     };
-  }, [render]);
+  }, [draw]);
 
+  // 写真を撮る
   const takePhoto = useCallback(() => {
     console.log('takePhoto');
     if (!canvasRef.current) {
@@ -336,6 +342,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, []);
 
   // --- 録画開始機能 ---
+
+  // 録画開始
   const startRecording = useCallback(() => {
     console.log('startRecording');
     if (!canvasRef.current) return;
@@ -385,6 +393,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, []);
 
   // --- 録画停止機能 ---
+
+  // 録画停止
   const stopRecording = useCallback(() => {
     console.log('stopRecording');
     if (mediaRecorderRef.current && isRecordingNow) {
@@ -430,6 +440,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     }
   };
 
+  // マウスのボタンが押された／タッチが開始された
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (!ENABLE_USER_PANNING && !ENABLE_USER_ZOOMING) return;
 
@@ -460,12 +471,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     lastPos.current = { x: pos.clientX, y: pos.clientY };
   };
 
+  // パン操作(平行移動)を制限する関数
   const clampPan = (x: number, y: number) => {
     const video = webcamRef.current.video;
     const max = getMaxOffset(video.videoWidth, video.videoHeight, zoomRef.current);
     return { x: clamp(-max.x, x, max.x), y: clamp(-max.y, y, max.y) };
   };
 
+  // マウスが動いた／タッチが動いた
   const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!ENABLE_USER_ZOOMING && !ENABLE_USER_PANNING) return;
     const video = webcamRef.current?.video;
@@ -559,6 +572,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     lastPos.current = { x: pos.clientX, y: pos.clientY };
   }, [mirrored, clampPan]);
 
+  // マウスのボタンが離された／タッチが離された
   const handleMouseUp = (e: MouseEvent | TouchEvent) => {
     isDragging.current = false;
     initialPinchDistance.current = null;
@@ -606,16 +620,17 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     };
   }, [handleMouseMove, eventTarget]);
 
+  // ズーム倍率の取得
   const getZoomRatio = () => {
     return zoomValue;
   };
+  // ズーム倍率の設定
   const setZoomRatio = (ratio: number) => {
     const newRatio = clamp(MIN_ZOOM, ratio, MAX_ZOOM);
     setZoomValue(newRatio);
   };
 
-  const ZOOM_DELTA = 0.2;
-
+  // ズームイン
   const zoomIn = useCallback(() => {
     if (!ENABLE_USER_ZOOMING)
       return;
@@ -623,6 +638,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     setZoomValue(newValue);
   }, [zoomValue]);
 
+  // ズームアウト
   const zoomOut = useCallback(() => {
     if (!ENABLE_USER_ZOOMING)
       return;
@@ -630,17 +646,21 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     setZoomValue(newValue);
   }, [zoomValue]);
 
+  // 録画中かを返す
   const isRecording = useCallback(() => {
     return isRecordingNow;
   }, [isRecordingNow]);
 
+  // パンを返す
   const getPan = useCallback(() => {
     return offset;
   }, [offset]);
+  // パンを設定する
   const setPan = useCallback((newPanX: number, newPanY: number) => {
     setOffset({ x: clamp(-max.x, newPanX, max.x), y: clamp(-max.y, newPanY, max.y) });
   }, []);
 
+  // 本当の facingMode (前面・背面)を返す
   const getRealFacingMode = useCallback((): string | null => {
     return webcamRef.current?.getRealFacingMode();
   }, []);
