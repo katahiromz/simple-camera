@@ -99,16 +99,14 @@ const getDistance = (touches: React.TouchList | TouchList) => {
 };
 
 // 抵抗付きの値制限
-const applyResistance = (current: number, limit: number) => {
+const applyResistance = (min: number, current: number, max: number) => {
   const RESISTANCE = 0.8; // 境界外での移動効率
-  if (current > limit) {
-    // 右/下側の境界を超えた場合
-    const overflow = current - limit;
-    return limit + (overflow * RESISTANCE);
-  } else if (current < -limit) {
-    // 左/上側の境界を超えた場合
-    const overflow = current + limit;
-    return -limit + (overflow * RESISTANCE);
+  if (current > max) {
+    const overflow = current - max;
+    return max + (overflow * RESISTANCE);
+  } else if (current < min) {
+    const overflow = current - min;
+    return min + (overflow * RESISTANCE);
   }
   return current;
 };
@@ -627,8 +625,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     const max = getMaxOffset(srcWidth, srcHeight, newZoom ? newZoom : zoomRef.current);
 
     return {
-      x: applyResistance(x, max.x),
-      y: applyResistance(y, max.y)
+      x: applyResistance(-max.x, x, max.x),
+      y: applyResistance(-max.y, y, max.y)
     };
   }, []);
 
