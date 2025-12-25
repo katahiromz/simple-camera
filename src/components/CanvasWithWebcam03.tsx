@@ -587,8 +587,9 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
 
       // 前回の中心点からの移動量を計算（lastPos に中心点を保存しておく必要があるため handleMouseDown も後述の通り修正）
-      const dx = centerX - lastPos.current.x;
-      const dy = centerY - lastPos.current.y;
+      let dx = centerX - lastPos.current.x, dy = centerY - lastPos.current.y;
+
+      if (isMirrored) dx = -dx;
 
       // ビデオ座標系への変換
       const scaleX = video.videoWidth / canvas.clientWidth;
@@ -633,17 +634,17 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     e.preventDefault();
 
     const pos = 'touches' in e ? (e as TouchEvent).touches[0] : (e as MouseEvent);
-    const dx = pos.clientX - lastPos.current.x;
-    const dy = pos.clientY - lastPos.current.y;
+    let dx = pos.clientX - lastPos.current.x;
+    let dy = pos.clientY - lastPos.current.y;
+
+    if (isMirrored) dx = -dx;
 
     // 1. 画面上のピクセル移動量をビデオの座標系（解像度）に変換
     // キャンバスの表示サイズとビデオの実際の解像度の比率を考慮
     const scaleX = video.videoWidth / canvas.clientWidth;
     const scaleY = video.videoHeight / canvas.clientHeight;
 
-    // 2. 左右反転(mirrored)している場合は、X軸の移動方向を補正
-    const moveX = mirrored ? -dx * scaleX : dx * scaleX;
-    const moveY = dy * scaleY;
+    const moveX = dx * scaleX, moveY = dy * scaleY;
 
     setOffset(prev => {
       const nextX = prev.x - moveX, nextY = prev.y - moveY;
@@ -651,7 +652,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     });
 
     lastPos.current = { x: pos.clientX, y: pos.clientY };
-  }, [mirrored, clampPanWithResistance]);
+  }, [isMirrored, clampPanWithResistance]);
 
   // マウスのボタンが離された／タッチが離された
   const handleMouseUp = (e: MouseEvent | TouchEvent) => {
