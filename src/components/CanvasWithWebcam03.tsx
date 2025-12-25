@@ -1,7 +1,7 @@
 // webcam03-with-canvas.tsx
 import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
-import Webcam03 from './webcam03';
-import Webcam03Controls from './webcam03-controls';
+import Webcam03 from './Webcam03';
+import Webcam03Controls from './Webcam03Controls';
 import { PermissionManager, PermissionStatusValue } from './permission-watcher';
 import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset } from './utils';
 import { saveFile } from './utils';
