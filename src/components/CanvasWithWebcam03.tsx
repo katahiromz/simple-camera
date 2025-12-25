@@ -39,6 +39,7 @@ interface CanvasWithWebcam03Props {
   className?: string;
   style?: React.CSSProperties;
   mirrored?: boolean;
+  autoMirror?: boolean;
   photoFormat?: "image/png" | "image/webp" | "image/jpeg";
   photoQuality?: number;
   recordingFormat?: "video/webm" | "video/mp4";
@@ -102,7 +103,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     onUserMedia = null,
     onUserMediaError = null,
     audio = true,
-    mirrored = true,
+    mirrored = false,
+    autoMirror = false,
     photoFormat = "image/png",
     photoQuality = 0.92,
     recordingFormat = "video/webm",
@@ -140,6 +142,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const [facingMode, setFacingMode] = useState<FacingMode>('environment'); // カメラの前面・背面
   const [isSwitching, setIsSwitching] = useState(false); // カメラ切り替え中？
   const [isInitialized, setIsInitialized] = useState(false); // 初期化済みか？
+  const [isMirrored, setIsMirrored] = useState(autoMirror ? (facingMode === 'user') : mirrored);
 
   const videoConstraints = useMemo(() => ({
     facingMode: { ideal: facingMode },
@@ -284,6 +287,13 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           canvas.height = video.videoHeight;
         }
 
+        ctx.save(); // 現在のキャンバス状態を保存
+
+        if (isMirrored) { // mirrored ではなくステートの isMirrored を使用
+          ctx.translate(canvas.width, 0);
+          ctx.scale(-1, 1);
+        }
+
         let currentZoom = zoomRef.current;
         if (currentZoom === 1.0 && offsetRef.current.x == 0 && offsetRef.current.y == 0) {
           // ズームなし、パンなし？
@@ -332,12 +342,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           ctx.lineWidth = 5;
           ctx.strokeRect(canvas.width / 2, canvas.height / 2, 150, 150);
         }
+
+        ctx.restore();
       }
     }
 
     // 次のアニメーション フレームを要求
     animationRef.current = requestAnimationFrame(draw);
-  }, []);
+  }, [isMirrored]);
 
   // アニメーション フレームを起動・終了
   useEffect(() => {
@@ -454,14 +466,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     setOffset({ x: 0, y: 0 });
 
     setFacingMode(prev => {
-      // カメラが起動し、映像が安定するまで少し待ってから非表示にする（0.75秒程度）
+      // autoMirrorが有効な場合、切り替え後に onUserMediaBridge が走って
+      // isMirrored が更新されるため、ここでは何もしなくてOK
       setTimeout(() => {
         setIsSwitching(false);
       }, 750);
-
       return (prev === "user" ? "environment" : "user");
     });
-  }, [isRecordingNow]);
+  }, [isRecordingNow, autoMirror]);
 
   // --- PC: マウスホイールでズーム ---
   const handleWheel = (event: WheelEvent) => {
@@ -660,7 +672,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     display: 'block',
     ...style,
     // 左右反転の処理を最後に結合
-    transform: `${style?.transform || ""} ${mirrored ? "scaleX(-1)" : ""}`.trim(),
+    transform: `${style?.transform || ""}`.trim(),
   };
 
   // イベントリスナーの設定
@@ -741,12 +753,21 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     return webcamRef.current?.getRealFacingMode();
   }, []);
 
+  // カメラが実際に準備できた時の最終判定
   const onUserMediaBridge = useCallback((stream: MediaStream) => {
     setIsInitialized(true);
     setErrorString('');
     console.log(canvasRef.current.width, canvasRef.current.height);
+
+    if (autoMirror && webcamRef.current) {
+      const actualMode = webcamRef.current.getRealFacingMode();
+      if (actualMode) {
+        setIsMirrored(actualMode === 'user');
+      }
+    }
+
     if (onUserMedia) onUserMedia(stream);
-  }, [onUserMedia]);
+  }, [onUserMedia, autoMirror]);
 
   const onUserMediaErrorBridge = useCallback((error: string | DOMException) => {
     setIsInitialized(true);
@@ -887,6 +908,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           audio={audio && isMicEnabled}
           videoConstraints={videoConstraints}
           muted={true}
+          mirrored={isMirrored}
           onUserMedia={onUserMediaBridge}
           onUserMediaError={onUserMediaErrorBridge}
           style={{

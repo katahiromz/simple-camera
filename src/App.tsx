@@ -111,6 +111,7 @@ function App() {
       videoCompleteSoundUrl={videoCompleteSoundUrl}
       downloadFile={isAndroidApp ? saveFileEx : saveFile}
       eventTarget={document.body}
+      autoMirror={true}
     />
   );
 }

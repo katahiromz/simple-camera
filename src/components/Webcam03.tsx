@@ -74,18 +74,12 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-      setHasUserMedia(true);
-      onUserMedia(stream);
 
       // 実際に使用されているカメラのfacingModeを取得
       try {
         const videoTrack = stream.getVideoTracks()[0];
         const settings = videoTrack.getSettings();
-        if (settings.facingMode) {
-          const actualFacingMode = settings.facingMode as FacingMode;
-          console.log(`Actual camera facing mode: ${actualFacingMode}`);
-          realFacingMode.current = actualFacingMode;
-        }
+        realFacingMode.current = settings.facingMode as FacingMode;
       } catch (error) {
         console.warn('Failed to get camera facing mode:', error);
       }
@@ -99,6 +93,9 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
       } catch (error) {
         console.info('Failed to get audio:', error);
       }
+
+      setHasUserMedia(true);
+      onUserMedia(stream);
     };
 
     const requestUserMedia = useCallback(async (requestAudio: boolean) => {
@@ -206,15 +203,11 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
       return canvas ? canvas.toDataURL(screenshotFormat, screenshotQuality) : null;
     }, [getCanvas, screenshotFormat, screenshotQuality]);
 
-    const getRealFacingMode = useCallback((): FacingMode | null => {
-      return realFacingMode;
-    }, []);
-
     useImperativeHandle(ref, () => ({
       getScreenshot,
       getCanvas,
       video: videoRef.current,
-      getRealFacingMode,
+      getRealFacingMode: () => realFacingMode.current,
     }));
 
     const videoStyle: React.CSSProperties = {
