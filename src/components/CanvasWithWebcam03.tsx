@@ -5,6 +5,7 @@ import Webcam03Controls from './Webcam03Controls';
 import { PermissionManager, PermissionStatusValue } from './permission-watcher';
 import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset } from './utils';
 import { saveFile } from './utils';
+import { Camera } from 'lucide-react';
 
 const MOUSE_WHEEL_DELTA = 0.004;
 const ENABLE_USER_ZOOMING = true;
@@ -88,7 +89,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const lastPos = useRef({ x: 0, y: 0 }); // パン操作用
   const initialPinchDistance = useRef<number | null>(null); // 初期のピンチング距離
   const initialZoomAtPinchStart = useRef<number>(1.0); // ピンチング開始時のズーム倍率
-  const [facingMode, setFacingMode] = useState<FacingMode>('environment');
+  const [facingMode, setFacingMode] = useState<FacingMode>('environment'); // カメラの前面・背面
+  const [isSwitching, setIsSwitching] = useState(false); // カメラ切り替え中？
 
   // videoConstraints をメモ化する (重要)
   const videoConstraints = useMemo(() => ({
@@ -371,11 +373,21 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     console.log('toggleCamera');
     if (isRecordingNow) return;
 
+    // 切り替え中ステートをON
+    setIsSwitching(true);
+
     // パンとズームをリセット（カメラが変わると画角が変わるため）
     setZoomValue(1.0);
     setOffset({ x: 0, y: 0 });
 
-    setFacingMode(prev => (prev === "user" ? "environment" : "user"));
+    setFacingMode(prev => {
+      // カメラが起動し、映像が安定するまで少し待ってから非表示にする（1秒程度）
+      setTimeout(() => {
+        setIsSwitching(false);
+      }, 1000);
+
+      return (prev === "user" ? "environment" : "user");
+    });
   }, [isRecordingNow]);
 
   // --- PC: マウスホイールでズーム ---
@@ -639,6 +651,31 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         className={className}
         {...rest}
       />
+
+      {/* カメラ切り替え中メッセージ */}
+      {isSwitching && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          padding: '15px 30px',
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          color: 'white',
+          borderRadius: '30px',
+          zIndex: 30, // コントロールより前面に
+          fontSize: '16px',
+          fontWeight: 'bold',
+          pointerEvents: 'none', // クリックを透過させる
+          display: 'flex',
+          alignItems: 'center',
+          textAlign: 'center',
+        }}>
+          <span>
+            <Camera size={50} color="white" /> <br />カメラを切り替え中...
+          </span>
+        </div>
+      )}
 
       {/* 権限エラーまたはその他のエラー表示 */}
       {(cameraPermission === 'denied') && (
