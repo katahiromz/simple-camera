@@ -91,6 +91,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const initialZoomAtPinchStart = useRef<number>(1.0); // ピンチング開始時のズーム倍率
   const [facingMode, setFacingMode] = useState<FacingMode>('environment'); // カメラの前面・背面
   const [isSwitching, setIsSwitching] = useState(false); // カメラ切り替え中？
+  const [isIniting, setIsIniting] = useState(true); // 初期化中か？
 
   // videoConstraints をメモ化する (重要)
   const videoConstraints = useMemo(() => ({
@@ -620,6 +621,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     return webcamRef.current?.getRealFacingMode();
   }, []);
 
+  const onUserMedia = useCallback((stream: MediaStream) => {
+    setIsIniting(false);
+  }, []);
+
+  const onUserMediaError = useCallback((error: string | DOMException) => {
+    setIsIniting(false);
+  }, []);
+
   useImperativeHandle(ref, () => ({
     canvas: canvasRef.current,
     getZoomRatio: getZoomRatio.bind(this),
@@ -652,8 +661,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         {...rest}
       />
 
-      {/* カメラ切り替え中メッセージ */}
-      {isSwitching && (
+      {/* カメラのメッセージ */}
+      {(isIniting || isSwitching) && (
         <div style={{
           position: 'absolute',
           top: '50%',
@@ -670,10 +679,13 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           display: 'flex',
           alignItems: 'center',
           textAlign: 'center',
+          border: '1px solid white',
         }}>
-          <span>
-            <Camera size={50} color="white" /> <br />カメラを切り替え中...
-          </span>
+          {(isIniting ? (
+            <span><Camera size={50} color="white" /> <br />カメラ起動中...</span>
+          ) : (
+            <span><Camera size={50} color="white" /> <br />カメラを切り替え中...</span>
+          ))}
         </div>
       )}
 
@@ -719,6 +731,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           audio={audio && isMicEnabled}
           videoConstraints={videoConstraints}
           muted={true}
+          onUserMedia={onUserMedia}
+          onUserMediaError={onUserMediaError}
           style={{
             position: 'absolute',
             top: '0',
