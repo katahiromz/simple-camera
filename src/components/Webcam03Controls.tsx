@@ -1,4 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react';
+import './Webcam03Controls.css';
 
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera, Video, Square, AlertCircle, SwitchCamera } from 'lucide-react';
@@ -45,18 +46,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
         <button
           onClick={toggleCamera}
           disabled={isRecording}
-          style={{
-            width: '60px',
-            height: '60px',
-            borderRadius: '50%',
-            border: '3px solid white',
-            backgroundColor: isRecording ? '#666' : '#3f3',
-            cursor: isRecording ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: isRecording ? 0.5 : 1
-          }}
+          className="webcam03-button webcam03-button-camera-switch"
         >
           <SwitchCamera size={30} color="black" />
         </button>
@@ -64,21 +54,10 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
 
       {/* 写真撮影ボタン */}
       {SHOW_TAKE_PHOTO && showTakePhoto && (
-        <button 
-          onClick={takePhoto} 
+        <button
+          onClick={takePhoto}
           disabled={isRecording}
-          style={{
-            width: '60px',
-            height: '60px',
-            borderRadius: '50%',
-            border: '3px solid white',
-            backgroundColor: isRecording ? '#666' : '#ff3',
-            cursor: isRecording ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: isRecording ? 0.5 : 1
-          }}
+          className="webcam03-button webcam03-button-take-photo"
         >
           <Camera size={30} color="black" />
         </button>
@@ -86,37 +65,16 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
 
       {/* 録画開始・録画停止ボタン */}
       {SHOW_RECORDING && showRecording && !isRecording ? (
-        <button 
+        <button
           onClick={startRecording}
-          style={{
-            width: '60px',
-            height: '60px',
-            borderRadius: '50%',
-            border: '3px solid white',
-            backgroundColor: '#c66',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
+          className="webcam03-button webcam03-button-start-recording"
         >
           <Video size={30} color="black" />
         </button>
       ) : (
-        <button 
+        <button
           onClick={stopRecording}
-          style={{
-            width: '60px',
-            height: '60px',
-            borderRadius: '50%',
-            border: '3px solid white',
-            backgroundColor: '#f33',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            animation: 'pulse 1.5s infinite'
-          }}
+          className="webcam03-button webcam03-button-stop-recording"
         >
           <Square size={30} color="white" />
         </button>

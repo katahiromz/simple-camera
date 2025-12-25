@@ -1,0 +1,63 @@
+/* Webcam03Controls のスタイルシート */
+
+.webcam03-button {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px solid white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  /* 変化を滑らかにする（当たり判定への影響を最小限にするため短めに設定） */
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  /* デフォルトの影：少し浮かせる */
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.5);
+  /* 念のため、ボタン内の要素がイベントを邪魔しないようにする */
+  position: relative;
+}
+
+/* ボタンを押し下げた時のエフェクト（PC・スマホ共通） */
+.webcam03-button:active:not(:disabled) {
+  /* scaleを少し下げるだけに留め、translateY（移動）は行わない */
+  transform: scale(0.92) !important; 
+  /* 影を極限まで小さくして、ボタンが沈んだように見せる */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.webcam03-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none !important;
+}
+
+/* PC（マウス操作）の場合のホバー設定 */
+@media (hover: hover) {
+  .webcam03-button:hover:not(:disabled) {
+    transform: scale(1.1);
+  }
+}
+
+/* スマホ（タッチ操作）ではホバー時の拡大を無効化する（当たり判定のズレを防ぐ） */
+@media (hover: none) {
+  .webcam03-button:hover {
+    transform: none;
+  }
+}
+
+/* --- 以下、ボタンの色設定等は変更なし --- */
+
+.webcam03-button-camera-switch { background-color: rgba(64, 255, 64); }
+.webcam03-button-take-photo { background-color: rgba(255, 255, 64); }
+.webcam03-button-start-recording { background-color: rgba(255, 92, 92); }
+.webcam03-button-stop-recording {
+  background-color: rgba(255, 64, 64);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+}
