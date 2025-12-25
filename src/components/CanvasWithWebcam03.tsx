@@ -140,13 +140,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const [facingMode, setFacingMode] = useState<FacingMode>('environment'); // カメラの前面・背面
   const [isSwitching, setIsSwitching] = useState(false); // カメラ切り替え中？
   const [isInitialized, setIsInitialized] = useState(false); // 初期化済みか？
-  const isLandscape = () => (window.innerWidth > window.innerHeight); // 横長か？
 
   const videoConstraints = useMemo(() => ({
     facingMode: { ideal: facingMode },
-    width: { ideal: isLandscape() ? 1600 : 800, max: 1600, min: 160 },
-    height: { ideal: isLandscape() ? 800 : 1600, max: 1600, min: 160 },
-  }), [facingMode, isLandscape]);
+    width: { max: 1600, min: 160 },
+    height: { max: 1600, min: 160 },
+  }), [facingMode]);
 
   // 常にoffsetRefをoffset stateに合わせる
   useEffect(() => {
