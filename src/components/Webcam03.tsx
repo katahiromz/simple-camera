@@ -27,8 +27,12 @@ interface WebcamProps {
 interface WebcamCanvasHandle {
   getScreenshot: (dimensions?: ScreenshotDimensions) => string | null;
   getCanvas: (dimensions?: ScreenshotDimensions) => HTMLCanvasElement | null;
+  getRealFacingMode: () => FacingMode | null;
   video: HTMLVideoElement | null;
 }
+
+// カメラが背面か前面か？
+export type FacingMode = 'user' | 'environment';
 
 const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
   (
@@ -55,6 +59,7 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const [hasUserMedia, setHasUserMedia] = useState(false);
+    const realFacingMode = useRef<FacingMode | null>(null);
 
     const stopMediaStream = useCallback(() => {
       console.log('stopMediaStream');
@@ -71,18 +76,40 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
       }
       setHasUserMedia(true);
       onUserMedia(stream);
+
+      // 実際に使用されているカメラのfacingModeを取得
+      try {
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        if (settings.facingMode) {
+          const actualFacingMode = settings.facingMode as FacingMode;
+          console.log(`Actual camera facing mode: ${actualFacingMode}`);
+          realFacingMode.current = actualFacingMode;
+        }
+      } catch (error) {
+        console.warn('Failed to get camera facing mode:', error);
+      }
+
+      // audioがあるかどうか？
+      try {
+        const audioTrack = stream.getAudioTracks()[0];
+        const settings = audioTrack.getSettings();
+        console.log(settings);
+        console.info('Audio is available');
+      } catch (error) {
+        console.info('Failed to get audio:', error);
+      }
     };
 
-    const requestUserMedia = useCallback(async () => {
+    const requestUserMedia = useCallback(async (requestAudio: boolean) => {
       console.log('requestUserMedia');
-      stopMediaStream();
 
       // 現在の制約を取得
       const baseVideoConstraints = typeof videoConstraints === 'object' ? videoConstraints : {};
 
       const constraints: MediaStreamConstraints = {
         video: videoConstraints || true,
-        audio: audio ? (audioConstraints || true) : false,
+        audio: requestAudio ? (audioConstraints || true) : false,
       };
 
       try {
@@ -98,7 +125,7 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
             : (baseVideoConstraints.facingMode as any).ideal;
 
           const fallbackMode = currentMode === "user" ? "environment" : "user";
-          
+
           const fallbackConstraints = {
             ...constraints,
             video: { ...baseVideoConstraints, facingMode: { ideal: fallbackMode } }
@@ -109,7 +136,11 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
             handleSuccess(fallbackStream); // 成功
             return;
           } catch (fallbackErr) {
-            console.error("Fallback camera attempt also failed:", fallbackErr);
+            console.warn("2nd camera attempt failed, trying fallback:", err);
+            if (requestAudio) {
+              console.log("re-trying without audio...");
+              return requestUserMedia(false);
+            }
           }
         }
 
@@ -117,13 +148,14 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
         setHasUserMedia(false);
         onUserMediaError(err as DOMException);
       }
-    }, [audio, stopMediaStream, JSON.stringify(videoConstraints), JSON.stringify(audioConstraints)]);
+    }, [stopMediaStream, JSON.stringify(videoConstraints), JSON.stringify(audioConstraints)]);
 
     useEffect(() => {
       console.log('useEffect');
-      requestUserMedia();
+      stopMediaStream();
+      requestUserMedia(audio);
       return () => stopMediaStream();
-    }, [requestUserMedia, stopMediaStream]);
+    }, [audio, requestUserMedia, stopMediaStream]);
 
     const getCanvas = useCallback((dimensions?: ScreenshotDimensions): HTMLCanvasElement | null => {
       console.log('getCanvas');
@@ -174,10 +206,15 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
       return canvas ? canvas.toDataURL(screenshotFormat, screenshotQuality) : null;
     }, [getCanvas, screenshotFormat, screenshotQuality]);
 
+    const getRealFacingMode = useCallback((): FacingMode | null => {
+      return realFacingMode;
+    }, []);
+
     useImperativeHandle(ref, () => ({
       getScreenshot,
       getCanvas,
       video: videoRef.current,
+      getRealFacingMode,
     }));
 
     const videoStyle: React.CSSProperties = {

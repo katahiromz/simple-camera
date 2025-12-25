@@ -25,9 +25,9 @@ function App() {
   const canvasWithCamera = useRef(null);
 
   useEffect(() => {
-    console.log(canvasWithCamera.current.canvas);
-    canvasWithCamera.current.setZoomRatio(2);
-    console.log(canvasWithCamera.current.getZoomRatio());
+    //console.log(canvasWithCamera.current.canvas);
+    //canvasWithCamera.current.setZoomRatio(2);
+    //console.log(canvasWithCamera.current.getZoomRatio());
   }, []);
 
   // 物理の音量ボタンを押されたら撮影

@@ -1,6 +1,6 @@
 // webcam03-with-canvas.tsx
 import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
-import Webcam03 from './Webcam03';
+import Webcam03, { FacingMode } from './Webcam03';
 import Webcam03Controls from './Webcam03Controls';
 import { PermissionManager, PermissionStatusValue } from './permission-watcher';
 import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset } from './utils';
@@ -42,6 +42,7 @@ interface CanvasWithWebcam03Handle {
   isRecording?: () => boolean;
   getPan?: () => { x: number, y: number };
   setPan?: (newPanX: number, newPanY: number) => void;
+  getRealFacingMode?: () => string | null;
 };
 
 const getDistance = (touches: React.TouchList | TouchList) => {
@@ -87,7 +88,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const lastPos = useRef({ x: 0, y: 0 }); // パン操作用
   const initialPinchDistance = useRef<number | null>(null); // 初期のピンチング距離
   const initialZoomAtPinchStart = useRef<number>(1.0); // ピンチング開始時のズーム倍率
-  const [facingMode, setFacingMode] = useState<"user" | "environment">('user');
+  const [facingMode, setFacingMode] = useState<FacingMode>('environment');
 
   // videoConstraints をメモ化する (重要)
   const videoConstraints = useMemo(() => ({
@@ -374,7 +375,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     setZoomValue(1.0);
     setOffset({ x: 0, y: 0 });
 
-    console.log('Camera toggled to:', facingMode === "user" ? "environment" : "user");
     setFacingMode(prev => (prev === "user" ? "environment" : "user"));
   }, [isRecordingNow]);
 
@@ -604,6 +604,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     setOffset({ x: clamp(-max.x, newPanX, max.x), y: clamp(-max.y, newPanY, max.y) });
   }, []);
 
+  const getRealFacingMode = useCallback((): string | null => {
+    return webcamRef.current?.getRealFacingMode();
+  }, []);
+
   useImperativeHandle(ref, () => ({
     canvas: canvasRef.current,
     getZoomRatio: getZoomRatio.bind(this),
@@ -616,6 +620,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     isRecording: isRecording.bind(this),
     zoomIn: zoomIn.bind(this),
     zoomOut: zoomOut.bind(this),
+    getRealFacingMode: getRealFacingMode.bind(this),
   }));
 
   return (
