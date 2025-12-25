@@ -1,16 +1,17 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { Camera, Video, Square, AlertCircle } from 'lucide-react';
+import { Camera, Video, Square, AlertCircle, SwitchCamera } from 'lucide-react';
 
 // Controls コンポーネント
-interface ControlsProps {
+interface Camera03ControlsProps {
   isRecording: boolean;
   takePhoto: () => void;
   startRecording: () => void;
   stopRecording: () => void;
+  toggleCamera: () => void;
 }
 
-const Camera03Controls: React.FC<ControlsProps> = ({
-  isRecording, takePhoto, startRecording, stopRecording
+const Camera03Controls: React.FC<Camera03ControlsProps> = ({
+  isRecording, takePhoto, startRecording, stopRecording, toggleCamera
 }) => {
   return (
     <div style={{
@@ -22,6 +23,25 @@ const Camera03Controls: React.FC<ControlsProps> = ({
       gap: '20px',
       zIndex: 10
     }}>
+      <button 
+        onClick={toggleCamera} 
+        disabled={isRecording}
+        style={{
+          width: '60px',
+          height: '60px',
+          borderRadius: '50%',
+          border: '3px solid white',
+          backgroundColor: isRecording ? '#666' : '#4C50AF',
+          cursor: isRecording ? 'not-allowed' : 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: isRecording ? 0.5 : 1
+        }}
+      >
+        <SwitchCamera size={30} color="white" />
+      </button>
+
       <button 
         onClick={takePhoto} 
         disabled={isRecording}

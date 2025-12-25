@@ -64,9 +64,21 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
       }
     }, []);
 
+    const handleSuccess = (stream) => {
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setHasUserMedia(true);
+      onUserMedia(stream);
+    };
+
     const requestUserMedia = useCallback(async () => {
       console.log('requestUserMedia');
       stopMediaStream();
+
+      // 現在の制約を取得
+      const baseVideoConstraints = typeof videoConstraints === 'object' ? videoConstraints : {};
 
       const constraints: MediaStreamConstraints = {
         video: videoConstraints || true,
@@ -75,24 +87,43 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-        setHasUserMedia(true);
-        onUserMedia(stream);
+        handleSuccess(stream); // 成功
       } catch (err) {
-        console.error("Camera error:", err);
+        console.warn("First camera attempt failed, trying fallback:", err);
+
+        // facingMode が指定されている場合、逆のモードでリトライ
+        if (typeof baseVideoConstraints === 'object' && baseVideoConstraints.facingMode) {
+          const currentMode = typeof baseVideoConstraints.facingMode === 'string' 
+            ? baseVideoConstraints.facingMode 
+            : (baseVideoConstraints.facingMode as any).ideal;
+
+          const fallbackMode = currentMode === "user" ? "environment" : "user";
+          
+          const fallbackConstraints = {
+            ...constraints,
+            video: { ...baseVideoConstraints, facingMode: { ideal: fallbackMode } }
+          };
+
+          try {
+            const fallbackStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+            handleSuccess(fallbackStream); // 成功
+            return;
+          } catch (fallbackErr) {
+            console.error("Fallback camera attempt also failed:", fallbackErr);
+          }
+        }
+
+        // 失敗
         setHasUserMedia(false);
         onUserMediaError(err as DOMException);
       }
-    }, [audio, audioConstraints, videoConstraints, onUserMedia, onUserMediaError, stopMediaStream]);
+    }, [audio, stopMediaStream, JSON.stringify(videoConstraints), JSON.stringify(audioConstraints)]);
 
     useEffect(() => {
       console.log('useEffect');
       requestUserMedia();
       return () => stopMediaStream();
-    }, [videoConstraints, audioConstraints, audio]);
+    }, [requestUserMedia, stopMediaStream]);
 
     const getCanvas = useCallback((dimensions?: ScreenshotDimensions): HTMLCanvasElement | null => {
       console.log('getCanvas');

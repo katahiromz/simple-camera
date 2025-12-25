@@ -87,6 +87,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const lastPos = useRef({ x: 0, y: 0 }); // パン操作用
   const initialPinchDistance = useRef<number | null>(null); // 初期のピンチング距離
   const initialZoomAtPinchStart = useRef<number>(1.0); // ピンチング開始時のズーム倍率
+  const [facingMode, setFacingMode] = useState<"user" | "environment">('user');
+
+  // videoConstraints をメモ化する (重要)
+  const videoConstraints = useMemo(() => ({
+    facingMode: { ideal: facingMode },
+    width: { ideal: 1920 },
+    height: { ideal: 1080 }
+  }), [facingMode]);
 
   // 常にoffsetRefをoffset stateに合わせる
   useEffect(() => {
@@ -355,6 +363,19 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       mediaRecorderRef.current.stop();
       setIsRecordingNow(false);
     }
+  }, [isRecordingNow]);
+
+  // --- カメラ(前面・背面)切り替え ---
+  const toggleCamera = useCallback(() => {
+    console.log('toggleCamera');
+    if (isRecordingNow) return;
+
+    // パンとズームをリセット（カメラが変わると画角が変わるため）
+    setZoomValue(1.0);
+    setOffset({ x: 0, y: 0 });
+
+    console.log('Camera toggled to:', facingMode === "user" ? "environment" : "user");
+    setFacingMode(prev => (prev === "user" ? "environment" : "user"));
   }, [isRecordingNow]);
 
   // --- PC: マウスホイールでズーム ---
@@ -654,6 +675,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         <Webcam03
           ref={webcamRef}
           audio={audio && isMicEnabled}
+          videoConstraints={videoConstraints}
           muted={true}
           style={{
             position: 'absolute',
@@ -672,6 +694,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
               takePhoto={takePhoto}
               startRecording={startRecording}
               stopRecording={stopRecording}
+              toggleCamera={toggleCamera}
             />
           )) : (() => (<></>))}
         </Webcam03>
