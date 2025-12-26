@@ -99,15 +99,17 @@ const getDistance = (touches: React.TouchList | TouchList) => {
   return Math.sqrt(dx * dx + dy * dy);
 };
 
+const PAN_RESISTANCE = 0.8; // 境界外での移動倍率
+const ZOOM_REGISTANCE = 0.2; // 境界外での移動倍率
+
 // 抵抗付きの値制限
-const applyResistance = (min: number, current: number, max: number) => {
-  const RESISTANCE = 0.8; // 境界外での移動効率
+const applyResistance = (min: number, current: number, max: number, resistance: number) => {
   if (current > max) {
     const overflow = current - max;
-    return max + (overflow * RESISTANCE);
+    return max + (overflow * resistance);
   } else if (current < min) {
     const overflow = current - min;
-    return min + (overflow * RESISTANCE);
+    return min + (overflow * resistance);
   }
   return current;
 };
@@ -115,6 +117,12 @@ const applyResistance = (min: number, current: number, max: number) => {
 // ズーム倍率を制限する
 const clampZoom = (ratio: number) => {
   return clamp(MIN_ZOOM, ratio, MAX_ZOOM);
+};
+// 抵抗する効果付きでズーム倍率を制限する
+const clampZoomWithResistance = (ratio: number) => {
+  if (!ENABLE_ZOOMING_REGISTANCE)
+    return clamp(MIN_ZOOM, ratio, MAX_ZOOM);
+  return applyResistance(MIN_ZOOM, ratio, MAX_ZOOM, ZOOM_REGISTANCE * ratio);
 };
 
 // デフォルトの画像処理関数
@@ -212,7 +220,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const canvasRef = useRef(null); // キャンバスへの参照
   const controlsRef = useRef(null); // コントロール パネル (Webcam03Controls)への参照
   const animationRef = useRef(null); // アニメーションフレーム要求への参照
-  const dummyImageRef = useRef<HTMLAudioElement | null>(null); // ダミー画像への参照
+  const dummyImageRef = useRef<HTMLImageElement | null>(null); // ダミー画像への参照
   const mediaRecorderRef = useRef<MediaRecorder | null>(null); // メディア レコーダー
   const chunksRef = useRef<Blob[]>([]); // 録画用のchunkデータ
   const [errorString, setErrorString] = useState<string | null>(null); // エラー文字列
@@ -230,6 +238,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const [isSwitching, setIsSwitching] = useState(false); // カメラ切り替え中？
   const [isInitialized, setIsInitialized] = useState(false); // 初期化済みか？
   const [isMirrored, setIsMirrored] = useState(autoMirror ? (facingMode === 'user') : mirrored);
+  const isMirroredRef = useRef<boolean>(isMirrored);
+
+  useEffect(() => {
+    isMirroredRef.current = isMirrored;
+  }, [isMirrored]);
 
   // ビデオの制約
   const videoConstraints = useMemo(() => ({
@@ -256,7 +269,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   // 常にoffsetRefをoffset stateに合わせる
   useEffect(() => {
     offsetRef.current = offset;
-  }, [offset]);
+  }, [JSON.stringify(offset)]);
 
   // 録画タイマー
   useEffect(() => {
@@ -383,7 +396,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     return { x: clamp(-max.x, x, max.x), y: clamp(-max.y, y, max.y) };
   };
 
-  // 境界での抵抗を考慮したパン制限関数
+  // 境界での抵抗の効果があるパン制限関数
   const clampPanWithResistance = useCallback((x: number, y: number, newZoom: number | null = null) => {
     if (!ENABLE_PANNING_REGISTANCE)
       return clampPan(x, y, newZoom);
@@ -394,8 +407,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     const max = getMaxOffset(srcWidth, srcHeight, newZoom ? newZoom : zoomRef.current);
 
     return {
-      x: applyResistance(-max.x, x, max.x),
-      y: applyResistance(-max.y, y, max.y)
+      x: applyResistance(-max.x, x, max.x, PAN_RESISTANCE),
+      y: applyResistance(-max.y, y, max.y, PAN_RESISTANCE)
     };
   }, []);
 
@@ -405,7 +418,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     const canvas = canvasRef.current;
     const { src, srcWidth, srcHeight } = getSourceInfo();
 
-    if (canvas && src && (dummyImageSrc || video.readyState === video.HAVE_ENOUGH_DATA)) {
+    if (canvas && src && (
+      video.readyState === video.HAVE_ENOUGH_DATA ||
+      (dummyImageRef.current && dummyImageRef.current.complete)
+    )) {
       // キャンバスをビデオのサイズに合わせる
       if (canvas.width !== srcWidth || canvas.height !== srcHeight) {
         canvas.width = srcWidth;
@@ -423,7 +439,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             canvas: canvas,
             currentZoom: zoomRef.current,
             offset: offsetRef.current,
-            isMirrored: isMirrored && !dummyImageRef.current,
+            isMirrored: isMirroredRef.current && !dummyImageRef.current,
           });
         }
       }
@@ -431,7 +447,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
     // 次のアニメーション フレームを要求
     animationRef.current = requestAnimationFrame(draw);
-  }, [isMirrored]);
+  }, []);
 
   // アニメーション フレームを起動・終了
   useEffect(() => {
@@ -568,8 +584,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       const delta = -event.deltaY * MOUSE_WHEEL_SPEED;
 
       setZoomValue(prev => {
-        const newZoom = clampZoom(prev + delta);
-        setOffset(prevOffset => clampPan(prevOffset.x, prevOffset.y, newZoom));
+        const newZoom = clampZoomWithResistance(prev + delta);
+        setOffset(prevOffset => {
+          if (newZoom <= 1.0)
+            return { x: 0, y: 0 };
+          return clampPan(prevOffset.x, prevOffset.y, newZoom);
+        });
         return newZoom;
       });
     } else if (event.shiftKey) { // Shift+ホイール
@@ -581,7 +601,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         return clampPan(prev.x, prev.y - event.deltaY * MOUSE_WHEEL_PAN_SPEED);
       });
     }
-  }, [clampZoom, clampPan]);
+  }, [clampZoomWithResistance, clampPan]);
 
   // マウスのボタンが押された／タッチが開始された
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
@@ -634,7 +654,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       const currentDistance = getDistance(e.touches);
       const pinchScale = currentDistance / initialPinchDistance.current;
       const oldZoom = zoomRef.current;
-      const newZoom = clampZoom(initialZoomAtPinchStart.current * pinchScale);
+      const newZoom = clampZoomWithResistance(initialZoomAtPinchStart.current * pinchScale);
 
       // --- 中心点の移動（パン）計算 ---
       const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
@@ -643,7 +663,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       // 前回の中心点からの移動量を計算（lastPos に中心点を保存しておく必要があるため handleMouseDown も後述の通り修正）
       let dx = centerX - lastPos.current.x, dy = centerY - lastPos.current.y;
 
-      if (isMirrored && !dummyImageSrc) dx = -dx;
+      if (isMirrored && !dummyImageRef.current) dx = -dx;
 
       // ビデオ座標系への変換
       const scaleX = srcWidth / canvas.clientWidth;
@@ -706,7 +726,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     });
 
     lastPos.current = { x: pos.clientX, y: pos.clientY };
-  }, [isMirrored, clampZoom, clampPanWithResistance]);
+  }, [isMirrored, clampZoomWithResistance, clampPanWithResistance]);
 
   // マウスのボタンが離された／タッチが離された
   const handleMouseUp = (e: MouseEvent | TouchEvent) => {
@@ -715,9 +735,21 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     initialPinchDistance.current = null;
 
     setOffset(prev => {
-      return clampPan(prev.x, prev.y);
+      let newZoom = clampZoom(zoomRef.current);
+      if (newZoom <= 1)
+        return { x: 0, y: 0 };
+      return clampPan(prev.x, prev.y, newZoom);
     });
   };
+
+  useEffect(() => {
+    let timer = setInterval(() => {
+      setZoomValue(prev => {
+        return clampZoomWithResistance(prev);
+      });
+    }, 100);
+    return () => clearInterval(timer);
+  }, []);
 
   // スタイルの整理
   const combinedCanvasStyle: React.CSSProperties = {
@@ -796,7 +828,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   // パンを返す
   const getPan = useCallback(() => {
     return offset;
-  }, [offset]);
+  }, [JSON.stringify(offset)]);
   // パンを設定する
   const setPan = useCallback((newPanX: number, newPanY: number) => {
     setOffset({ x: clamp(-max.x, newPanX, max.x), y: clamp(-max.y, newPanY, max.y) });
