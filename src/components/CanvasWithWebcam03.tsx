@@ -769,16 +769,15 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     initialPinchDistance.current = null;
 
     setOffset(prev => {
-      let newZoom = clampZoom(zoomRef.current);
+      let newZoom = clampZoomWithResistance(zoomRef.current);
+      // ズームが範囲外ならスタビライザーを起動
+      if (ENABLE_ZOOMING_REGISTANCE && (newZoom < MIN_ZOOM || MAX_ZOOM < newZoom)) {
+        startZoomStabilizer();
+      }
       if (newZoom <= 1)
         return { x: 0, y: 0 };
       return clampPan(prev.x, prev.y, newZoom);
     });
-
-    if (ENABLE_ZOOMING_REGISTANCE) {
-      // スタビライザーを起動
-      startZoomStabilizer();
-    }
   };
 
   // スタイルの整理
