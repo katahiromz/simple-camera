@@ -277,6 +277,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const [isMirrored, setIsMirrored] = useState(autoMirror ? (facingMode === 'user') : mirrored);
   const isMirroredRef = useRef<boolean>(isMirrored); // 鏡像反転の監視用
   const zoomTimerRef = useRef<NodeJS.Timeout | null>(null); // ズームタイマー参照
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>([]); // 録画タイマー
 
   // 鏡像反転の監視
   useEffect(() => {
@@ -315,6 +316,15 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     }, 16); // 約60fpsで滑らかに更新
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (zoomTimerRef.current) {
+        clearInterval(zoomTimerRef.current);
+        zoomTimerRef.current = null;
+      }
+    };
+  }, []);
+
   // ビデオの制約
   const videoConstraints = useMemo(() => ({
     facingMode: { ideal: facingMode },
@@ -336,17 +346,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       dummyImageRef.current = null;
     };
   }, [dummyImageSrc]);
-
-  // 録画タイマー
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isRecording) {
-      interval = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isRecordingNow]);
 
   // --- 権限状態の管理 ---
   const [cameraPermission, setCameraPermission] = useState<PermissionStatusValue>('prompt');
@@ -601,6 +600,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         }
       }
 
+      // 録画タイマーを破棄
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+
       const blob = new Blob(chunksRef.current, { type: recordingFormat });
       const extension = videoFormatToExtension(recordingFormat);
       const fileName = generateFileName(t('camera_text_video') + '_', extension);
@@ -614,6 +619,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     mediaRecorderRef.current = mediaRecorder;
     setIsRecordingNow(true);
     setRecordingTime(0);
+
+    // 録画タイマーを開始する
+    recordingTimerRef.current = setInterval(() => {
+      setRecordingTime(prev => prev + 1);
+    }, 1000);
 
     // 画面ONをキープする
     if (window.android) {
@@ -633,6 +643,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     if (mediaRecorderRef.current && isRecordingNow) {
       mediaRecorderRef.current.stop();
       setIsRecordingNow(false);
+
+      // 録画タイマーを破棄
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
     }
   }, [isRecordingNow]);
 

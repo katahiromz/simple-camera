@@ -38,7 +38,7 @@ polyfillGetUserMedia();
 // アプリ
 function App() {
   const { t } = useTranslation(); // 翻訳用
-  const canvasWithCamera = useRef(null);
+  const canvasWithCamera = useRef<CanvasWithWebcam03>(null);
 
   // 設定をする
   const doConfig = () => {
@@ -55,10 +55,32 @@ function App() {
 
   // 物理の音量ボタンを押されたら撮影
   useEffect(() => {
-    // Android側から呼ばれるグローバル関数を定義
-    (window as any).onPhysicalVolumeButton = () => {
+    // ハンドラ関数の定義
+    const handlePhysicalVolumeButton = (e: any) => {
+      // Android側から CustomEvent("PhysicalVolumeButton", { detail: ... }) で送られてくることを想定
+      const { volumeType } = e.detail || {};
+      console.log(`Volume: ${volumeType}`);
+
+      // 音量ボタンでシャッターを切るなど
       canvasWithCamera.current?.takePhoto();
     };
+
+    // イベントリスナーの登録
+    window.addEventListener('PhysicalVolumeButton', handlePhysicalVolumeButton, { passive: false });
+
+    // クリーンアップ（コンポーネント消滅時に解除）
+    return () => {
+      window.removeEventListener('PhysicalVolumeButton', handlePhysicalVolumeButton);
+    };
+  }, []); // 初回マウント時のみ実行
+
+  useEffect(() => {
+    // Android側から呼ばれるグローバル関数を定義
+    if ((window as any).onPhysicalVolumeButton) {
+      (window as any).onPhysicalVolumeButton = () => {
+        canvasWithCamera.current?.takePhoto();
+      };
+    }
     // コンポーネントがアンマウントされる時にクリーンアップ
     return () => {
       delete (window as any).onPhysicalVolumeButton;

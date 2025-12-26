@@ -643,7 +643,14 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         when (keyCode) {
             // 音量キー
             KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                webView?.evaluateJavascript("window.onPhysicalVolumeButton()", null)
+                // JavaScript側にカスタム イベントを渡す
+                val script: String = if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+                  "window.dispatchEvent(new CustomEvent('PhysicalVolumeButton', { detail: { volumeType: 'up' } }));"
+                } else {
+                  "window.dispatchEvent(new CustomEvent('PhysicalVolumeButton', { detail: { volumeType: 'down' } }));"
+                }
+                webView?.evaluateJavascript(script, null);
+
                 return true // 音量変更の動作をキャンセルする場合
             }
         }

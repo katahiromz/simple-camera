@@ -78,10 +78,13 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
       }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
     }, []);
 
     // カメラ起動成功時の処理
-    const handleSuccess = (stream) => {
+    const handleSuccess = (stream: MediaStream): void => {
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;

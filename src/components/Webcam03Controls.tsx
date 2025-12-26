@@ -84,6 +84,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
           onClick={startRecording}
           className="webcam03-button webcam03-button-start-recording"
           aria-label={t('camera_start_recording')}
+          aria-pressed="false"
           title={t('camera_start_recording')}
         >
           <Video size={30} color="black" />
@@ -93,6 +94,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
           onClick={stopRecording}
           className="webcam03-button webcam03-button-stop-recording"
           aria-label={t('camera_stop_recording')}
+          aria-pressed="true"
           title={t('camera_stop_recording')}
         >
           <Square size={30} color="white" />
