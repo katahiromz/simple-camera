@@ -9,6 +9,10 @@ const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
 const SHOW_CONFIG = true; // 設定ボタンを表示するか？
 const ENABLE_CONFIG = true; // 設定を有効にするか？
 
+// 国際化(i18n)
+import './components/i18n.ts';
+import { useTranslation } from 'react-i18next';
+
 // アプリケーションのベースパスを取得
 const BASE_URL = import.meta.env.BASE_URL;
 
@@ -25,16 +29,17 @@ if (!IS_PRODUCTION) { // 本番環境ではない場合、
   emulateInsets(); // insetsをエミュレートする
 }
 
-// 設定をする
-const doConfig = () => {
-  if (!ENABLE_CONFIG)
-    return;
-  alert('Simple Camera 1.0.0 by katahiromz');
-};
-
 // アプリ
 function App() {
+  const { t } = useTranslation(); // 翻訳用
   const canvasWithCamera = useRef(null);
+
+  // 設定をする
+  const doConfig = () => {
+    if (!ENABLE_CONFIG)
+      return;
+    alert(t('camera_app_info'));
+  };
 
   useEffect(() => {
     //console.log(canvasWithCamera.current.canvas);
@@ -118,7 +123,8 @@ function App() {
   return (
     <CanvasWithWebcam03
       ref={canvasWithCamera}
-      style={{ width: '100%', height: '100%' }}
+      width="100%"
+      height="100%"
       shutterSoundUrl={shutterSoundUrl}
       videoStartSoundUrl={videoStartSoundUrl}
       videoCompleteSoundUrl={videoCompleteSoundUrl}
@@ -128,6 +134,7 @@ function App() {
       dummyImageSrc={ USE_DUMMY_IMAGE ? dummyImageUrl : null }
       showConfig={SHOW_CONFIG}
       doConfig={doConfig}
+      aria-label={t('camera_app')}
     />
   );
 }

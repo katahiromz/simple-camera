@@ -9,6 +9,10 @@ import { saveFile } from './utils';
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera, Settings } from 'lucide-react';
 
+// 国際化(i18n)
+import './i18n.ts';
+import { useTranslation } from 'react-i18next';
+
 const ENABLE_USER_ZOOMING = true; // ユーザーによるズームを有効にするか？
 const ENABLE_USER_PANNING = true; // ユーザーによるパン操作を有効にするか？
 const ENABLE_SOUND_EFFECTS = true; // 効果音を有効にするか？
@@ -73,6 +77,8 @@ interface CanvasWithWebcam03Props {
   doConfig?: () => void;
   onImageProcess: (data: ImageProcessData) => void;
   dummyImageSrc?: string;
+  width?: string;
+  height?: string;
 };
 
 // カメラ付きキャンバスのハンドル
@@ -217,10 +223,13 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     doConfig = null,
     onImageProcess = onDefaultImageProcess,
     dummyImageSrc = null,
+    width,
+    height,
     ...rest
   },
   ref
 ) => {
+  const { t } = useTranslation(); // 翻訳用
   const webcamRef = useRef(null); // Webcam03への参照
   const canvasRef = useRef(null); // キャンバスへの参照
   const controlsRef = useRef(null); // コントロール パネル (Webcam03Controls)への参照
@@ -391,7 +400,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     const unsubscribeCamera = cameraManager.subscribe((status) => {
       setCameraPermission(status);
       if (status === 'denied') {
-        setErrorString("カメラの使用が拒否されています。アプリまたはブラウザの設定から許可してください。");
+        setErrorString(t('camera_no_camera_found_2'));
       }
     });
 
@@ -509,7 +518,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
     try {
       const extension = photoFormatToExtension(photoFormat);
-      const fileName = generateFileName('photo_', extension);
+      const fileName = generateFileName(t('camera_text_photo') + '_', extension);
       canvasRef.current.toBlob((blob) => {
         if (downloadFile)
           downloadFile(blob, fileName, blob.type, false);
@@ -519,7 +528,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       }, photoFormat, photoQuality);
     } catch (err) {
       console.error("Failed to take photo:", err);
-      setErrorString("写真撮影に失敗しました");
+      setErrorString(t('camera_taking_photo_failed'));
     }
   }, []);
 
@@ -561,7 +570,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       }
       const blob = new Blob(chunksRef.current, { type: recordingFormat });
       const extension = videoFormatToExtension(recordingFormat);
-      const fileName = generateFileName('video_', extension);
+      const fileName = generateFileName(t('camera_text_video') + '_', extension);
       if (downloadFile)
         downloadFile(blob, fileName, blob.type, true);
       else
@@ -787,6 +796,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // スタイルの整理
   const combinedCanvasStyle: React.CSSProperties = {
+    width: '100%',
+    height: '100%',
     backgroundColor: '#000',
     objectFit: 'contain', // 映像全体を表示（余白は黒）。隙間なく埋めるなら 'cover'
     display: 'block',
@@ -943,39 +954,45 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        width: width,
+        height: height,
       }}
+      aria-label={t('camera_container')}
     >
       {/* キャンバス */}
       <canvas
         ref={canvasRef}
         style={combinedCanvasStyle}
         {...rest}
+        aria-label={t('camera_canvas')}
       />
 
       {/* カメラのメッセージ */}
       {(!isInitialized || isSwitching) && (
         <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          padding: '15px 30px',
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          color: 'white',
-          borderRadius: '30px',
-          zIndex: 30, // コントロールより前面に
-          fontSize: '16px',
-          fontWeight: 'bold',
-          pointerEvents: 'none', // クリックを透過させる
-          display: 'flex',
-          alignItems: 'center',
-          textAlign: 'center',
-          border: '1px solid white',
-        }}>
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            padding: '15px 30px',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: 'white',
+            borderRadius: '30px',
+            zIndex: 30, // コントロールより前面に
+            fontSize: '16px',
+            fontWeight: 'bold',
+            pointerEvents: 'none', // クリックを透過させる
+            display: 'flex',
+            alignItems: 'center',
+            textAlign: 'center',
+            border: '1px solid white',
+          }}
+          aria-label={t('camera_status')}
+        >
           {(!isInitialized ? (
-            <span><Camera size={50} color="white" /> <br />カメラ起動中...</span>
+            <span><Camera size={50} color="white" /> <br />{ t('camera_starting_camera') }</span>
           ) : (
-            <span><Camera size={50} color="white" /> <br />カメラを切り替え中...</span>
+            <span><Camera size={50} color="white" /> <br />{ t('camera_switching_camera') }</span>
           ))}
         </div>
       )}
@@ -983,38 +1000,44 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       {/* 権限エラーまたはその他のエラー表示 */}
       {SHOW_ERROR && (errorString || cameraPermission === 'denied') && (
         <div style={{
-          position: 'absolute',
-          top: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          padding: '10px 20px',
-          backgroundColor: 'rgba(244, 67, 54, 0.9)',
-          color: 'white',
-          borderRadius: '5px',
-          zIndex: 20,
-          textAlign: 'center'
-        }}>
+            position: 'absolute',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '10px 20px',
+            backgroundColor: 'rgba(244, 67, 54, 0.9)',
+            color: 'white',
+            borderRadius: '5px',
+            zIndex: 20,
+            textAlign: 'center'
+          }}
+          aria-label={t('camera_error')}
+        >
           {errorString ? (
             errorString
           ) : (
-            <span>カメラのアクセス権限が必要です。設定を確認してください。</span>
+            <span>{t('camera_no_camera_permission_2')}</span>
           )}
         </div>
       )}
 
       {/* 録画時間表示 */}
       {SHOW_RECORDING_TIME && showRecordingTime && isRecordingNow && (
-        <div style={{
-          position: 'absolute',
-          top: '20px',
-          left: '10px',
-          pointerEvents: 'none',
-          color: "#f66",
-          fontWeight: 'bold',
-          padding: '3px',
-          border: '2px solid #f66',
-          borderRadius: '20px',
-        }}>
+        <div style=
+          {{
+            position: 'absolute',
+            top: '20px',
+            left: '10px',
+            pointerEvents: 'none',
+            color: '#f66',
+            fontWeight: 'bold',
+            padding: '3px',
+            border: '2px solid #f66',
+            borderRadius: '20px',
+          }}
+          aria-label={t('camera_recording_time')}
+          title={t('camera_recording_time')}
+        >
           {formatTime(recordingTime)}
         </div>
       )}
@@ -1039,6 +1062,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             pointerEvents: 'none',
             overflow: 'hidden'
           }}
+          aria-label={t('camera_camera')}
         >
           {SHOW_CONTROLS && showControls ? (() => (
             <Webcam03Controls
@@ -1052,6 +1076,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
               showRecording={SHOW_RECORDING && showRecording}
               showCameraSwitch={ENABLE_CAMERA_SWITCH && showCameraSwitch}
               showConfig={SHOW_CONFIG && showConfig}
+              aria-label={t('camera_controls')}
             />
           )) : (() => (<></>))}
         </Webcam03>
@@ -1062,6 +1087,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         <button
           onClick={doConfig}
           className="webcam03-button webcam03-button-config"
+          aria-label={t('camera_config_button')}
+          title={t('camera_config_button')}
         >
           <Settings size={30} color="white" />
         </button>
