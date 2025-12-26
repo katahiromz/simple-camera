@@ -576,9 +576,6 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         Timber.i("onResume")
         super.onResume() // 親にも伝える。
 
-        // ウェブビューを復帰。
-        webView?.onResume()
-
         // 明るさを復帰。
         setBrightness(screenBrightness)
 
@@ -586,12 +583,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         if (hasVibratorInitialized && oldVibratorLength > 0)
             startVibrator(-1)
 
-        // カメラのアニメーションフレームを再開
-        // 名前空間を使用してセキュアに呼び出し
+        // カメラを再開
         if (webViewReady) {
-            webView?.evaluateJavascript(
-                "(function() { if (window.__advancedCamera && window.__advancedCamera.resumeAnimation) { window.__advancedCamera.resumeAnimation(); } })();"
-            ) { }
+            webView?.evaluateJavascript("postMessage('onAppResume');") { }
         }
     }
 
@@ -599,9 +593,6 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     override fun onPause() {
         Timber.i("onPause")
         super.onPause() // 親にも伝える。
-
-        // ウェブビューも一時停止。
-        webView?.onPause()
 
         if (USE_TEXTTOSPEECH) {
             // スピーチを停止する。

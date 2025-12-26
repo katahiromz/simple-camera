@@ -32,6 +32,7 @@ interface WebcamCanvasHandle {
   getScreenshot: (dimensions?: ScreenshotDimensions) => string | null;
   getCanvas: (dimensions?: ScreenshotDimensions) => HTMLCanvasElement | null;
   getRealFacingMode: () => FacingMode | null;
+  restartCamera: () => void;
   video: HTMLVideoElement | null;
 }
 
@@ -63,7 +64,13 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const [hasUserMedia, setHasUserMedia] = useState(false);
+    const [hasAudio, setHasAudio] = useState(false);
+    const hasAudioRef = useRef<boolean>(false);
     const realFacingMode = useRef<FacingMode | null>(null);
+
+    useEffect(() => {
+      hasAudioRef.current = hasAudio;
+    }, [hasAudio]);
 
     const stopMediaStream = useCallback(() => {
       console.log('stopMediaStream');
@@ -73,6 +80,7 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
       }
     }, []);
 
+    // カメラ起動成功時の処理
     const handleSuccess = (stream) => {
       streamRef.current = stream;
       if (videoRef.current) {
@@ -94,8 +102,10 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
         const settings = audioTrack.getSettings();
         //console.log(settings);
         console.info('Audio is available');
+        setHasAudio(true);
       } catch (error) {
         console.info('Failed to get audio:', error);
+        setHasAudio(false);
       }
 
       setHasUserMedia(true);
@@ -116,6 +126,7 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
       try {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         handleSuccess(stream); // 成功
+        return true;
       } catch (err) {
         console.warn("First camera attempt failed, trying fallback:", err);
 
@@ -135,7 +146,7 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
           try {
             const fallbackStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
             handleSuccess(fallbackStream); // 成功
-            return;
+            return true;
           } catch (fallbackErr) {
             console.warn("2nd camera attempt failed, trying fallback:", err);
             if (requestAudio) {
@@ -148,8 +159,16 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
         // 失敗
         setHasUserMedia(false);
         onUserMediaError(err as DOMException);
+        return false;
       }
     }, [stopMediaStream, JSON.stringify(videoConstraints), JSON.stringify(audioConstraints)]);
+
+    // カメラを再起動する
+    const restartCamera = useCallback(() => {
+      console.log('restartCamera');
+      stopMediaStream();
+      requestUserMedia(hasAudioRef.current);
+    }, [requestUserMedia, stopMediaStream]);
 
     useEffect(() => {
       console.log('useEffect');
@@ -210,8 +229,9 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
     useImperativeHandle(ref, () => ({
       getScreenshot,
       getCanvas,
-      video: videoRef.current,
       getRealFacingMode: () => realFacingMode.current,
+      restartCamera,
+      video: videoRef.current,
     }));
 
     const videoStyle: React.CSSProperties = {

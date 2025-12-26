@@ -101,6 +101,7 @@ interface CanvasWithWebcam03Handle {
   panRight?: () => void;
   panUp?: () => void;
   panDown?: () => void;
+  onAppResume?: () => void;
 };
 
 // タッチ距離を計算
@@ -906,6 +907,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // カメラが実際に準備できた時の最終判定
   const onUserMediaBridge = useCallback((stream: MediaStream) => {
+    console.log('onUserMediaBridge');
     setIsInitialized(true);
     setErrorString('');
     console.log(canvasRef.current.width, canvasRef.current.height);
@@ -923,6 +925,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, [onUserMedia, autoMirror]);
 
   const onUserMediaErrorBridge = useCallback((error: string | DOMException) => {
+    console.log('onUserMediaErrorBridge');
     setIsInitialized(true);
     setErrorString(error.toString());
     if (onUserMediaError) onUserMediaError(error);
@@ -950,6 +953,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     });
   }, [clampPan]);
 
+  // アプリを再開する
+  const onAppResume = useCallback(() => {
+    if (window.android) {
+      setIsInitialized(false);
+      webcamRef.current?.restartCamera();
+    }
+  }, []);
+
   useImperativeHandle(ref, () => ({
     canvas: canvasRef.current,
     controls: controlsRef.current,
@@ -968,6 +979,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     panRight: panRight.bind(this),
     panUp: panUp.bind(this),
     panDown: panDown.bind(this),
+    onAppResume: onAppResume.bind(this),
   }));
 
   return (

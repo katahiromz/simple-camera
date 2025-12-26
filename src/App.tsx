@@ -127,25 +127,32 @@ function App() {
     return () => document.body.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Android標準の「戻る」をサポートする
+  // メッセージを処理する
   useEffect(() => {
-    // 戻る
-    const goBack = (e) => {
-      if(e.data == "go_back"){
-        // イベントのデフォルトの処理をスキップ。
-        e.preventDefault();
-        // 可能ならば閉じる
-        try {
-          window.android.finishApp();
-        } catch (err) {
-          ;
+    const onMessage = (e) => {
+      switch (e.data) {
+      case 'go_back': // Android標準の「戻る」ボタンをサポートする。
+        if (window.android) {
+          e.preventDefault(); // イベントのデフォルトの処理をスキップ。
+          // 可能ならばアプリを閉じる(完全に終了する訳ではない)
+          try { window.android.finishApp(); } catch (err) { }
         }
+        break;
+      case 'onAppResume': // Androidアプリ再開時の処理を行う。
+        if (window.android) {
+          e.preventDefault(); // イベントのデフォルトの処理をスキップ。
+          canvasWithCamera.current?.onAppResume();
+        }
+        break;
+      default:
+        console.log(e.data);
+        break;
       }
     };
 
-    window.addEventListener('message', goBack, { passive: false });
+    window.addEventListener('message', onMessage, { passive: false });
     return () => {
-      window.removeEventListener('message', goBack);
+      window.removeEventListener('message', onMessage);
     }
   }, []);
 
