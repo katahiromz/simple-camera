@@ -27,6 +27,7 @@ const SHOW_TAKE_PHOTO = true; // 写真撮影ボタンを表示するか？
 const SHOW_RECORDING = true; // 録画開始・録画停止ボタンを表示するか？
 const SHOW_CONFIG = true; // 設定ボタンを表示するか？
 const SHOW_CURRENT_TIME = true; // 現在の日時を表示するか？
+const SHOW_SHAPES = false; // 図形を描画するか？
 const USE_MIDDLE_BUTTON_FOR_PANNING = true; // パン操作にマウスの中央ボタンを使用するか？
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
 const MAX_ZOOM = 4.0; // ズーム倍率の最大値
@@ -141,18 +142,20 @@ const clampZoomWithResistance = (ratio: number) => {
 export const onDefaultImageProcess = (data: ImageProcessData) => {
   const { ctx, x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset } = data;
 
+  if (width <= 0 || height <= 0 || srcWidth <= 0 || srcHeight <= 0) return;
+
   ctx.save(); // 現在のキャンバス状態を保存
 
-  // 鏡像なら左右反転
+  // 鏡像なら左右反転の座標変換
   if (isMirrored) {
     ctx.translate(width, 0);
     ctx.scale(-1, 1);
   }
 
   if (currentZoom === 1.0 && offset.x == 0 && offset.y == 0) {
-    // ズームなし、パンなしなら、イメージをそのまま転送
+    // ズームなし、パンなし
     ctx.drawImage(src, x, y, width, height);
-  } else { // ズームありか、パンあり？
+  } else {
     // 背景を塗りつぶす
     if (BACKGROUND_IS_WHITE) {
       ctx.fillStyle = 'white';
@@ -180,9 +183,9 @@ export const onDefaultImageProcess = (data: ImageProcessData) => {
     );
   }
 
-  if (false && width > 2 && height > 2) {
-    // ちょっと図形を描いてみる
+  ctx.restore(); // 座標変換を元に戻す
 
+  if (SHOW_SHAPES && width > 2 && height > 2) { // ちょっと図形を描いてみるか？
     // 円を描画
     ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
     ctx.lineWidth = 5;
@@ -196,10 +199,7 @@ export const onDefaultImageProcess = (data: ImageProcessData) => {
     ctx.strokeRect(width / 2, height / 2, (width + height) / 6, (width + height) / 6);
   }
 
-  ctx.restore();
-
-  if (SHOW_CURRENT_TIME) {
-    // ちょっと日時を描画してみる
+  if (SHOW_CURRENT_TIME) { // ちょっと日時を描画してみるか？
     let text = getLocalDateTimeString();
     ctx.font = "20px monospace, san-serif";
     let measure = ctx.measureText(text);
@@ -477,16 +477,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     };
   }, []);
 
-  // アニメーションフレームを次々と描画する関数
-  const draw = useCallback(() => {
+  // 内部描画関数
+  const drawInner = useCallback((canvas: HTMLCanvasElement, isMirrored: boolean) => {
     const video = webcamRef.current?.video;
-    const canvas = canvasRef.current;
     const { src, srcWidth, srcHeight } = getSourceInfo();
 
-    if (canvas && src && (
-      video.readyState === video.HAVE_ENOUGH_DATA ||
-      (dummyImageRef.current && dummyImageRef.current.complete)
-    )) {
+    const videoReady = video && video.readyState === video.HAVE_ENOUGH_DATA;
+    const dummyReady = dummyImageRef.current && dummyImageRef.current.complete;
+    if (canvas && src && (videoReady || dummyReady) && srcWidth > 0 && srcHeight > 0) {
       // キャンバスをビデオのサイズに合わせる
       if (canvas.width !== srcWidth || canvas.height !== srcHeight) {
         canvas.width = srcWidth;
@@ -504,11 +502,17 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             canvas: canvas,
             currentZoom: zoomRef.current,
             offset: offsetRef.current,
-            isMirrored: isMirroredRef.current && !dummyImageRef.current,
+            isMirrored: isMirrored,
           });
         }
       }
     }
+  }, []);
+
+  // アニメーションフレームを次々と描画する関数
+  const draw = useCallback(() => {
+    // 内部描画関数を呼ぶ
+    drawInner(canvasRef.current, isMirroredRef.current && !dummyImageRef.current);
 
     // 次のアニメーション フレームを要求
     animationRef.current = requestAnimationFrame(draw);
@@ -539,9 +543,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     }
 
     try {
+      const canvas = document.createElement("canvas"); // キャンバス作成
+      drawInner(canvas, false); // 反転なしで描画
+
       const extension = photoFormatToExtension(photoFormat);
       const fileName = generateFileName(t('camera_text_photo') + '_', extension);
-      canvasRef.current.toBlob((blob) => {
+      canvas.toBlob((blob) => {
         if (downloadFile)
           downloadFile(blob, fileName, blob.type, false);
         else
@@ -860,7 +867,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     objectFit: 'contain', // 映像全体を表示（余白は黒）。隙間なく埋めるなら 'cover'
     display: 'block',
     ...style,
-    // 左右反転の処理を最後に結合
     transform: `${style?.transform || ""}`.trim(),
   };
 
@@ -1120,7 +1126,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           audio={audio && isMicEnabled}
           videoConstraints={videoConstraints}
           muted={true}
-          mirrored={isMirrored}
           onUserMedia={onUserMediaBridge}
           onUserMediaError={onUserMediaErrorBridge}
           style={{
