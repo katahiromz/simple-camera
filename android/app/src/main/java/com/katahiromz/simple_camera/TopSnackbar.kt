@@ -7,6 +7,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.Color
 import android.view.GestureDetector
@@ -35,6 +36,7 @@ import kotlin.math.abs
  * - Accessibility support with contentDescription
  * - Swipe to dismiss (up, left, or right)
  */
+@SuppressLint("StaticFieldLeak")
 object TopSnackbar {
     // Constants
     private const val SLIDE_DISTANCE = -500f
@@ -51,7 +53,9 @@ object TopSnackbar {
     private var currentAnimator: AnimatorSet? = null
     @Volatile
     private var dismissRunnable: Runnable? = null
-    
+
+    private var currentActivity: Activity? = null
+
     /**
      * Show a TopSnackbar notification.
      * 
@@ -68,6 +72,8 @@ object TopSnackbar {
         action: (() -> Unit)? = null,
         durationMillis: Int = 3000
     ) {
+        Timber.d("TopSnackbar: show called")
+        currentActivity = activity
         activity.runOnUiThread {
             try {
                 // Dismiss any existing snackbar first
@@ -136,18 +142,20 @@ object TopSnackbar {
      * Dismiss the current TopSnackbar immediately without animation.
      */
     fun dismiss() {
-        currentAnimator?.cancel()
-        currentAnimator = null
-        
-        currentSnackbarView?.let { view ->
-            // Cancel any pending dismiss callback
-            dismissRunnable?.let { view.removeCallbacks(it) }
-            dismissRunnable = null
-            
-            val parent = view.parent as? ViewGroup
-            parent?.removeView(view)
+        currentActivity!!?.runOnUiThread { // 安全のため UI スレッドで実行
+            currentAnimator?.end() // cancel ではなく end で確実に終了状態へ
+            currentAnimator = null
+
+            currentSnackbarView?.let { view ->
+                dismissRunnable?.let { view.removeCallbacks(it) }
+                dismissRunnable = null
+
+                val parent = view.parent as? ViewGroup
+                parent?.removeView(view)
+                Timber.d("TopSnackbar: Removed from parent")
+            }
+            currentSnackbarView = null
         }
-        currentSnackbarView = null
     }
     
     /**
@@ -269,57 +277,19 @@ object TopSnackbar {
                 return true
             }
         })
-        
-        fun isTouchOnClickableChild(v: View, event: MotionEvent): Boolean {
-            if (v is ViewGroup) {
-                for (i in 0 until v.childCount) {
-                    val child = v.getChildAt(i)
-                    if (child.visibility == View.VISIBLE && child.isClickable) {
-                        val sx = event.x.toInt()
-                        val sy = event.y.toInt()
-                        if (sx >= child.left && sx <= child.right &&
-                            sy >= child.top && sy <= child.bottom) {
-                            // 「移動していない」タップのみ子ビューに任せる
-                            return event.action == MotionEvent.ACTION_UP && !hasMoved
-                        }
-                    }
-                }
-            }
-            return false
-        }
 
         view.setOnTouchListener { v, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    downX = event.x
-                    downY = event.y
-                    hasMoved = false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (abs(event.x - downX) > SWIPE_THRESHOLD ||
-                        abs(event.y - downY) > SWIPE_THRESHOLD) {
-                        hasMoved = true
-                    }
-                }
-            }
-
-            // クリック可能な子ビュー上での ACTION_UP であれば、子ビューに処理を任せる（falseを返す）
-            if (isTouchOnClickableChild(v, event)) {
+            // まずジェスチャーディテクターに渡す
+            val handled = gestureDetector.onTouchEvent(event)
+            
+            // アクションボタンなどの子ビューがタップされたかチェック
+            if (event.action == MotionEvent.ACTION_UP) {
+                // 子ビューのクリック判定を OS の標準処理に任せるため、
+                // ここでは false を返してイベントを透過させる
                 return@setOnTouchListener false
             }
             
-            // 上記以外（スワイプの開始、途中、アクションボタン以外の場所でのタッチ）はジェスチャーディテクターに渡す
-            val handledByGesture = gestureDetector.onTouchEvent(event)
-            
-            // ACTION_DOWN、またはジェスチャーディテクターが処理した場合は、trueを返してイベントを消費する
-            // onDownで常にtrueを返すようにしたため、ここでは handledByGesture の結果をそのまま返すだけでOKだが、
-            // 確実性のために ACTION_DOWN のチェックを残しておく
-            if (event.action == MotionEvent.ACTION_DOWN || handledByGesture) {
-                return@setOnTouchListener true
-            }
-
-            // それ以外の場合はジェスチャーディテクターの結果に依存
-            handledByGesture
+            handled
         }
     }
 
