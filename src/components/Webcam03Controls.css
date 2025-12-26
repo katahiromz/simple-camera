@@ -17,6 +17,21 @@
   position: relative;
 }
 
+.webcam03-button svg {
+  pointer-events: none; /* アイコンがクリックを邪魔しないようにする */
+}
+
+/* 透明な当たり判定を拡張 */
+.webcam03-button::after {
+  content: "";
+  position: absolute;
+  top: -15px;
+  right: -15px;
+  bottom: -15px;
+  left: -15px;
+  /* background: rgba(255, 0, 0, 0.2); */ // 開発中にこれをつけると判定範囲が見えます
+}
+
 /* ボタンを押し下げた時のエフェクト（PC・スマホ共通） */
 .webcam03-button:active:not(:disabled) {
   /* scaleを少し下げるだけに留め、translateY（移動）は行わない */

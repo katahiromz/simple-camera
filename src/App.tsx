@@ -118,6 +118,7 @@ function App() {
   return (
     <CanvasWithWebcam03
       ref={canvasWithCamera}
+      style={{ width: '100%', height: '100%' }}
       shutterSoundUrl={shutterSoundUrl}
       videoStartSoundUrl={videoStartSoundUrl}
       videoCompleteSoundUrl={videoCompleteSoundUrl}

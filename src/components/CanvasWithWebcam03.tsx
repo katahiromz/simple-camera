@@ -787,8 +787,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // スタイルの整理
   const combinedCanvasStyle: React.CSSProperties = {
-    width: '100%',
-    height: '100%',
     backgroundColor: '#000',
     objectFit: 'contain', // 映像全体を表示（余白は黒）。隙間なく埋めるなら 'cover'
     display: 'block',
@@ -938,19 +936,19 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }));
 
   return (
-    <div style={{
-      position: 'relative',
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}>
+    <div
+      className={className}
+      style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
       {/* キャンバス */}
       <canvas
         ref={canvasRef}
         style={combinedCanvasStyle}
-        className={className}
         {...rest}
       />
 
