@@ -73,68 +73,70 @@ object TopSnackbar {
         durationMillis: Int = 3000
     ) {
         Timber.d("TopSnackbar: show called")
+        // メインスレッド以外から呼ばれた場合はメインスレッドにディスパッチする
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            activity.runOnUiThread { show(activity, message, actionLabel, action, durationMillis) }
+            return
+        }
         currentActivity = activity
-        activity.runOnUiThread {
-            try {
-                // Dismiss any existing snackbar first
-                dismiss()
+        try {
+            // Dismiss any existing snackbar first
+            dismiss()
 
-                // Get the root view
-                val rootView = activity.findViewById<ViewGroup>(android.R.id.content)
+            // Get the root view
+            val rootView = activity.findViewById<ViewGroup>(android.R.id.content)
 
-                // Create the snackbar container
-                val snackbarView = createSnackbarView(activity, message, actionLabel, action)
+            // Create the snackbar container
+            val snackbarView = createSnackbarView(activity, message, actionLabel, action)
 
-                // Set initial position (hidden above screen)
-                snackbarView.translationY = SLIDE_DISTANCE
-                snackbarView.alpha = 0f
+            // Set initial position (hidden above screen)
+            snackbarView.translationY = SLIDE_DISTANCE
+            snackbarView.alpha = 0f
 
-                // Add swipe gesture support
-                setupSwipeGesture(snackbarView)
+            // Add swipe gesture support
+            setupSwipeGesture(snackbarView)
 
-                // Add to root view
-                rootView.addView(snackbarView)
+            // Add to root view
+            rootView.addView(snackbarView)
 
-                // Apply window insets to respect safe area
-                ViewCompat.setOnApplyWindowInsetsListener(snackbarView) { view, insets ->
-                    val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                    val topInset = systemBars.top
+            // Apply window insets to respect safe area
+            ViewCompat.setOnApplyWindowInsetsListener(snackbarView) { view, insets ->
+                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                val topInset = systemBars.top
 
-                    // Apply top margin to avoid status bar/notch
-                    val layoutParams = view.layoutParams as FrameLayout.LayoutParams
-                    layoutParams.topMargin = topInset
-                    view.layoutParams = layoutParams
+                // Apply top margin to avoid status bar/notch
+                val layoutParams = view.layoutParams as FrameLayout.LayoutParams
+                layoutParams.topMargin = topInset
+                view.layoutParams = layoutParams
 
-                    insets
-                }
-
-                // Request insets to be applied
-                ViewCompat.requestApplyInsets(snackbarView)
-
-                // Store reference
-                currentSnackbarView = snackbarView
-
-                // Animate slide-in from top
-                val slideIn = ObjectAnimator.ofFloat(snackbarView, "translationY", SLIDE_DISTANCE, 0f)
-                val fadeIn = ObjectAnimator.ofFloat(snackbarView, "alpha", 0f, 1f)
-
-                val showAnimator = AnimatorSet().apply {
-                    playTogether(slideIn, fadeIn)
-                    duration = ANIMATION_DURATION_SHOW
-                }
-
-                currentAnimator = showAnimator
-                showAnimator.start()
-
-                // Schedule auto-dismiss
-                dismissRunnable = Runnable {
-                    dismissWithAnimation()
-                }
-                dismissRunnable?.let { snackbarView.postDelayed(it, durationMillis.toLong()) }
-
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to show TopSnackbar")
+                insets
             }
+
+            // Request insets to be applied
+            ViewCompat.requestApplyInsets(snackbarView)
+
+            // Store reference
+            currentSnackbarView = snackbarView
+
+            // Animate slide-in from top
+            val slideIn = ObjectAnimator.ofFloat(snackbarView, "translationY", SLIDE_DISTANCE, 0f)
+            val fadeIn = ObjectAnimator.ofFloat(snackbarView, "alpha", 0f, 1f)
+
+            val showAnimator = AnimatorSet().apply {
+                playTogether(slideIn, fadeIn)
+                duration = ANIMATION_DURATION_SHOW
+            }
+
+            currentAnimator = showAnimator
+            showAnimator.start()
+
+            // Schedule auto-dismiss
+            dismissRunnable = Runnable {
+                dismissWithAnimation()
+            }
+            dismissRunnable?.let { snackbarView.postDelayed(it, durationMillis.toLong()) }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to show TopSnackbar")
         }
     }
 

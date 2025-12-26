@@ -156,14 +156,18 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
     @JavascriptInterface
     fun onStartRecording() {
         Timber.i("onStartRecording")
-        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        activity?.runOnUiThread {
+            activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
     }
 
     // 画面ONのキープを解除する
     @JavascriptInterface
     fun onStopRecording() {
         Timber.i("onStopRecording")
-        activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        activity?.runOnUiThread {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
     }
 
     // カメラの権限が付与されているか確認する。
