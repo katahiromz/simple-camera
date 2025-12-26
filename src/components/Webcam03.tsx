@@ -132,8 +132,8 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
 
         // facingMode が指定されている場合、逆のモードでリトライ
         if (typeof baseVideoConstraints === 'object' && baseVideoConstraints.facingMode) {
-          const currentMode = typeof baseVideoConstraints.facingMode === 'string' 
-            ? baseVideoConstraints.facingMode 
+          const currentMode = typeof baseVideoConstraints.facingMode === 'string'
+            ? baseVideoConstraints.facingMode
             : (baseVideoConstraints.facingMode as any).ideal;
 
           const fallbackMode = currentMode === "user" ? "environment" : "user";
