@@ -111,6 +111,11 @@ const applyResistance = (min: number, current: number, max: number) => {
   return current;
 };
 
+// ズーム倍率を制限する
+const clampZoom = (ratio: number) => {
+  return clamp(MIN_ZOOM, ratio, MAX_ZOOM);
+};
+
 // デフォルトの画像処理関数
 const onDefaultImageProcess = (data: ImageProcessData) => {
   const { ctx, x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset } = data;
@@ -149,7 +154,7 @@ const onDefaultImageProcess = (data: ImageProcessData) => {
 
     // イメージを拡大縮小して転送
     ctx.drawImage(
-      src, sourceX, sourceY, sourceWidth, sourceHeight,
+      src, Math.round(sourceX), Math.round(sourceY), sourceWidth, sourceHeight,
       x, y, width, height
     );
   }
@@ -280,22 +285,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     //console.log('zoomValue:', zoomValue);
   }, [zoomValue]);
 
-  // ズーム変更時にオフセットを境界内に戻す
-  useEffect(() => {
-    if (!ENABLE_USER_PANNING) return;
-
-    const { src, srcWidth, srcHeight } = getSourceInfo();
-    if (!src) return;
-
-    setOffset(prev => {
-      const max = getMaxOffset(srcWidth, srcHeight, zoomValue);
-      return {
-        x: Math.max(-max.x, Math.min(max.x, prev.x)),
-        y: Math.max(-max.y, Math.min(max.y, prev.y))
-      };
-    });
-  }, [zoomValue]);
-
   // シャッター音
   useEffect(() => {
     if (!ENABLE_SOUND_EFFECTS) return;
@@ -385,6 +374,29 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     }
     return { src, srcWidth, srcHeight };
   };
+
+  // パン操作(平行移動)を制限する関数
+  const clampPan = (x: number, y: number, newZoom: number | null = null) => {
+    const { src, srcWidth, srcHeight } = getSourceInfo();
+    const max = getMaxOffset(srcWidth, srcHeight, newZoom ? newZoom : zoomRef.current);
+    return { x: clamp(-max.x, x, max.x), y: clamp(-max.y, y, max.y) };
+  };
+
+  // 境界での抵抗を考慮したパン制限関数
+  const clampPanWithResistance = useCallback((x: number, y: number, newZoom: number | null = null) => {
+    if (!ENABLE_PANNING_REGISTANCE)
+      return clampPan(x, y, newZoom);
+
+    const { src, srcWidth, srcHeight } = getSourceInfo();
+    if (!src) return { x, y };
+
+    const max = getMaxOffset(srcWidth, srcHeight, newZoom ? newZoom : zoomRef.current);
+
+    return {
+      x: applyResistance(-max.x, x, max.x),
+      y: applyResistance(-max.y, y, max.y)
+    };
+  }, []);
 
   // アニメーションフレームを次々と描画する関数
   const draw = useCallback(() => {
@@ -545,25 +557,20 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, [isRecordingNow, autoMirror]);
 
   // --- PC: マウスホイールでズーム ---
-  const handleWheel = (event: WheelEvent) => {
-    //console.log('handleWheel');
+  const handleMouseWheel = useCallback((event: WheelEvent) => {
+    //console.log('handleMouseWheel');
     if (event.ctrlKey) { // Ctrl + ホイール
       event.preventDefault();
       if (!ENABLE_USER_ZOOMING)
         return;
 
-      // 現在の zoomValue state を取得するために setZoomValue の関数形式を使用
-      setZoomValue(prevZoom => {
-        const delta = -event.deltaY * MOUSE_WHEEL_SPEED;
-        const newZoom = clampZoom(prevZoom + delta);
+      const delta = -event.deltaY * MOUSE_WHEEL_SPEED;
+
+      setZoomValue(prev => {
+        const newZoom = clampZoom(prev + delta);
+        setOffset(prevOffset => clampPan(prevOffset.x, prevOffset.y, newZoom));
         return newZoom;
       });
-
-      if (ENABLE_PANNING_REGISTANCE) {
-        setOffset(prev => {
-          return clampPan(prev.x, prev.y);
-        });
-      }
     } else if (event.shiftKey) { // Shift+ホイール
       setOffset(prev => {
         return clampPan(prev.x - event.deltaY * MOUSE_WHEEL_PAN_SPEED, prev.y);
@@ -573,7 +580,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         return clampPan(prev.x, prev.y - event.deltaY * MOUSE_WHEEL_PAN_SPEED);
       });
     }
-  };
+  }, [clampZoom, clampPan]);
 
   // マウスのボタンが押された／タッチが開始された
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
@@ -607,34 +614,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     const pos = 'touches' in e ? e.touches[0] : e;
     lastPos.current = { x: pos.clientX, y: pos.clientY };
   };
-
-  // ズーム倍率を制限する
-  const clampZoom = (ratio: number) => {
-    return clamp(MIN_ZOOM, ratio, MAX_ZOOM);
-  };
-
-  // パン操作(平行移動)を制限する関数
-  const clampPan = (x: number, y: number, newZoom: number | null = null) => {
-    const { src, srcWidth, srcHeight } = getSourceInfo();
-    const max = getMaxOffset(srcWidth, srcHeight, newZoom ? newZoom : zoomRef.current);
-    return { x: clamp(-max.x, x, max.x), y: clamp(-max.y, y, max.y) };
-  };
-
-  // 境界での抵抗を考慮したパン制限関数
-  const clampPanWithResistance = useCallback((x: number, y: number, newZoom: number | null = null) => {
-    if (!ENABLE_PANNING_REGISTANCE)
-      return clampPan(x, y, newZoom);
-
-    const { src, srcWidth, srcHeight } = getSourceInfo();
-    if (!src) return { x, y };
-
-    const max = getMaxOffset(srcWidth, srcHeight, newZoom ? newZoom : zoomRef.current);
-
-    return {
-      x: applyResistance(-max.x, x, max.x),
-      y: applyResistance(-max.y, y, max.y)
-    };
-  }, []);
 
   // マウスが動いた／タッチが動いた
   const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
@@ -726,7 +705,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     });
 
     lastPos.current = { x: pos.clientX, y: pos.clientY };
-  }, [isMirrored, clampPanWithResistance]);
+  }, [isMirrored, clampZoom, clampPanWithResistance]);
 
   // マウスのボタンが離された／タッチが離された
   const handleMouseUp = (e: MouseEvent | TouchEvent) => {
@@ -758,7 +737,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
     // PCホイール
     const target = eventTarget ? eventTarget : canvas;
-    target.addEventListener('wheel', handleWheel, { passive: false });
+    target.addEventListener('wheel', handleMouseWheel, { passive: false });
 
     // マウスイベント
     canvas.addEventListener('mousedown', handleMouseDown);
@@ -771,7 +750,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     canvas.addEventListener('touchend', handleMouseUp);
 
     return () => {
-      target.removeEventListener('wheel', handleWheel);
+      target.removeEventListener('wheel', handleMouseWheel);
       canvas.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
