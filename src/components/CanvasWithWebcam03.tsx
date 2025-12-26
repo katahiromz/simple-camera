@@ -5,7 +5,7 @@ import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef, u
 import Webcam03, { FacingMode } from './Webcam03';
 import Webcam03Controls from './Webcam03Controls';
 import { PermissionManager, PermissionStatusValue } from '../libs/PermissionManager';
-import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset, saveMedia } from '../libs/utils';
+import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset, saveMedia, getLocalDateTimeString } from '../libs/utils';
 
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera, Settings } from 'lucide-react';
@@ -26,6 +26,7 @@ const SHOW_ERROR = true; // エラーを表示するか？
 const SHOW_TAKE_PHOTO = true; // 写真撮影ボタンを表示するか？
 const SHOW_RECORDING = true; // 録画開始・録画停止ボタンを表示するか？
 const SHOW_CONFIG = true; // 設定ボタンを表示するか？
+const SHOW_CURRENT_TIME = true; // 現在の日時を表示するか？
 const USE_MIDDLE_BUTTON_FOR_PANNING = true; // パン操作にマウスの中央ボタンを使用するか？
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
 const MAX_ZOOM = 4.0; // ズーム倍率の最大値
@@ -136,7 +137,7 @@ const clampZoomWithResistance = (ratio: number) => {
 };
 
 // デフォルトの画像処理関数
-const onDefaultImageProcess = (data: ImageProcessData) => {
+export const onDefaultImageProcess = (data: ImageProcessData) => {
   const { ctx, x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset } = data;
 
   ctx.save(); // 現在のキャンバス状態を保存
@@ -178,8 +179,9 @@ const onDefaultImageProcess = (data: ImageProcessData) => {
     );
   }
 
-  // ちょっと図形を描いてみる
-  if (width > 2 && height > 2) {
+  if (false && width > 2 && height > 2) {
+    // ちょっと図形を描いてみる
+
     // 円を描画
     ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
     ctx.lineWidth = 5;
@@ -194,6 +196,20 @@ const onDefaultImageProcess = (data: ImageProcessData) => {
   }
 
   ctx.restore();
+
+  if (SHOW_CURRENT_TIME) {
+    // ちょっと日時を描画してみる
+    let text = getLocalDateTimeString();
+    ctx.font = "20px monospace, san-serif";
+    let measure = ctx.measureText(text);
+    ctx.fillStyle = "#000";
+    ctx.fillText(text, x + width - measure.width - 5 - 1, height - 5 - 1);
+    ctx.fillText(text, x + width - measure.width - 5 - 1, height - 5 + 1);
+    ctx.fillText(text, x + width - measure.width - 5 + 1, height - 5 - 1);
+    ctx.fillText(text, x + width - measure.width - 5 + 1, height - 5 + 1);
+    ctx.fillStyle = "#0f0";
+    ctx.fillText(text, x + width - measure.width - 5, height - 5);
+  }
 };
 
 // カメラ付きキャンバス CanvasWithWebcam03 の本体
