@@ -5,8 +5,9 @@ import { isAndroidApp, emulateInsets } from './utils.ts';
 import { saveFile, saveFileEx } from './components/utils.ts';
 import './App.css';
 
-// 製品版か？
-const IS_PRODUCTION = import.meta.env.MODE === 'production';
+const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
+const SHOW_CONFIG = true; // 設定ボタンを表示するか？
+const ENABLE_CONFIG = true; // 設定を有効にするか？
 
 // アプリケーションのベースパスを取得
 const BASE_URL = import.meta.env.BASE_URL;
@@ -23,6 +24,13 @@ const videoCompleteSoundUrl = `${BASE_URL}ac-video-completed.mp3`;
 if (!IS_PRODUCTION) { // 本番環境ではない場合、
   emulateInsets(); // insetsをエミュレートする
 }
+
+// 設定をする
+const doConfig = () => {
+  if (!ENABLE_CONFIG)
+    return;
+  alert('Simple Camera 1.0.0 by katahiromz');
+};
 
 // アプリ
 function App() {
@@ -117,6 +125,8 @@ function App() {
       eventTarget={document.body}
       autoMirror={true}
       dummyImageSrc={ USE_DUMMY_IMAGE ? dummyImageUrl : null }
+      showConfig={SHOW_CONFIG}
+      doConfig={doConfig}
     />
   );
 }

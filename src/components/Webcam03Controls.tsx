@@ -2,7 +2,7 @@ import React, { useRef, useState, useCallback } from 'react';
 import './Webcam03Controls.css';
 
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
-import { Camera, Video, Square, AlertCircle, SwitchCamera } from 'lucide-react';
+import { Camera, Video, Square, AlertCircle, SwitchCamera, Settings } from 'lucide-react';
 
 const SHOW_TAKE_PHOTO = true; // 写真撮影ボタンを表示するか？
 const SHOW_RECORDING = true; // 録画開始・録画停止ボタンを表示するか？

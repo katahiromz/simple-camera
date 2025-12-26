@@ -7,7 +7,7 @@ import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtensio
 import { saveFile } from './utils';
 
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
-import { Camera } from 'lucide-react';
+import { Camera, Settings } from 'lucide-react';
 
 const ENABLE_USER_ZOOMING = true; // ユーザーによるズームを有効にするか？
 const ENABLE_USER_PANNING = true; // ユーザーによるパン操作を有効にするか？
@@ -20,6 +20,7 @@ const SHOW_CONTROLS = true; // コントロール パネルを表示するか？
 const SHOW_ERROR = true; // エラーを表示するか？
 const SHOW_TAKE_PHOTO = true; // 写真撮影ボタンを表示するか？
 const SHOW_RECORDING = true; // 録画開始・録画停止ボタンを表示するか？
+const SHOW_CONFIG = true; // 設定ボタンを表示するか？
 const USE_MIDDLE_BUTTON_FOR_PANNING = true; // パン操作にマウスの中央ボタンを使用するか？
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
 const MAX_ZOOM = 4.0; // ズーム倍率の最大値
@@ -68,6 +69,8 @@ interface CanvasWithWebcam03Props {
   showTakePhoto?: boolean;
   showRecording?: boolean;
   showCameraSwitch?: boolean;
+  showConfig?: boolean;
+  doConfig?: () => void;
   onImageProcess: (data: ImageProcessData) => void;
   dummyImageSrc?: string;
 };
@@ -210,6 +213,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     showTakePhoto = true,
     showRecording = true,
     showCameraSwitch = true,
+    showConfig = true,
+    doConfig = null,
     onImageProcess = onDefaultImageProcess,
     dummyImageSrc = null,
     ...rest
@@ -1048,9 +1053,20 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
               showTakePhoto={SHOW_TAKE_PHOTO && showTakePhoto}
               showRecording={SHOW_RECORDING && showRecording}
               showCameraSwitch={ENABLE_CAMERA_SWITCH && showCameraSwitch}
+              showConfig={SHOW_CONFIG && showConfig}
             />
           )) : (() => (<></>))}
         </Webcam03>
+      )}
+
+      {/* 設定ボタン */}
+      {SHOW_CONFIG && showConfig && (
+        <button
+          onClick={doConfig}
+          className="webcam03-button webcam03-button-config"
+        >
+          <Settings size={30} color="white" />
+        </button>
       )}
     </div>
   );

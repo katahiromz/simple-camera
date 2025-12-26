@@ -46,14 +46,18 @@
   }
 }
 
-/* --- 以下、ボタンの色設定等は変更なし --- */
-
 .webcam03-button-camera-switch { background-color: rgba(64, 255, 64); }
 .webcam03-button-take-photo { background-color: rgba(255, 255, 64); }
 .webcam03-button-start-recording { background-color: rgba(255, 92, 92); }
 .webcam03-button-stop-recording {
   background-color: rgba(255, 64, 64);
   animation: pulse 1s infinite;
+}
+.webcam03-button-config {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: rgba(128, 128, 128);
 }
 
 @keyframes pulse {
