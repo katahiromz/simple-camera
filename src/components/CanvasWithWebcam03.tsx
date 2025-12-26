@@ -663,13 +663,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       // 前回の中心点からの移動量を計算（lastPos に中心点を保存しておく必要があるため handleMouseDown も後述の通り修正）
       let dx = centerX - lastPos.current.x, dy = centerY - lastPos.current.y;
 
-      if (isMirrored && !dummyImageRef.current) dx = -dx;
+      if (isMirroredRef.current && !dummyImageRef.current) dx = -dx;
 
       // ビデオ座標系への変換
       const scaleX = srcWidth / canvas.clientWidth;
       const scaleY = srcHeight / canvas.clientHeight;
-      const moveX = isMirrored ? -dx * scaleX : dx * scaleX;
-      const moveY = dy * scaleY;
+      const moveX = dx * scaleX, moveY = dy * scaleY;
 
       // --- 状態の更新 ---
 
@@ -711,7 +710,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     let dx = pos.clientX - lastPos.current.x;
     let dy = pos.clientY - lastPos.current.y;
 
-    if (isMirrored && !dummyImageRef.current) dx = -dx;
+    if (isMirroredRef.current && !dummyImageRef.current) dx = -dx;
 
     // 画面上のピクセル移動量をビデオの座標系（解像度）に変換
     // キャンバスの表示サイズとビデオの実際の解像度の比率を考慮
@@ -726,7 +725,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     });
 
     lastPos.current = { x: pos.clientX, y: pos.clientY };
-  }, [isMirrored, clampZoomWithResistance, clampPanWithResistance]);
+  }, [clampZoomWithResistance, clampPanWithResistance]);
 
   // マウスのボタンが離された／タッチが離された
   const handleMouseUp = (e: MouseEvent | TouchEvent) => {
