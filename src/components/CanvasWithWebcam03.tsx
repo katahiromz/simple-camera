@@ -249,7 +249,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const lastPos = useRef({ x: 0, y: 0 }); // パン操作用
   const initialPinchDistance = useRef<number | null>(null); // 初期のピンチング距離
   const initialZoomAtPinchStart = useRef<number>(1.0); // ピンチング開始時のズーム倍率
-  const [facingMode, setFacingMode] = useState<FacingMode>('environment'); // カメラの前面・背面
+  const [facingMode, setFacingMode] = useState<FacingMode>((() => {
+    const oldFacingMode = localStorage.getItem("SimpleCamera_facingMode");
+    if (oldFacingMode === 'user' || oldFacingMode === 'environment')
+      return oldFacingMode;
+    return 'environment';
+  })()); // カメラの前面・背面
   const [isSwitching, setIsSwitching] = useState(false); // カメラ切り替え中？
   const [isInitialized, setIsInitialized] = useState(false); // 初期化済みか？
   const [isMirrored, setIsMirrored] = useState(autoMirror ? (facingMode === 'user') : mirrored);
@@ -889,11 +894,13 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     setErrorString('');
     console.log(canvasRef.current.width, canvasRef.current.height);
 
-    if (autoMirror && webcamRef.current) {
-      const actualMode = webcamRef.current.getRealFacingMode();
-      if (actualMode) {
+    const actualMode = webcamRef.current.getRealFacingMode();
+    if (actualMode) {
+      console.log('actualMode:', actualMode);
+      if (autoMirror && webcamRef.current) {
         setIsMirrored(actualMode === 'user');
       }
+      localStorage.setItem("SimpleCamera_facingMode", actualMode);
     }
 
     if (onUserMedia) onUserMedia(stream);
