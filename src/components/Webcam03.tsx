@@ -1,3 +1,7 @@
+// Webcam03 --- カメラ React コンポーネント
+// Author: katahiromz
+// License: MIT
+
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from "react";
 
 // Webcam03 コンポーネント

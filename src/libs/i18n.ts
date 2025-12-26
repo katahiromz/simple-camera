@@ -1,4 +1,6 @@
-// AdvancedCamera翻訳・国際化(i18n)用
+// 翻訳・国際化(i18n)用
+// Author: katahiromz
+// License: MIT
 
 import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';

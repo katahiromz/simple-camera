@@ -1,14 +1,31 @@
-// utils.ts
-// 汎用のユーティリティ関数は utils.ts に分離
+// utils.ts --- 汎用のユーティリティ関数
+// Author: katahiromz
+// License: MIT
 
+// Android WebViewか？
 export const isAndroidApp = typeof window.android !== 'undefined';
 
-export interface RenderMetrics {
-  renderWidth: number;
-  renderHeight: number;
-  offsetX: number;
-  offsetY: number;
-}
+// insetsをエミュレートする
+export const emulateInsets = () => {
+  let custom = { top: 30, bottom: 30, left: 30, right: 30 };
+  // デバイスプリセット
+  const presets = {
+    'iPhone X-13': { top: 44, bottom: 34, left: 0, right: 0 },
+    'iPhone 14 Pro+': { top: 59, bottom: 34, left: 0, right: 0 },
+    'iPhone 15 Pro': { top: 59, bottom: 34, left: 0, right: 0 },
+    'Android': { top: 0, bottom: 24, left: 0, right: 0 },
+    'iPad Pro': { top: 24, bottom: 20, left: 0, right: 0 },
+    'なし': { top: 0, bottom: 0, left: 0, right: 0 },
+    'カスタム': custom
+  };
+  // CSS変数を更新
+  //const values = presets['カスタム'];
+  const values = presets['なし'];
+  document.documentElement.style.setProperty('--safe-inset-top', `${values.top}px`);
+  document.documentElement.style.setProperty('--safe-inset-bottom', `${values.bottom}px`);
+  document.documentElement.style.setProperty('--safe-inset-left', `${values.left}px`);
+  document.documentElement.style.setProperty('--safe-inset-right', `${values.right}px`);
+};
 
 /**
  * ズーム倍率に応じた最大移動可能オフセットを計算する
@@ -20,64 +37,6 @@ export const getMaxOffset = (videoWidth: number, videoHeight: number, zoom: numb
     x: (videoWidth - sourceWidth) / 2,
     y: (videoHeight - sourceHeight) / 2
   };
-};
-
-/**
- * 「object-fit: cover」または「object-fit: contain」の動作を再現し、描画サイズとオフセットを計算する
- */
-export const calculateVideoRenderMetrics = (
-  videoWidth: number,
-  videoHeight: number,
-  displayWidth: number,
-  displayHeight: number,
-  objectFit: 'cover' | 'contain'
-): RenderMetrics => {
-  // ゼロ割や不正な入力の可能性をチェック (0の場合、0を返して描画をスキップ)
-  if (videoWidth === 0 || videoHeight === 0 || displayWidth === 0 || displayHeight === 0) {
-    return { renderWidth: 0, renderHeight: 0, offsetX: 0, offsetY: 0 };
-  }
-  
-  // 描画領域をカバーするために必要なX軸とY軸のスケール係数をそれぞれ計算
-  // object-fit: cover は、画面全体を覆うために必要な最大スケール (Math.max) を採用
-  const scaleX = displayWidth / videoWidth;
-  const scaleY = displayHeight / videoHeight;
-  
-  const scale = (objectFit === 'cover') ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY);
-  
-  // スケールを適用して、描画サイズを決定
-  const renderWidth = videoWidth * scale;
-  const renderHeight = videoHeight * scale;
-  
-  // オフセットを計算 (中央揃え)
-  const offsetX = (displayWidth - renderWidth) / 2;
-  const offsetY = (displayHeight - renderHeight) / 2;
-
-  return { renderWidth, renderHeight, offsetX, offsetY };
-};
-
-/**
- * ズームされた映像の描画領域に基づいて、許容されるパンの最大オフセットを計算
- */
-export const calculateMaxPanOffsets = (
-  currentZoom: number,
-  renderMetrics: RenderMetrics,
-  displayWidth: number,
-  displayHeight: number
-) => {
-  const zoomedRenderWidth = renderMetrics.renderWidth * currentZoom;
-  const zoomedRenderHeight = renderMetrics.renderHeight * currentZoom;
-
-  // MaxPan_x の計算
-  const maxPanX = zoomedRenderWidth > displayWidth
-    ? (zoomedRenderWidth - displayWidth) / 2
-    : 0;
-
-  // MaxPan_y の計算
-  const maxPanY = zoomedRenderHeight > displayHeight
-    ? (zoomedRenderHeight - displayHeight) / 2
-    : 0;
-
-  return { maxPanX, maxPanY };
 };
 
 /**
@@ -161,7 +120,7 @@ export const clamp = (minValue: number, value: number, maxValue: number) => {
 };
 
 // ファイルを保存する
-export const saveFile = (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => {
+export const saveMedia = (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.download = fileName;
@@ -171,9 +130,9 @@ export const saveFile = (blob: Blob, fileName: string, mimeType: string, isVideo
 };
 
 // ファイルを保存する(拡張版)
-export const saveFileEx = (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => {
+export const saveMediaEx = (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => {
   if (!isAndroidApp)
-    return saveFile(blob, fileName, mimeType, isVideo);
+    return saveMedia(blob, fileName, mimeType, isVideo);
   const reader = new FileReader();
   reader.onloadend = () => {
     console.log("reader.onloadend");
@@ -189,8 +148,47 @@ export const saveFileEx = (blob: Blob, fileName: string, mimeType: string, isVid
     } catch (error) {
       console.assert(false);
       console.error('android インタフェース呼び出しエラー:', error);
-      saveFile(blob, fileName);
+      saveMedia(blob, fileName);
     }
   };
   reader.readAsDataURL(blob); // BlobをBase64に変換
+};
+
+// polyfill based on https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
+export const polyfillGetUserMedia = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  // Older browsers might not implement mediaDevices at all, so we set an empty object first
+  if (navigator.mediaDevices === undefined) {
+    (navigator as any).mediaDevices = {};
+  }
+
+  // Some browsers partially implement mediaDevices. We can't just assign an object
+  // with getUserMedia as it would overwrite existing properties.
+  // Here, we will just add the getUserMedia property if it's missing.
+  if (navigator.mediaDevices.getUserMedia === undefined) {
+    navigator.mediaDevices.getUserMedia = function(constraints) {
+      // First get ahold of the legacy getUserMedia, if present
+      const getUserMedia =
+        navigator.getUserMedia ||
+        navigator.webkitGetUserMedia ||
+        navigator.mozGetUserMedia ||
+        navigator.msGetUserMedia;
+
+      // Some browsers just don't implement it - return a rejected promise with an error
+      // to keep a consistent interface
+      if (!getUserMedia) {
+        return Promise.reject(
+          new Error("getUserMedia is not implemented in this browser")
+        );
+      }
+
+      // Otherwise, wrap the call to the old navigator.getUserMedia with a Promise
+      return new Promise(function(resolve, reject) {
+        getUserMedia.call(navigator, constraints, resolve, reject);
+      });
+    };
+  }
 };

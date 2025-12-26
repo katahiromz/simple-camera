@@ -1,3 +1,7 @@
+// MediaDeviceManager.ts --- メディア デバイス マネージャ
+// Author: katahiromz
+// License: MIT
+
 /**
  * デバイス情報を整理するためのインターフェース
  */

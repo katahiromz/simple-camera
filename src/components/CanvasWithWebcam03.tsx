@@ -1,16 +1,17 @@
-// webcam03-with-canvas.tsx
+// CanvasWithWebcam03 --- カメラ付きキャンバス React コンポーネント
+// Author: katahiromz
+// License: MIT
 import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import Webcam03, { FacingMode } from './Webcam03';
 import Webcam03Controls from './Webcam03Controls';
-import { PermissionManager, PermissionStatusValue } from './permission-watcher';
-import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset } from './utils';
-import { saveFile } from './utils';
+import { PermissionManager, PermissionStatusValue } from '../libs/PermissionManager';
+import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset, saveMedia } from '../libs/utils';
 
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera, Settings } from 'lucide-react';
 
 // 国際化(i18n)
-import './i18n.ts';
+import '../libs/i18n.ts';
 import { useTranslation } from 'react-i18next';
 
 const ENABLE_USER_ZOOMING = true; // ユーザーによるズームを有効にするか？

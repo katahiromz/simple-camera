@@ -1,8 +1,9 @@
 // App.tsx --- アプリのTypeScriptソース
+// Author: katahiromz
+// License: MIT
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import CanvasWithWebcam03 from './components/CanvasWithWebcam03';
-import { isAndroidApp, emulateInsets } from './utils.ts';
-import { saveFile, saveFileEx } from './components/utils.ts';
+import { isAndroidApp, emulateInsets, saveMedia, saveMediaEx, polyfillGetUserMedia } from './libs/utils.ts';
 import './App.css';
 
 const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
@@ -10,7 +11,7 @@ const SHOW_CONFIG = true; // 設定ボタンを表示するか？
 const ENABLE_CONFIG = true; // 設定を有効にするか？
 
 // 国際化(i18n)
-import './components/i18n.ts';
+import './libs/i18n.ts';
 import { useTranslation } from 'react-i18next';
 
 // アプリケーションのベースパスを取得
@@ -28,6 +29,9 @@ const videoCompleteSoundUrl = `${BASE_URL}ac-video-completed.mp3`;
 if (!IS_PRODUCTION) { // 本番環境ではない場合、
   emulateInsets(); // insetsをエミュレートする
 }
+
+// 古いブラウザのサポート(必要か？)
+polyfillGetUserMedia();
 
 // アプリ
 function App() {
@@ -128,7 +132,7 @@ function App() {
       shutterSoundUrl={shutterSoundUrl}
       videoStartSoundUrl={videoStartSoundUrl}
       videoCompleteSoundUrl={videoCompleteSoundUrl}
-      downloadFile={isAndroidApp ? saveFileEx : saveFile}
+      downloadFile={isAndroidApp ? saveMediaEx : saveMedia}
       eventTarget={document.body}
       autoMirror={true}
       dummyImageSrc={ USE_DUMMY_IMAGE ? dummyImageUrl : null }

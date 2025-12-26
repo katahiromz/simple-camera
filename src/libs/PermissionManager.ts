@@ -1,4 +1,6 @@
-// permission-watcher.ts
+// PermissionManager.ts --- 権限監視
+// Author: katahiromz
+// License: MIT
 
 export type PermissionStatusValue = PermissionState; // 'granted' | 'denied' | 'prompt'
 
