@@ -551,10 +551,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       event.preventDefault();
       if (!ENABLE_USER_ZOOMING)
         return;
+
       // 現在の zoomValue state を取得するために setZoomValue の関数形式を使用
       setZoomValue(prevZoom => {
         const delta = -event.deltaY * MOUSE_WHEEL_SPEED;
-        const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, prevZoom + delta));
+        const newZoom = clampZoom(prevZoom + delta);
         return newZoom;
       });
 
@@ -607,6 +608,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     lastPos.current = { x: pos.clientX, y: pos.clientY };
   };
 
+  // ズーム倍率を制限する
+  const clampZoom = (ratio: number) => {
+    return clamp(MIN_ZOOM, ratio, MAX_ZOOM);
+  };
+
   // パン操作(平行移動)を制限する関数
   const clampPan = (x: number, y: number, newZoom: number | null = null) => {
     const { src, srcWidth, srcHeight } = getSourceInfo();
@@ -648,11 +654,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       const currentDistance = getDistance(e.touches);
       const pinchScale = currentDistance / initialPinchDistance.current;
       const oldZoom = zoomRef.current;
-      const newZoom = clamp(
-        MIN_ZOOM,
-        initialZoomAtPinchStart.current * pinchScale,
-        MAX_ZOOM
-      );
+      const newZoom = clampZoom(initialZoomAtPinchStart.current * pinchScale);
 
       // --- 中心点の移動（パン）計算 ---
       const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
@@ -793,20 +795,18 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const zoomIn = useCallback(() => {
     if (!ENABLE_USER_ZOOMING)
       return;
-    const newValue = clamp(MIN_ZOOM, zoomValue + ZOOM_DELTA, MAX_ZOOM);
-    setZoomValue(newValue);
-  }, [zoomValue]);
+    const nextZoom = clampZoom(zoomValue + ZOOM_DELTA);
+    setZoomValue(nextZoom);
+  }, [zoomValue, clampZoom]);
 
   // ズームアウト
   const zoomOut = useCallback(() => {
     if (!ENABLE_USER_ZOOMING)
       return;
-    const newValue = clamp(MIN_ZOOM, zoomValue - ZOOM_DELTA, MAX_ZOOM);
-    setOffset(prev => {
-      return clampPan(prev.x, prev.y, newValue);
-    });
-    setZoomValue(newValue);
-  }, [zoomValue, clampPan]);
+    const nextZoom = clampZoom(zoomValue - ZOOM_DELTA);
+    setOffset(prev => clampPan(prev.x, prev.y, nextZoom));
+    setZoomValue(nextZoom);
+  }, [zoomValue, clampZoom, clampPan]);
 
   // 録画中かを返す
   const isRecording = useCallback(() => {
