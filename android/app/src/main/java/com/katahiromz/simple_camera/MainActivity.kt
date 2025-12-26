@@ -553,12 +553,13 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     private val onBackPressedCallback: OnBackPressedCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
             Timber.i("handleOnBackPressed")
-            if (false) {
+            if (true) {
                 // 'go_back' メッセージを投函する。おそらく'message'イベントリスナが受け取るはず。
                 webView?.evaluateJavascript("postMessage('go_back');") { }
+            } else {
+              // 軽く閉じる（完全には閉じたいなら代わりにfinishAndRemoveTaskを使う）
+              finish();
             }
-            // 軽く閉じる（完全には閉じたいなら代わりにfinishAndRemoveTaskを使う）
-            finish();
         }
     }
 

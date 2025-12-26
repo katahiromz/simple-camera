@@ -127,6 +127,28 @@ function App() {
     return () => document.body.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Android標準の「戻る」をサポートする
+  useEffect(() => {
+    // 戻る
+    const goBack = (e) => {
+      if(e.data == "go_back"){
+        // イベントのデフォルトの処理をスキップ。
+        e.preventDefault();
+        // 可能ならば閉じる
+        try {
+          window.android.finishApp();
+        } catch (err) {
+          ;
+        }
+      }
+    };
+
+    window.addEventListener('message', goBack, { passive: false });
+    return () => {
+      window.removeEventListener('message', goBack);
+    }
+  }, []);
+
   return (
     <CanvasWithWebcam03
       ref={canvasWithCamera}
