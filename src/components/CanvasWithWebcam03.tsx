@@ -634,7 +634,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       // isMirrored が更新されるため、ここでは何もしなくてOK
       setTimeout(() => {
         setIsSwitching(false);
-      }, 750);
+      }, 1000);
       return (prev === "user" ? "environment" : "user");
     });
   }, [isRecordingNow, autoMirror]);
