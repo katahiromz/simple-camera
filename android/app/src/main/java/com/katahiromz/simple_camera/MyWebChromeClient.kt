@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.text.InputType
 import android.view.View
+import android.view.WindowManager
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
@@ -137,6 +138,18 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
                 Timber.w("Storage permission denied")
             }
         )
+    }
+
+    // 画面ONをキープする
+    @JavascriptInterface
+    fun onStartRecording() {
+        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    // 画面ONのキープを解除する
+    @JavascriptInterface
+    fun onStopRecording() {
+        activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     // カメラの権限が付与されているか確認する。

@@ -591,6 +591,16 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       if (ENABLE_SOUND_EFFECTS) {
         playSound(videoCompleteAudioRef.current);
       }
+
+      // 画面ONを解除する。
+      if (window.android) {
+        try {
+          window.android.onStopRecording();
+        } catch (err) {
+          ;
+        }
+      }
+
       const blob = new Blob(chunksRef.current, { type: recordingFormat });
       const extension = videoFormatToExtension(recordingFormat);
       const fileName = generateFileName(t('camera_text_video') + '_', extension);
@@ -604,6 +614,15 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     mediaRecorderRef.current = mediaRecorder;
     setIsRecordingNow(true);
     setRecordingTime(0);
+
+    // 画面ONをキープする
+    if (window.android) {
+      try {
+        window.android.onStartRecording();
+      } catch (err) {
+        ;
+      }
+    }
   }, []);
 
   // --- 録画停止機能 ---
