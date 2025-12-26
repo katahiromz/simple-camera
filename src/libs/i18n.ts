@@ -9,10 +9,19 @@ import HttpApi from 'i18next-http-backend';
 
 const BASE_URL = import.meta.env.BASE_URL || '/';
 
+// サポートしている言語
 export const supportedLngs = {
   ja: '日本語',
   en: 'English'
 };
+
+// HTMLの言語を変える
+const UserLang = () => {
+  return navigator.languages.filter((lang) => {
+    return !!supportedLngs[lang];
+  });
+};
+document.getElementsByTagName('html')[0].lang = UserLang()[0] || 'en';
 
 i18n
   .use(HttpApi) // 翻訳ファイルを非同期に読み込むため
