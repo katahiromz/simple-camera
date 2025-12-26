@@ -13,8 +13,8 @@ const ENABLE_USER_ZOOMING = true; // ユーザーによるズームを有効に�
 const ENABLE_USER_PANNING = true; // ユーザーによるパン操作を有効にするか？
 const ENABLE_SOUND_EFFECTS = true; // 効果音を有効にするか？
 const ENABLE_CAMERA_SWITCH = true; // ユーザーによるカメラ切り替えを有効にするか？
-const ENABLE_ZOOMING_REGISTANCE = true; // ズーム操作に抵抗を導入するか？
-const ENABLE_PANNING_REGISTANCE = true; // パン操作に抵抗を導入するか？
+const ENABLE_ZOOMING_REGISTANCE = true; // ズーム操作に抵抗の効果を導入するか？
+const ENABLE_PANNING_REGISTANCE = true; // パン操作に抵抗の効果を導入するか？
 const SHOW_RECORDING_TIME = true; // 録画時間を表示するか？
 const SHOW_CONTROLS = true; // コントロール パネルを表示するか？
 const SHOW_ERROR = true; // エラーを表示するか？
@@ -238,11 +238,45 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const [isSwitching, setIsSwitching] = useState(false); // カメラ切り替え中？
   const [isInitialized, setIsInitialized] = useState(false); // 初期化済みか？
   const [isMirrored, setIsMirrored] = useState(autoMirror ? (facingMode === 'user') : mirrored);
-  const isMirroredRef = useRef<boolean>(isMirrored);
+  const isMirroredRef = useRef<boolean>(isMirrored); // 鏡像反転の監視用
+  const zoomTimerRef = useRef<NodeJS.Timeout | null>(null); // ズームタイマー参照
 
+  // 鏡像反転の監視
   useEffect(() => {
     isMirroredRef.current = isMirrored;
   }, [isMirrored]);
+
+  // 常にoffsetRefをoffset stateに合わせる
+  useEffect(() => {
+    offsetRef.current = offset;
+  }, [offset]);
+
+  // ズームを収束させる関数
+  const startZoomStabilizer = useCallback(() => {
+    // すでに動いている場合は重複して作らない
+    if (zoomTimerRef.current) return;
+
+    console.log('setInterval');
+    zoomTimerRef.current = setInterval(() => {
+      setZoomValue(prev => {
+        const clamped = clampZoom(prev); // 抵抗なしの真の限界値
+        const diff = Math.abs(prev - clamped);
+
+        // 変化がごくわずか（0.001未満）になったら停止
+        if (diff < 0.001) {
+          if (zoomTimerRef.current) {
+            console.log('clearInterval');
+            clearInterval(zoomTimerRef.current);
+            zoomTimerRef.current = null;
+          }
+          return clamped; // 完全に境界値に固定
+        }
+
+        // 境界値に向かって滑らかに戻す（線形補間など）
+        return prev + (clamped - prev) * 0.2;
+      });
+    }, 16); // 約60fpsで滑らかに更新
+  }, []);
 
   // ビデオの制約
   const videoConstraints = useMemo(() => ({
@@ -265,11 +299,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       dummyImageRef.current = null;
     };
   }, [dummyImageSrc]);
-
-  // 常にoffsetRefをoffset stateに合わせる
-  useEffect(() => {
-    offsetRef.current = offset;
-  }, [JSON.stringify(offset)]);
 
   // 録画タイマー
   useEffect(() => {
@@ -585,6 +614,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
       setZoomValue(prev => {
         const newZoom = clampZoomWithResistance(prev + delta);
+
+        // 境界を超えていたらスタビライザーを起動
+        if (ENABLE_ZOOMING_REGISTANCE && (newZoom < MIN_ZOOM || MAX_ZOOM < newZoom)) {
+          startZoomStabilizer();
+        }
+
         setOffset(prevOffset => {
           if (newZoom <= 1.0)
             return { x: 0, y: 0 };
@@ -592,11 +627,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         });
         return newZoom;
       });
-    } else if (event.shiftKey) { // Shift+ホイール
+    } else if (event.shiftKey) { // Shift+ホイールで横スクロール
       setOffset(prev => {
         return clampPan(prev.x - event.deltaY * MOUSE_WHEEL_PAN_SPEED, prev.y);
       });
-    } else {
+    } else { // ホイールで縦スクロール
       setOffset(prev => {
         return clampPan(prev.x, prev.y - event.deltaY * MOUSE_WHEEL_PAN_SPEED);
       });
@@ -739,16 +774,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         return { x: 0, y: 0 };
       return clampPan(prev.x, prev.y, newZoom);
     });
-  };
 
-  useEffect(() => {
-    let timer = setInterval(() => {
-      setZoomValue(prev => {
-        return clampZoomWithResistance(prev);
-      });
-    }, 100);
-    return () => clearInterval(timer);
-  }, []);
+    if (ENABLE_ZOOMING_REGISTANCE) {
+      // スタビライザーを起動
+      startZoomStabilizer();
+    }
+  };
 
   // スタイルの整理
   const combinedCanvasStyle: React.CSSProperties = {
@@ -824,11 +855,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     return isRecordingNow;
   }, [isRecordingNow]);
 
-  // パンを返す
+  // 位置のずれを返す
   const getPan = useCallback(() => {
     return offset;
-  }, [JSON.stringify(offset)]);
-  // パンを設定する
+  }, [offset]);
+  // 位置のずれを設定する
   const setPan = useCallback((newPanX: number, newPanY: number) => {
     setOffset({ x: clamp(-max.x, newPanX, max.x), y: clamp(-max.y, newPanY, max.y) });
   }, []);
