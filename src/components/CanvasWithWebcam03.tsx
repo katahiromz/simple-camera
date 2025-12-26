@@ -13,6 +13,7 @@ const ENABLE_USER_ZOOMING = true; // ユーザーによるズームを有効に�
 const ENABLE_USER_PANNING = true; // ユーザーによるパン操作を有効にするか？
 const ENABLE_SOUND_EFFECTS = true; // 効果音を有効にするか？
 const ENABLE_CAMERA_SWITCH = true; // ユーザーによるカメラ切り替えを有効にするか？
+const ENABLE_ZOOMING_REGISTANCE = true; // ズーム操作に抵抗を導入するか？
 const ENABLE_PANNING_REGISTANCE = true; // パン操作に抵抗を導入するか？
 const SHOW_RECORDING_TIME = true; // 録画時間を表示するか？
 const SHOW_CONTROLS = true; // コントロール パネルを表示するか？
@@ -682,7 +683,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     }
 
     // 2. パン処理 (1本指またはマウス)
-    if (!ENABLE_USER_PANNING || !isDragging.current || (!ENABLE_PANNING_REGISTANCE && zoomRef.current <= 1.0)) return;
+    if (!ENABLE_USER_PANNING || !isDragging.current) return;
 
     e.preventDefault();
 
@@ -692,7 +693,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
     if (isMirrored && !dummyImageRef.current) dx = -dx;
 
-    // 1. 画面上のピクセル移動量をビデオの座標系（解像度）に変換
+    // 画面上のピクセル移動量をビデオの座標系（解像度）に変換
     // キャンバスの表示サイズとビデオの実際の解像度の比率を考慮
     const scaleX = srcWidth / canvas.clientWidth;
     const scaleY = srcHeight / canvas.clientHeight;
