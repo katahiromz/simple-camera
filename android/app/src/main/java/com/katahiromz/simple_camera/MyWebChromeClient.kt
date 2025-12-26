@@ -64,72 +64,84 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
     // 画面の明るさを調整する。
     @JavascriptInterface
     fun setBrightness(brightness: String) {
+        Timber.i("setBrightness")
         listener.onBrightness(brightness)
     }
 
     // アプリを終了する。
     @JavascriptInterface
     fun finishApp() {
+        Timber.i("finishApp")
         listener.onFinishApp()
     }
 
     // スピーチをキャンセルする。
     @JavascriptInterface
     fun cancelSpeech() {
+        Timber.i("cancelSpeech")
         listener.onSpeech("", -1.0f)
     }
 
     // スピーチする。
     @JavascriptInterface
     fun startSpeech(msg: String, volume: Float): Boolean {
+        Timber.i("startSpeech")
         return listener.onSpeech(msg, volume)
     }
 
     // GenericAppの設定をクリアする。
     @JavascriptInterface
     fun clearSettings() {
+        Timber.i("clearSettings")
         activity?.let { MainRepository.clearMessageList(it) }
     }
 
     // 振動を開始する。
     @JavascriptInterface
     fun startVibrator(length: Float) {
+        Timber.i("startVibrator")
         listener.onStartVibrator(length.toInt())
     }
 
     // 振動を停止する。
     @JavascriptInterface
     fun stopVibrator() {
+        Timber.i("stopVibrator")
         listener.onStopVibrator()
     }
 
     // Toastを表示する。
     @JavascriptInterface
     fun showToast(text: String) {
+        Timber.i("showToast")
         listener.onShowToast(text, LONG_TOAST)
     }
 
     // Snackbarを表示する。
     @JavascriptInterface
     fun showSnackbar(text: String) {
+        Timber.i("showSnackbar")
         listener.onShowSnackbar(text, LONG_SNACK)
     }
 
     // シャッター音を開始する前に音量を調整する。
     @JavascriptInterface
     fun onStartShutterSound() {
+        Timber.i("onStartShutterSound")
         listener.onStartShutterSound()
     }
 
     // シャッター音を終了した後に音量を調整する。
     @JavascriptInterface
     fun onEndShutterSound() {
+        Timber.i("onEndShutterSound")
         listener.onEndShutterSound()
     }
 
     // ストレージ権限を要求するメソッド
     @JavascriptInterface
     fun requestStoragePermission() {
+        Timber.i("requestStoragePermission")
         activity?.triggerStorageFeature(
             onGranted = {
                 Timber.i("Storage permission granted")
@@ -143,12 +155,14 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
     // 画面ONをキープする
     @JavascriptInterface
     fun onStartRecording() {
+        Timber.i("onStartRecording")
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     // 画面ONのキープを解除する
     @JavascriptInterface
     fun onStopRecording() {
+        Timber.i("onStopRecording")
         activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
@@ -156,6 +170,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
     // 音声権限はオプションとして扱う。
     @JavascriptInterface
     fun hasMediaPermissions(): Boolean {
+        Timber.i("hasMediaPermissions")
         val currentActivity = activity ?: return false
         val hasCameraPermission = android.content.pm.PackageManager.PERMISSION_GRANTED ==
             androidx.core.content.ContextCompat.checkSelfPermission(
@@ -168,6 +183,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
 
     // TopSnackbarを表示してファイルを開くアクションを提供するヘルパーメソッド
     private fun showFileOpenSnackbar(currentActivity: MainActivity, uri: Uri, messageResId: Int, mimeType: String) {
+        Timber.i("showFileOpenSnackbar")
         currentActivity.runOnUiThread {
             try {
                 val message = currentActivity.getString(messageResId)
@@ -375,6 +391,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         message: String?,
         result: JsResult?
     ): Boolean {
+        Timber.i("onJsAlert")
         // MaterialAlertDialogを使用して普通に実装する。
         val currentActivity = activity ?: run {
             result?.cancel()
@@ -402,6 +419,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         message: String?,
         result: JsResult?
     ): Boolean {
+        Timber.i("onJsConfirm")
         // MaterialAlertDialogを使用して普通に実装する。
         val currentActivity = activity ?: run {
             result?.cancel()
@@ -435,6 +453,7 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         defaultValue: String?,
         result: JsPromptResult?
     ): Boolean {
+        Timber.i("onJsPrompt")
         val currentActivity = activity ?: run {
             result?.cancel()
             return false
