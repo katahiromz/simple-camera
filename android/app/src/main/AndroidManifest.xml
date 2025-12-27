@@ -49,17 +49,18 @@
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="fullUser"
         >
             <!--
                 android:configChanges
                 - 画面回転などでActivityが再起動されるのを防ぐ
                 - メモリリークやデータ損失を防止
 
-                android:windowSoftInputMode="adjustResize"
+                android:windowSoftInputMode
                 - キーボード表示時のレイアウト調整
 
-                android:screenOrientation="portrait"
-                - 縦向き固定（必要に応じて変更）
+                android:screenOrientation
+                - 画面の向き
             -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
