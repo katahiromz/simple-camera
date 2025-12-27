@@ -1,8 +1,11 @@
-// GenericAppのクロームクライアント。
+// CustomWebChromeClient.kt --- カスタム Chrome クライアント
+// Author: katahiromz
+// License: MIT
 // Copyright (c) 2023-2025 Katayama Hirofumi MZ. All Rights Reserved.
 
 package com.katahiromz.simple_camera
 
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.text.InputType
@@ -13,9 +16,11 @@ import android.webkit.JavascriptInterface
 import android.webkit.JsPromptResult
 import android.webkit.JsResult
 import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.EditText
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -23,9 +28,12 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import timber.log.Timber
 import java.util.Locale
 
-class MyWebChromeClient(private var activity: MainActivity?, private val listener: Listener) :
-    WebChromeClient() {
-
+class CustomWebChromeClient(
+    private var activity: MainActivity?,
+    private val listener: Listener,
+    private val permissionManager: PermissionManager,
+    private val onFileChooser: (ValueCallback<Array<Uri>>?, String?) -> Unit
+) : WebChromeClient() {
     // リスナ。
     interface Listener {
         fun onSpeech(text: String, volume: Float): Boolean
@@ -50,11 +58,63 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
         listener.onProgressChanged(view, newProgress)
     }
 
-    /////////////////////////////////////////////////////////////////////
-    // パーミッション関連。
+    // Web側からの権限リクエストを処理
     override fun onPermissionRequest(request: PermissionRequest) {
-        // MainActivity で Android のランタイム権限を確保してから grant/deny する
-        activity?.handlePermissionRequest(request)
+        val resources = request.resources
+
+        // リクエストされたリソースを分類
+        val needsCamera = resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+        val needsAudio = resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+
+        // 必要なAndroid権限を決定
+        val androidPermissions = mutableListOf<String>()
+        if (needsCamera) androidPermissions.add(Manifest.permission.CAMERA)
+        if (needsAudio) androidPermissions.add(Manifest.permission.RECORD_AUDIO)
+
+        if (androidPermissions.isEmpty()) {
+            request.deny()
+            return
+        }
+
+        // 権限チェックとリクエスト
+        if (permissionManager.hasPermissions(androidPermissions.toTypedArray())) {
+            // すでに権限がある場合は許可
+            request.grant(resources)
+        } else {
+            // 権限をリクエスト
+            permissionManager.requestPermissions(androidPermissions.toTypedArray()) { results ->
+                if (results.values.all { it }) {
+                    request.grant(resources)
+                } else {
+                    request.deny()
+                }
+            }
+        }
+    }
+
+    // ファイル選択（Android 5.0以上）
+    override fun onShowFileChooser(
+        webView: WebView?,
+        filePathCallback: ValueCallback<Array<Uri>>?,
+        fileChooserParams: FileChooserParams?
+    ): Boolean {
+        val acceptTypes = fileChooserParams?.acceptTypes?.firstOrNull() ?: "*/*"
+
+        // ストレージ権限をチェック
+        if (!permissionManager.hasPermissions(PermissionManager.STORAGE_PERMISSIONS)) {
+            permissionManager.requestPermissions(PermissionManager.STORAGE_PERMISSIONS) { results ->
+                val isAllGranted = results.values.all { it }
+                if (isAllGranted) {
+                    onFileChooser(filePathCallback, acceptTypes)
+                } else {
+                    filePathCallback?.onReceiveValue(null)
+                }
+            }
+        } else {
+            onFileChooser(filePathCallback, acceptTypes)
+        }
+
+        return true
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -136,20 +196,6 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
     fun onEndShutterSound() {
         Timber.i("onEndShutterSound")
         listener.onEndShutterSound()
-    }
-
-    // ストレージ権限を要求するメソッド
-    @JavascriptInterface
-    fun requestStoragePermission() {
-        Timber.i("requestStoragePermission")
-        activity?.triggerStorageFeature(
-            onGranted = {
-                Timber.i("Storage permission granted")
-            },
-            onDenied = {
-                Timber.w("Storage permission denied")
-            }
-        )
     }
 
     // 画面ONをキープする
@@ -239,21 +285,21 @@ class MyWebChromeClient(private var activity: MainActivity?, private val listene
 
                 // UIスレッドで権限リクエストを実行
                 currentActivity.runOnUiThread {
-                    currentActivity.triggerStorageFeature(
-                        onGranted = {
+                    permissionManager.requestPermissions(PermissionManager.STORAGE_PERMISSIONS) { results ->
+                        val isAllGranted = results.values.all { it }
+                        if (isAllGranted) {
                             // 権限取得後、再度保存を試行
                             saveMediaToGallery(base64Data, filename, mimeType, isVideo)
-                        },
-                        onDenied = {
+                        } else {
                             Timber.w("Storage permission denied by user")
-                            currentActivity.showToast(
+                            Toast.makeText(
+                                currentActivity,
                                 currentActivity.getString(R.string.needs_storage),
-                                LONG_TOAST
+                                Toast.LENGTH_SHORT
                             )
                         }
-                    )
+                    }
                 }
-                return false
             }
         }
 

@@ -6,10 +6,12 @@ package com.katahiromz.simple_camera
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.media.AudioManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.StrictMode
@@ -35,6 +37,7 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -192,303 +195,57 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     /////////////////////////////////////////////////////////////////////
     // region パーミッション関連
 
-    // 許可されたときに実行する処理を保持するリスト
-    private val actionsOnPermissionsGranted = mutableListOf<() -> Unit>()
-    // 拒否されたときに実行する処理を保持するリスト
-    private val actionsOnPermissionsDenied = mutableListOf<() -> Unit>()
-
-    // パーミッションリクエストが進行中かどうかのフラグ
-    private var permissionRequestInProgress: Boolean = false
-    // 保留中のWebView PermissionRequestのキュー
-    private val pendingWebPermissionRequests = mutableListOf<PermissionRequest>()
-
-    // 複数のパーミッションをリクエストするActivity Result Launcher。
-    private val requestMultiplePermissionsLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            // 戻り値: Map<String, Boolean> (パーミッション名, 許可されたか)
-
-            // パーミッションリクエストが完了したのでフラグをリセット
-            permissionRequestInProgress = false
-
-            // 全て許可されたかを確認する例
-            val allGranted = permissions.entries.all { it.value }
-
-            if (allGranted) {
-                // 保持しておいた全てのラムダを実行
-                actionsOnPermissionsGranted.forEach { it.invoke() }
-                actionsOnPermissionsGranted.clear()
-                actionsOnPermissionsDenied.clear()
-            } else {
-                // 一部または全てのパーミッションが拒否された場合の処理
-                actionsOnPermissionsDenied.forEach { it.invoke() }
-                actionsOnPermissionsGranted.clear()
-                actionsOnPermissionsDenied.clear()
+    // 「権限が拒否された」ダイアログを表示し、設定画面に誘導する
+    private fun showPermissionDeniedDialog(deniedPermissions: List<String>) {
+        val message = buildString {
+            append("以下の権限が拒否されました:\n\n")
+            deniedPermissions.forEach { permission ->
+                append("• ${getPermissionName(permission)}\n")
             }
-
-            // 保留中のWebView PermissionRequestがあれば次を処理
-            if (pendingWebPermissionRequests.isNotEmpty()) {
-                val nextRequest = pendingWebPermissionRequests.removeAt(0)
-                runOnUiThread {
-                    handlePermissionRequest(nextRequest)
-                }
-            }
+            append("\n機能を利用するには、設定画面から権限を許可してください。")
         }
 
-    /**
-     * 汎用的なパーミッションチェック・リクエスト関数。
-     * @param needs_something_id 機能を要求するメッセージの文字列ID。
-     * @param requiredPermissions チェックするパーミッションの配列。
-     * @param onGranted パーミッションが全て許可されたときに実行する処理 (ラムダ式)。
-     * @param onDenied パーミッションが拒否されたときに実行する処理 (ラムダ式)。
-     */
-    fun checkAndRequestPermissions(
-        needs_something_id: Int,
-        requiredPermissions: Array<String>,
-        onGranted: () -> Unit,
-        onDenied: () -> Unit,
-    ) {
-        val permissionsNeeded = requiredPermissions.filter {
-            // 'this' は Activity または Fragment
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }.toTypedArray()
-
-        if (permissionsNeeded.isEmpty()) {
-            // すでに全て許可されている場合は、即座に実行
-            onGranted()
-            return
-        }
-
-        // 許可されたときに実行するラムダをリストに追加
-        actionsOnPermissionsGranted.add(onGranted)
-        actionsOnPermissionsDenied.add(onDenied)
-
-        // Rationaleを表示する必要があるか確認
-        val shouldShowRationale = permissionsNeeded.any {
-            ActivityCompat.shouldShowRequestPermissionRationale(this, it)
-        }
-
-        if (shouldShowRationale) {
-            // Rationaleが必要な場合は、説明ダイアログを表示
-            showPermissionRationaleDialog(
-                needs_something_id,
-                permissionsNeeded,
-                requestMultiplePermissionsLauncher)
-        } else {
-            // Rationaleが不要な場合は、即座にリクエストを実行
-            // 許可されていないものだけをリクエスト
-            permissionRequestInProgress = true
-            requestMultiplePermissionsLauncher.launch(permissionsNeeded)
-        }
-    }
-
-    /**
-     * パーミッションが必要な理由を説明するダイアログを表示する
-     * @param needs_something_id 機能を要求するメッセージの文字列ID。
-     * @param permissionsToRequest 再度リクエストするパーミッションの配列
-     * @param launcher 複数のパーミッションをリクエストするActivity Result Launcher。
-     */
-    fun showPermissionRationaleDialog(
-        needs_something_id: Int,
-        permissionsToRequest: Array<String>,
-        launcher: ActivityResultLauncher<Array<String>>
-    ) {
-        val title = getLocString(R.string.app_name)
-        val message = getLocString(needs_something_id)
-        MaterialAlertDialogBuilder(this, R.style.AlertDialogTheme)
-            .setTitle(title)
+        AlertDialog.Builder(this)
+            .setTitle("権限が必要です")
             .setMessage(message)
-            .setPositiveButton(getLocString(R.string.ok)) { dialog, which ->
-                permissionRequestInProgress = true
-                launcher.launch(permissionsToRequest)
-            }.setCancelable(false)
+            .setPositiveButton("設定を開く") { _, _ ->
+                // 設定画面へ誘導
+                permissionManager.openAppSettings()
+            }
+            .setNegativeButton("キャンセル") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(false) // 重要な案内なので枠外タップで閉じないようにする
             .show()
     }
 
-    // TODO: パーミッションが必要な機能に関して、checkAndRequestPermissionsを呼び出す関数をここで追加・削除する。
-    //       必要なければ削除してもよい。
-
-    // カメラが必要な処理を行う。カメラのパーミッションがなければ事前に要求する。
-    fun triggerCameraFeature(onGranted: (() -> Unit)?, onDenied: (() -> Unit)?) {
-        checkAndRequestPermissions(
-            R.string.needs_camera,
-            arrayOf(Manifest.permission.CAMERA),
-            onGranted ?: {},
-            onDenied ?: {}
-        )
-    }
-
-    // マイクが必要な処理を行う。マイクのパーミッションがなければ事前に要求する。
-    fun triggerAudioFeature(onGranted: (() -> Unit)?, onDenied: (() -> Unit)?) {
-        checkAndRequestPermissions(
-            R.string.needs_microphone,
-            arrayOf(Manifest.permission.RECORD_AUDIO),
-            onGranted ?: {},
-            onDenied ?: {}
-        )
-    }
-
-    // ストレージが必要な処理を行う。ストレージのパーミッションがなければ事前に要求する。
-    fun triggerStorageFeature(onGranted: (() -> Unit)?, onDenied: (() -> Unit)?) {
-        // WRITE_EXTERNAL_STORAGE は Android 10 (API 29) 以降では不要
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            checkAndRequestPermissions(
-                R.string.needs_storage,
-                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                onGranted ?: {},
-                onDenied ?: {}
-            )
-        } else {
-            // Android 10+ では権限不要なので即座に成功コールバックを実行
-            onGranted?.invoke()
+    // 権限文字列から権限の名前を取得
+    private fun getPermissionName(permission: String): String {
+        return when {
+            permission.contains("CAMERA") -> "カメラ"
+            permission.contains("AUDIO") || permission.contains("RECORD") -> "マイク"
+            permission.contains("STORAGE") || permission.contains("MEDIA") -> "ストレージ"
+            else -> permission
         }
     }
 
-    /**
-     * WebView の PermissionRequest を処理する。
-     * Android のランタイム権限を確保してから WebView の権限を grant/deny する。
-     * @param request WebView の PermissionRequest
-     */
-    fun handlePermissionRequest(request: PermissionRequest) {
-        val androidPermissions = mutableSetOf<String>()
-        var needsCamera = false
-        var needsAudio = false
-
-        for (resource in request.resources) {
-            when (resource) {
-                PermissionRequest.RESOURCE_VIDEO_CAPTURE -> {
-                    androidPermissions.add(Manifest.permission.CAMERA)
-                    needsCamera = true
-                }
-                PermissionRequest.RESOURCE_AUDIO_CAPTURE -> {
-                    androidPermissions.add(Manifest.permission.RECORD_AUDIO)
-                    needsAudio = true
-                }
-            }
-        }
-
-        // 必要なパーミッションがない場合は何もしない
-        if (androidPermissions.isEmpty()) {
-            // Safety: wrap deny in try/catch to avoid crashing if already handled
-            try {
-                request.deny()
-            } catch (e: IllegalStateException) {
-                Timber.w(e, "PermissionRequest already handled (initial deny).")
-            }
-            return
-        }
-
-        // パーミッションリクエストが進行中の場合は、キューに追加して後で処理
-        if (permissionRequestInProgress) {
-            Timber.i("Permission request in progress, queuing WebView PermissionRequest")
-            pendingWebPermissionRequests.add(request)
-            return
-        }
-
-        // メッセージ ID を決定（カメラとマイク両方が必要な場合は camera を優先）
-        val messageId = when {
-            needsCamera -> R.string.needs_camera
-            needsAudio -> R.string.needs_microphone
-            else -> R.string.needs_camera
-        }
-
-        // checkAndRequestPermissions を使って必要なランタイム権限をリクエスト
-        checkAndRequestPermissions(
-            messageId,
-            androidPermissions.toTypedArray(),
-            onGranted = {
-                // 権限が許可された場合、WebView の PermissionRequest を grant
-                runOnUiThread {
-                    try {
-                        request.grant(request.resources)
-                    } catch (e: IllegalStateException) {
-                        // grant/deny may already have been called by another code path; avoid crashing.
-                        Timber.w(e, "PermissionRequest already handled (grant).")
-                    }
-                }
-            },
-            onDenied = {
-                // 一部の権限が拒否された場合でも、許可された権限のリソースは付与する
-                runOnUiThread {
-                    val grantedResources = mutableListOf<String>()
-
-                    for (resource in request.resources) {
-                        val permission = when (resource) {
-                            PermissionRequest.RESOURCE_VIDEO_CAPTURE -> Manifest.permission.CAMERA
-                            PermissionRequest.RESOURCE_AUDIO_CAPTURE -> Manifest.permission.RECORD_AUDIO
-                            else -> null
-                        }
-
-                        if (permission != null) {
-                            val isGranted = ContextCompat.checkSelfPermission(
-                                this@MainActivity,
-                                permission
-                            ) == PackageManager.PERMISSION_GRANTED
-
-                            if (isGranted) {
-                                grantedResources.add(resource)
-                            }
-                        }
-                    }
-
-                    // 付与された権限があれば、その分だけ WebView アクセスを許可
-                    if (grantedResources.isNotEmpty()) {
-                        try {
-                            request.grant(grantedResources.toTypedArray())
-                        } catch (e: IllegalStateException) {
-                            Timber.w(e, "PermissionRequest already handled (partial grant).")
-                        }
-                    } else {
-                        try {
-                            request.deny()
-                        } catch (e: IllegalStateException) {
-                            Timber.w(e, "PermissionRequest already handled (deny).")
-                        }
-                    }
-                }
-            }
-        )
-    }
-
-    /**
-     * アプリ起動時に必要な権限を一括で要求する
-     */
+    // 権限を一括リクエストする場合（オプション）
     private fun requestInitialPermissions() {
-        val permissions = mutableListOf<String>()
-
-        // カメラ権限（必須）
-        if (USE_CAMERA && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-            != PackageManager.PERMISSION_GRANTED) {
-            permissions.add(Manifest.permission.CAMERA)
-        }
-
-        // 録音権限（オプション）
-        if (USE_AUDIO && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED) {
-            permissions.add(Manifest.permission.RECORD_AUDIO)
-        }
-
-        // ストレージ権限（Android 9以前のみ）
-        if (USE_STORAGE && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-                permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            }
-        }
-
-        // 権限が必要な場合のみ要求
-        if (permissions.isNotEmpty()) {
-            checkAndRequestPermissions(
-                R.string.needs_camera_and_storage,
-                permissions.toTypedArray(),
-                onGranted = {
-                    Timber.i("Initial permissions granted")
-                },
-                onDenied = {
-                    Timber.w("Some initial permissions denied")
-                    // 録音権限が拒否されても続行可能
+        AlertDialog.Builder(this)
+            .setTitle("権限の許可")
+            .setMessage("カメラ、マイク、ストレージへのアクセスを許可してください。")
+            .setPositiveButton("許可") { _, _ ->
+                permissionManager.requestAllPermissions() { results ->
+                    val denied = results.filter { !it.value }
+                    if (denied.isNotEmpty()) {
+                        showPermissionDeniedDialog(denied.keys.toList())
+                    }
                 }
-            )
-        }
+            }
+            .setNegativeButton("後で") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
     }
 
     // endregion
@@ -517,14 +274,13 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         setContentView(R.layout.activity_main)
 
         // アクションバーを隠す。
-        // Theme.MaterialComponents.DayNight.NoActionBarで指定できるので省略。
-        //supportActionBar?.hide()
+        supportActionBar?.hide()
+
+        // 権限管理を作成
+        permissionManager = PermissionManager(this)
 
         // WebViewを初期化。
         initWebView(savedInstanceState)
-
-        // アプリ起動時に必要な権限を一括で要求
-        requestInitialPermissions()
 
         // 音声合成を使うか？
         if (USE_TEXTTOSPEECH) {
@@ -670,9 +426,11 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
 
     // ウェブビュー オブジェクト。
     private var webView: WebView? = null
+    private lateinit var permissionManager: PermissionManager
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
     // クロームクライアント。
-    private var chromeClient: MyWebChromeClient? = null
+    private var chromeClient: CustomWebChromeClient? = null
 
     // ウェブビューを初期化する。
     private fun initWebView(savedInstanceState: Bundle?) {
@@ -742,7 +500,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     // クロームクライアントを初期化する。
     private fun initChromeClient(currentWebView: WebView) {
         // まず、クロームクライアントを作成する。
-        chromeClient = MyWebChromeClient(this, object : MyWebChromeClient.Listener {
+        chromeClient = CustomWebChromeClient(this, object : CustomWebChromeClient.Listener {
             override fun onSpeech(text: String, volume: Float): Boolean {
                 Timber.i("onSpeech")
                 theSpeechText = text // スピーチテキストをセットする。
@@ -787,7 +545,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             override fun onEndShutterSound() {
                 endShutterSound()
             }
-        })
+        }, permissionManager, ::handleFileChooser)
         currentWebView.webChromeClient = chromeClient
 
         // JavaScript側からメソッドを呼び出せるインターフェイスを提供する。
@@ -832,6 +590,25 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             // MediaRecorderはGPUを使うので、ハードウェア アクセラレーションを有効にします
             currentWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         }
+    }
+
+    // ファイル選択用のランチャー
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val data = result.data
+            val results = data?.data?.let { arrayOf(it) }
+                ?: data?.clipData?.let { clipData ->
+                    Array(clipData.itemCount) { i ->
+                        clipData.getItemAt(i).uri
+                    }
+                }
+            filePathCallback?.onReceiveValue(results)
+        } else {
+            filePathCallback?.onReceiveValue(null)
+        }
+        filePathCallback = null
     }
 
     // バージョン名を取得する。
@@ -1073,4 +850,17 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     }
 
     // endregion
+
+    private fun handleFileChooser(callback: ValueCallback<Array<Uri>>?, acceptType: String?) {
+        filePathCallback = callback
+
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            type = acceptType ?: "*/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        }
+
+        val chooserIntent = Intent.createChooser(intent, "ファイルを選択")
+        fileChooserLauncher.launch(chooserIntent)
+    }
 }
