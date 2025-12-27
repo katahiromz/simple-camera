@@ -120,7 +120,7 @@ export const clamp = (minValue: number, value: number, maxValue: number) => {
 };
 
 // ファイルを保存する
-export const saveMedia = (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => {
+export const saveMedia = (blob: Blob, fileName: string, mimeType: string, type: 'video' | 'photo' | 'audio') => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.download = fileName;
@@ -130,9 +130,9 @@ export const saveMedia = (blob: Blob, fileName: string, mimeType: string, isVide
 };
 
 // ファイルを保存する(拡張版)
-export const saveMediaEx = (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => {
+export const saveMediaEx = (blob: Blob, fileName: string, mimeType: string, type: 'video' | 'photo' | 'audio') => {
   if (!isAndroidApp)
-    return saveMedia(blob, fileName, mimeType, isVideo);
+    return saveMedia(blob, fileName, mimeType, type);
   const reader = new FileReader();
   reader.onloadend = () => {
     console.log("reader.onloadend");
@@ -140,11 +140,8 @@ export const saveMediaEx = (blob: Blob, fileName: string, mimeType: string, isVi
     const base64data = result.substr(result.indexOf('base64,') + 7);
     // Kotlin側の関数を呼び出す
     try {
-      window.android.saveMediaToGallery(base64data, fileName, mimeType, isVideo);
-      if (isVideo)
-        console.log('Saved video:', fileName);
-      else
-        console.log('Saved image:', fileName);
+      window.android.saveMediaToGallery(base64data, fileName, mimeType, type);
+      console.log(`Saved ${type}:`, fileName);
     } catch (error) {
       console.assert(false);
       console.error('android インタフェース呼び出しエラー:', error);

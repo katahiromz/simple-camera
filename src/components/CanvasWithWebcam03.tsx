@@ -70,7 +70,7 @@ interface CanvasWithWebcam03Props {
   photoFormat?: "image/png" | "image/webp" | "image/jpeg";
   photoQuality?: number;
   recordingFormat?: "video/webm" | "video/mp4";
-  downloadFile?: (blob: Blob, fileName: string, mimeType: string, isVideo: boolean) => void;
+  downloadFile?: (blob: Blob, fileName: string, mimeType: string, type: string) => void;
   eventTarget?: HTMLElement;
   showControls?: boolean;
   showRecordingTime?: boolean;
@@ -592,9 +592,9 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       const fileName = generateFileName(t('camera_text_photo') + '_', extension);
       canvas.toBlob((blob) => {
         if (downloadFile)
-          downloadFile(blob, fileName, blob.type, false);
+          downloadFile(blob, fileName, blob.type, 'photo');
         else
-          saveFile(blob, fileName, blob.type, false);
+          saveFile(blob, fileName, blob.type, 'photo');
         console.log("Photo taken");
       }, photoFormat, photoQuality);
     } catch (err) {
@@ -659,9 +659,9 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       const extension = videoFormatToExtension(recordingFormat);
       const fileName = generateFileName(t('camera_text_video') + '_', extension);
       if (downloadFile)
-        downloadFile(blob, fileName, blob.type, true);
+        downloadFile(blob, fileName, blob.type, 'video');
       else
-        saveFile(blob, fileName, blob.type, true);
+        saveFile(blob, fileName, blob.type, 'video');
     };
 
     mediaRecorder.start();

@@ -235,7 +235,7 @@ class CustomWebChromeClient(
         base64Data: String,
         filename: String,
         mimeType: String,
-        isVideo: Boolean): Boolean
+        type: String): Boolean
     {
         val currentActivity = activity ?: return false
 
@@ -252,7 +252,7 @@ class CustomWebChromeClient(
                         val isAllGranted = results.values.all { it }
                         if (isAllGranted) {
                             // 権限取得後、再度保存を試行
-                            saveMediaToGallery(base64Data, filename, mimeType, isVideo)
+                            saveMediaToGallery(base64Data, filename, mimeType, type)
                         } else {
                             Timber.w("Storage permission denied by user")
                             Toast.makeText(
@@ -283,44 +283,73 @@ class CustomWebChromeClient(
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             // Android 10以降: MediaStore APIを使用
             val contentValues = android.content.ContentValues().apply {
-                if (isVideo) {
-                    put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, filename)
-                    put(android.provider.MediaStore.Video.Media.MIME_TYPE, mimeType)
-                    put(android.provider.MediaStore.Video.Media.RELATIVE_PATH,
-                        android.os.Environment.DIRECTORY_MOVIES + "/SimpleCamera")
-                } else {
-                    put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, filename)
-                    put(android.provider.MediaStore.Images.Media.MIME_TYPE, mimeType)
-                    put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,
-                        android.os.Environment.DIRECTORY_PICTURES + "/SimpleCamera")
+                when (type) {
+                    "video" -> {
+                        put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, filename)
+                        put(android.provider.MediaStore.Video.Media.MIME_TYPE, mimeType)
+                        put(android.provider.MediaStore.Video.Media.RELATIVE_PATH,
+                            android.os.Environment.DIRECTORY_MOVIES + "/SimpleCamera")
+                    }
+                    "photo" -> {
+                        put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, filename)
+                        put(android.provider.MediaStore.Images.Media.MIME_TYPE, mimeType)
+                        put(android.provider.MediaStore.Images.Media.RELATIVE_PATH,
+                            android.os.Environment.DIRECTORY_PICTURES + "/SimpleCamera")
+                    }
+                    "audio" -> {
+                        put(android.provider.MediaStore.Audio.Media.DISPLAY_NAME, filename)
+                        put(android.provider.MediaStore.Audio.Media.MIME_TYPE, mimeType)
+                        put(android.provider.MediaStore.Audio.Media.RELATIVE_PATH,
+                            android.os.Environment.DIRECTORY_PICTURES + "/SimpleCamera")
+                    }
+                    else -> assert(false)
                 }
             }
 
-            val uri = currentActivity.contentResolver.insert(
-                 if (isVideo) {
-                    android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-                } else {
-                    android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-                },
-                contentValues)
+            val url = if (type == "video") {
+                android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            } else if (type == "photo") {
+                android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            } else if (type == "audio") {
+                android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            } else {
+                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            }
+            val uri = currentActivity.contentResolver.insert(url, contentValues)
 
             currentActivity.contentResolver.openOutputStream(uri!!)?.use { outputStream ->
                 outputStream.write(mediaBytes)
             }
 
             // Snackbarを表示
-            if (isVideo)
-                showFileOpenSnackbar(currentActivity, uri!!, R.string.video_saved, "video/*")
-            else
-                showFileOpenSnackbar(currentActivity, uri!!, R.string.image_saved, "image/*")
+            when (type) {
+                "video" -> {
+                    showFileOpenSnackbar(currentActivity, uri!!, R.string.video_saved, "video/*")
+                }
+                "photo" -> {
+                    showFileOpenSnackbar(currentActivity, uri!!, R.string.image_saved, "image/*")
+                }
+                "audio" -> {
+                    showFileOpenSnackbar(currentActivity, uri!!, R.string.audio_saved, "audio/*")
+                }
+                else -> {
+                    assert(false)
+                }
+            }
 
             return true
         } else {
             // Android 9以前: 従来の方法
-            val mediaDir = android.os.Environment.getExternalStoragePublicDirectory(
-                if (isVideo) { android.os.Environment.DIRECTORY_MOVIES }
-                else { android.os.Environment.DIRECTORY_PICTURES }
-            )
+            val dirType = if (type == "video") {
+                android.os.Environment.DIRECTORY_MOVIES
+            } else if (type == "photo") {
+                android.os.Environment.DIRECTORY_PICTURES
+            } else if (type == "audio") {
+                android.os.Environment.DIRECTORY_RINGTONES
+            } else {
+                android.os.Environment.DIRECTORY_DOCUMENTS
+            }
+            val mediaDir = android.os.Environment.getExternalStoragePublicDirectory(dirType)
             val appDir = java.io.File(mediaDir, "SimpleCamera")
             if (!appDir.exists()) {
                 appDir.mkdirs()
@@ -341,10 +370,12 @@ class CustomWebChromeClient(
 
             // Snackbarを表示
             val uri = android.net.Uri.fromFile(file)
-            if (isVideo)
-                showFileOpenSnackbar(currentActivity, uri, R.string.video_saved, "video/*")
-            else
-                showFileOpenSnackbar(currentActivity, uri, R.string.image_saved, "image/*")
+            when (type) {
+                "video" -> showFileOpenSnackbar(currentActivity, uri, R.string.video_saved, "video/*")
+                "photo" -> showFileOpenSnackbar(currentActivity, uri, R.string.image_saved, "image/*")
+                "audio" -> showFileOpenSnackbar(currentActivity, uri, R.string.audio_saved, "audio/*")
+                else -> assert(false)
+            }
 
             return true
         }
