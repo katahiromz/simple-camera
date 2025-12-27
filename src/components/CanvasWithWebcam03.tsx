@@ -28,6 +28,7 @@ const SHOW_RECORDING = true; // 録画開始・録画停止ボタンを表示す
 const SHOW_CONFIG = true; // 設定ボタンを表示するか？
 const SHOW_CURRENT_TIME = true; // 現在の日時を表示するか？
 const SHOW_SHAPES = false; // 図形を描画するか？
+const SHOW_ZOOM_INFO = true; // ズーム倍率を描画するか？
 const USE_MIDDLE_BUTTON_FOR_PANNING = true; // パン操作にマウスの中央ボタンを使用するか？
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
 const MAX_ZOOM = 4.0; // ズーム倍率の最大値
@@ -277,7 +278,43 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const [isMirrored, setIsMirrored] = useState(autoMirror ? (facingMode === 'user') : mirrored);
   const isMirroredRef = useRef<boolean>(isMirrored); // 鏡像反転の監視用
   const zoomTimerRef = useRef<NodeJS.Timeout | null>(null); // ズームタイマー参照
+  const zoomTimerRef2 = useRef<NodeJS.Timeout | null>(null); // ズームタイマー参照
   const recordingTimerRef = useRef<NodeJS.Timeout | null>([]); // 録画タイマー
+  const [showZoomInfo, setShowZoomInfo] = useState(false); // ズーム倍率を表示するか？
+  const lastTapTimerRef = useRef<number>(0); // 最後のタップ時刻
+
+  // ズーム操作時にズーム倍率を表示させる関数
+  const triggerZoomInfo = useCallback(() => {
+    setShowZoomInfo(true);
+    if (zoomTimerRef2.current) clearTimeout(zoomTimerRef2.current);
+    zoomTimerRef2.current = setTimeout(() => {
+      setShowZoomInfo(false);
+    }, 1500); // 1.5秒後に消去
+  }, []);
+
+  // ダブルタップ・リセット関数の作成
+  const handleDoubleTap = useCallback(() => {
+    console.log('handleDoubleTap');
+    setZoomValue(1.0);
+    setOffset({ x: 0, y: 0 });
+    triggerZoomInfo();
+  }, []);
+
+  // ダブルタップを検出する
+  const handleTouchStartForDoubleTap = useCallback((e: React.TouchEvent) => {
+    console.log('handleTouchStartForDoubleTap');
+    e.preventDefault();
+
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300; // 300ミリ秒以内ならダブルタップ
+
+    if (now - lastTapTimerRef.current < DOUBLE_TAP_DELAY) {
+      console.log('fire!');
+      // ダブルタップ時の処理
+      handleDoubleTap();
+    }
+    lastTapTimerRef.current = now;
+  }, [handleDoubleTap]);
 
   // 鏡像反転の監視
   useEffect(() => {
@@ -306,9 +343,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             console.log('clearInterval');
             clearInterval(zoomTimerRef.current);
             zoomTimerRef.current = null;
+            clearTimeout(zoomTimerRef2.current);
+            zoomTimerRef2.current = null;
+            setShowZoomInfo(false);
           }
           return clamped; // 完全に境界値に固定
         }
+
+        triggerZoomInfo();
 
         // 境界値に向かって滑らかに戻す（線形補間など）
         return prev + (clamped - prev) * 0.2;
@@ -670,6 +712,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     // パンとズームをリセット（カメラが変わると画角が変わるため）
     setZoomValue(1.0);
     setOffset({ x: 0, y: 0 });
+    triggerZoomInfo();
 
     setFacingMode(prev => {
       // autoMirrorが有効な場合、切り替え後に onUserMediaBridge が走って
@@ -704,6 +747,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             return { x: 0, y: 0 };
           return clampPan(prevOffset.x, prevOffset.y, newZoom);
         });
+
+        if (newZoom != prev)
+          triggerZoomInfo();
+
         return newZoom;
       });
     } else if (event.shiftKey) { // Shift+ホイールで横スクロール
@@ -786,8 +833,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
       // --- 状態の更新 ---
 
-      if (ENABLE_USER_ZOOMING)
+      if (ENABLE_USER_ZOOMING) {
         setZoomValue(newZoom);
+        triggerZoomInfo();
+      }
 
       if (ENABLE_USER_PANNING) {
         setOffset(prev => {
@@ -889,6 +938,9 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     canvas.addEventListener('touchmove', handleMouseMove, { passive: false });
     canvas.addEventListener('touchend', handleMouseUp);
 
+    canvas.addEventListener('dblclick', handleDoubleTap, { passive: false });
+    canvas.addEventListener('touchstart', handleTouchStartForDoubleTap, { passive: false });
+
     return () => {
       target.removeEventListener('wheel', handleMouseWheel);
       canvas.removeEventListener('mousedown', handleMouseDown);
@@ -897,35 +949,40 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       canvas.removeEventListener('touchstart', handleMouseDown);
       canvas.removeEventListener('touchmove', handleMouseMove);
       canvas.removeEventListener('touchend', handleMouseUp);
+      canvas.removeEventListener('dblclick', handleDoubleTap);
+      canvas.removeEventListener('touchstart', handleTouchStartForDoubleTap);
     };
   }, [handleMouseMove, eventTarget]);
 
   // ズーム倍率の取得
   const getZoomRatio = () => {
-    return zoomValue;
+    return zoomRef.current;
   };
   // ズーム倍率の設定
   const setZoomRatio = (ratio: number) => {
     const newRatio = clamp(MIN_ZOOM, ratio, MAX_ZOOM);
     setZoomValue(newRatio);
+    triggerZoomInfo();
   };
 
   // ズームイン
   const zoomIn = useCallback(() => {
     if (!ENABLE_USER_ZOOMING)
       return;
-    const nextZoom = clampZoom(zoomValue + ZOOM_DELTA);
+    const nextZoom = clampZoom(zoomRef.current + ZOOM_DELTA);
     setZoomValue(nextZoom);
-  }, [zoomValue, clampZoom]);
+    triggerZoomInfo();
+  }, [clampZoom]);
 
   // ズームアウト
   const zoomOut = useCallback(() => {
     if (!ENABLE_USER_ZOOMING)
       return;
-    const nextZoom = clampZoom(zoomValue - ZOOM_DELTA);
+    const nextZoom = clampZoom(zoomRef.current - ZOOM_DELTA);
     setOffset(prev => clampPan(prev.x, prev.y, nextZoom));
     setZoomValue(nextZoom);
-  }, [zoomValue, clampZoom, clampPan]);
+    triggerZoomInfo();
+  }, [clampZoom, clampPan]);
 
   // 録画中かを返す
   const isRecording = useCallback(() => {
@@ -1036,6 +1093,13 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       }}
       aria-label={t('camera_container')}
     >
+      {/* ズームインジケーターの追加 */}
+      {SHOW_ZOOM_INFO && showZoomInfo && (
+        <div className="webcam03-zoom-indicator">
+          {zoomValue.toFixed(1)}x
+        </div>
+      )}
+
       {/* キャンバス */}
       <canvas
         ref={canvasRef}

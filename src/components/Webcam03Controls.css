@@ -70,7 +70,7 @@
 .webcam03-button-start-recording { background-color: rgba(255, 92, 92); }
 .webcam03-button-stop-recording {
   background-color: rgba(255, 64, 64);
-  animation: pulse 1s infinite;
+  animation: webcam03-button-recording-pulse 1s infinite;
 }
 .webcam03-button-config {
   position: absolute;
@@ -79,8 +79,24 @@
   background-color: rgba(128, 128, 128);
 }
 
-@keyframes pulse {
+@keyframes webcam03-button-recording-pulse {
   0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
   70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
   100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+}
+
+.webcam03-zoom-indicator {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.4);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-family: sans-serif;
+  font-size: 1.2rem;
+  font-weight: bold;
+  pointer-events: none; /* 操作を邪魔しない */
+  z-index: 100; /* コントロールより手前に表示 */
 }
