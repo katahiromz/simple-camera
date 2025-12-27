@@ -583,6 +583,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         if (hasVibratorInitialized && oldVibratorLength > 0)
             startVibrator(-1)
 
+        // WebViewを再開
+        webView?.onResume()
+
         // カメラを再開
         if (webViewReady) {
             webView?.evaluateJavascript("postMessage('onAppResume');") { }
@@ -593,6 +596,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     override fun onPause() {
         Timber.i("onPause")
         super.onPause() // 親にも伝える。
+
+        // WebViewを一時停止
+        webView?.onPause()
 
         if (USE_TEXTTOSPEECH) {
             // スピーチを停止する。
