@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.appcompat.app.AlertDialog
 
 // 権限管理
 class PermissionManager(private val activity: AppCompatActivity) {
@@ -91,5 +92,39 @@ class PermissionManager(private val activity: AppCompatActivity) {
             data = Uri.fromParts("package", activity.packageName, null)
         }
         activity.startActivity(intent)
+    }
+
+    // 「権限が拒否された」ダイアログを表示し、設定画面に誘導する
+    fun showPermissionDeniedDialog(deniedPermissions: List<String>) {
+        val message = buildString {
+            append("以下の権限が拒否されました:\n\n")
+            deniedPermissions.forEach { permission ->
+                append("• ${getPermissionName(permission)}\n")
+            }
+            append("\n機能を利用するには、設定画面から権限を許可してください。")
+        }
+
+        AlertDialog.Builder(activity)
+            .setTitle("権限が必要です")
+            .setMessage(message)
+            .setPositiveButton("設定を開く") { _, _ ->
+                // 設定画面へ誘導
+                openAppSettings()
+            }
+            .setNegativeButton("キャンセル") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(false) // 重要な案内なので枠外タップで閉じないようにする
+            .show()
+    }
+
+    // 権限文字列から権限の名前を取得
+    fun getPermissionName(permission: String): String {
+        return when {
+            permission.contains("CAMERA") -> "カメラ"
+            permission.contains("AUDIO") || permission.contains("RECORD") -> "マイク"
+            permission.contains("STORAGE") || permission.contains("MEDIA") -> "ストレージ"
+            else -> permission
+        }
     }
 }

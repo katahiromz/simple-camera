@@ -123,7 +123,7 @@ class CustomWebChromeClient(
                     // 必要に応じて MainActivity の showPermissionDeniedDialog を呼ぶ
                     // (activity は MainActivity のインスタンスと想定)
                     val deniedList = results.filter { !it.value }.keys.toList()
-                    (activity as? MainActivity)?.showPermissionDeniedDialog(deniedList)
+                    permissionManager.showPermissionDeniedDialog(deniedList)
                 }
             }
         } else {

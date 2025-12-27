@@ -195,45 +195,6 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     // endregion
 
     /////////////////////////////////////////////////////////////////////
-    // region パーミッション関連
-
-    // 「権限が拒否された」ダイアログを表示し、設定画面に誘導する
-    fun showPermissionDeniedDialog(deniedPermissions: List<String>) {
-        val message = buildString {
-            append("以下の権限が拒否されました:\n\n")
-            deniedPermissions.forEach { permission ->
-                append("• ${getPermissionName(permission)}\n")
-            }
-            append("\n機能を利用するには、設定画面から権限を許可してください。")
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle("権限が必要です")
-            .setMessage(message)
-            .setPositiveButton("設定を開く") { _, _ ->
-                // 設定画面へ誘導
-                permissionManager.openAppSettings()
-            }
-            .setNegativeButton("キャンセル") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .setCancelable(false) // 重要な案内なので枠外タップで閉じないようにする
-            .show()
-    }
-
-    // 権限文字列から権限の名前を取得
-    private fun getPermissionName(permission: String): String {
-        return when {
-            permission.contains("CAMERA") -> "カメラ"
-            permission.contains("AUDIO") || permission.contains("RECORD") -> "マイク"
-            permission.contains("STORAGE") || permission.contains("MEDIA") -> "ストレージ"
-            else -> permission
-        }
-    }
-
-    // endregion
-
-    /////////////////////////////////////////////////////////////////////
     // region イベントハンドラ関連
 
     private var webViewReady = false
