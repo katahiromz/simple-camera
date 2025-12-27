@@ -71,22 +71,31 @@ class CustomWebChromeClient(
         if (needsCamera) androidPermissions.add(Manifest.permission.CAMERA)
         if (needsAudio) androidPermissions.add(Manifest.permission.RECORD_AUDIO)
 
+        // 権限が不要なリソースリクエストなら即座に拒否して終了
         if (androidPermissions.isEmpty()) {
-            request.deny()
+            activity?.runOnUiThread {
+                request.deny()
+            }
             return
         }
 
         // 権限チェックとリクエスト
         if (permissionManager.hasPermissions(androidPermissions.toTypedArray())) {
             // すでに権限がある場合は許可
-            request.grant(resources)
+            activity?.runOnUiThread { request.grant(request.resources) }
         } else {
             // 権限をリクエスト
             permissionManager.requestPermissions(androidPermissions.toTypedArray()) { results ->
-                if (results.values.all { it }) {
-                    request.grant(resources)
-                } else {
-                    request.deny()
+                activity?.runOnUiThread {
+                    try {
+                        if (results.values.all { it }) {
+                            request.grant(resources)
+                        } else {
+                            request.deny()
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error granting/denying permission request")
+                    }
                 }
             }
         }
@@ -103,11 +112,18 @@ class CustomWebChromeClient(
         // ストレージ権限をチェック
         if (!permissionManager.hasPermissions(PermissionManager.STORAGE_PERMISSIONS)) {
             permissionManager.requestPermissions(PermissionManager.STORAGE_PERMISSIONS) { results ->
+                // results は Map<String, Boolean> なので、すべて true かチェック
                 val isAllGranted = results.values.all { it }
                 if (isAllGranted) {
                     onFileChooser(filePathCallback, acceptTypes)
                 } else {
+                    // 拒否された場合は null を返して FileChooser をキャンセルする
                     filePathCallback?.onReceiveValue(null)
+
+                    // 必要に応じて MainActivity の showPermissionDeniedDialog を呼ぶ
+                    // (activity は MainActivity のインスタンスと想定)
+                    val deniedList = results.filter { !it.value }.keys.toList()
+                    (activity as? MainActivity)?.showPermissionDeniedDialog(deniedList)
                 }
             }
         } else {
@@ -214,21 +230,6 @@ class CustomWebChromeClient(
         activity?.runOnUiThread {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
-    }
-
-    // カメラの権限が付与されているか確認する。
-    // 音声権限はオプションとして扱う。
-    @JavascriptInterface
-    fun hasMediaPermissions(): Boolean {
-        Timber.i("hasMediaPermissions")
-        val currentActivity = activity ?: return false
-        val hasCameraPermission = android.content.pm.PackageManager.PERMISSION_GRANTED ==
-            androidx.core.content.ContextCompat.checkSelfPermission(
-                currentActivity,
-                android.Manifest.permission.CAMERA
-            )
-        // カメラ権限のみを必須とする（音声権限はオプション）
-        return hasCameraPermission
     }
 
     // TopSnackbarを表示してファイルを開くアクションを提供するヘルパーメソッド

@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.content.res.Resources
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
@@ -50,6 +51,7 @@ import com.google.android.material.snackbar.Snackbar
 import java.util.Locale
 import timber.log.Timber
 import java.io.ByteArrayInputStream
+import java.security.Permission
 import kotlin.math.max
 
 // 複数の翻訳版を有効にするために、任意の翻訳版のコンテキストを作成できるようにする。
@@ -196,7 +198,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
     // region パーミッション関連
 
     // 「権限が拒否された」ダイアログを表示し、設定画面に誘導する
-    private fun showPermissionDeniedDialog(deniedPermissions: List<String>) {
+    fun showPermissionDeniedDialog(deniedPermissions: List<String>) {
         val message = buildString {
             append("以下の権限が拒否されました:\n\n")
             deniedPermissions.forEach { permission ->
@@ -227,25 +229,6 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             permission.contains("STORAGE") || permission.contains("MEDIA") -> "ストレージ"
             else -> permission
         }
-    }
-
-    // 権限を一括リクエストする場合（オプション）
-    private fun requestInitialPermissions() {
-        AlertDialog.Builder(this)
-            .setTitle("権限の許可")
-            .setMessage("カメラ、マイク、ストレージへのアクセスを許可してください。")
-            .setPositiveButton("許可") { _, _ ->
-                permissionManager.requestAllPermissions() { results ->
-                    val denied = results.filter { !it.value }
-                    if (denied.isNotEmpty()) {
-                        showPermissionDeniedDialog(denied.keys.toList())
-                    }
-                }
-            }
-            .setNegativeButton("後で") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .show()
     }
 
     // endregion
