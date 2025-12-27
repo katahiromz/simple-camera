@@ -69,7 +69,6 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
       {SHOW_TAKE_PHOTO && showTakePhoto && (
         <button
           onClick={takePhoto}
-          disabled={isRecording}
           className="webcam03-button webcam03-button-take-photo"
           title={t('camera_take_photo')}
           aria-label={t('camera_take_photo')}
