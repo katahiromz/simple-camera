@@ -7,7 +7,7 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  border: 3px solid white;
+  border: 3px solid black;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -65,18 +65,24 @@
   }
 }
 
-.webcam03-button-camera-switch { background-color: rgba(64, 255, 64); }
-.webcam03-button-take-photo { background-color: rgba(255, 255, 64); }
-.webcam03-button-start-recording { background-color: rgba(255, 92, 92); }
+.webcam03-button-camera-switch {
+  background-color: rgba(64, 255, 64, 60%);
+}
+.webcam03-button-take-photo {
+  background-color: rgba(255, 255, 64, 60%);
+}
+.webcam03-button-start-recording {
+  background-color: rgba(255, 92, 92, 60%);
+}
 .webcam03-button-stop-recording {
-  background-color: rgba(255, 64, 64);
+  background-color: rgba(255, 64, 64, 60%);
   animation: webcam03-button-recording-pulse 1s infinite;
 }
 .webcam03-button-config {
   position: absolute;
   top: 10px;
   right: 10px;
-  background-color: rgba(128, 128, 128);
+  background-color: rgba(128, 128, 128, 60%);
 }
 
 @keyframes webcam03-button-recording-pulse {
@@ -90,7 +96,6 @@
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
-  background-color: rgba(0, 0, 0, 0.4);
   color: white;
   padding: 8px 16px;
   border-radius: 20px;
@@ -99,4 +104,7 @@
   font-weight: bold;
   pointer-events: none; /* 操作を邪魔しない */
   z-index: 100; /* コントロールより手前に表示 */
+  background-color: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 1);
 }
