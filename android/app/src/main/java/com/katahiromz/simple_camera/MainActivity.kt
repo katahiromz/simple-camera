@@ -459,7 +459,7 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
             .addPathHandler("/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
 
-        webView?.webViewClient = MyWebViewClient(object : MyWebViewClient.Listener {
+        webView?.webViewClient = CustomWebViewClient(object : CustomWebViewClient.Listener {
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?,
                                          error: WebResourceError?) {
                 val description = error?.description?.toString()

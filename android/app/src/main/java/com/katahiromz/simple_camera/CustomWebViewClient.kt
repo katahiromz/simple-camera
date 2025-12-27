@@ -10,7 +10,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewAssetLoader
 
-class MyWebViewClient(
+class CustomWebViewClient(
     private val listener: Listener,
     private val assetLoader: WebViewAssetLoader
 ) : WebViewClient() {
@@ -33,7 +33,7 @@ class MyWebViewClient(
     ): WebResourceResponse? {
         val response = assetLoader.shouldInterceptRequest(request.url)
         if (response != null) {
-            android.util.Log.d("MyWebViewClient", "Intercepted: ${request.url}")
+            android.util.Log.d("CustomWebViewClient", "Intercepted: ${request.url}")
         }
         return response
     }
