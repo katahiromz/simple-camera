@@ -60,45 +60,7 @@ class CustomWebChromeClient(
 
     // Web側からの権限リクエストを処理
     override fun onPermissionRequest(request: PermissionRequest) {
-        val resources = request.resources
-
-        // リクエストされたリソースを分類
-        val needsCamera = resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-        val needsAudio = resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-
-        // 必要なAndroid権限を決定
-        val androidPermissions = mutableListOf<String>()
-        if (needsCamera) androidPermissions.add(Manifest.permission.CAMERA)
-        if (needsAudio) androidPermissions.add(Manifest.permission.RECORD_AUDIO)
-
-        // 権限が不要なリソースリクエストなら即座に拒否して終了
-        if (androidPermissions.isEmpty()) {
-            activity?.runOnUiThread {
-                request.deny()
-            }
-            return
-        }
-
-        // 権限チェックとリクエスト
-        if (permissionManager.hasPermissions(androidPermissions.toTypedArray())) {
-            // すでに権限がある場合は許可
-            activity?.runOnUiThread { request.grant(request.resources) }
-        } else {
-            // 権限をリクエスト
-            permissionManager.requestPermissions(androidPermissions.toTypedArray()) { results ->
-                activity?.runOnUiThread {
-                    try {
-                        if (results.values.all { it }) {
-                            request.grant(resources)
-                        } else {
-                            request.deny()
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error granting/denying permission request")
-                    }
-                }
-            }
-        }
+        permissionManager.onPermissionRequest(request)
     }
 
     // ファイル選択（Android 5.0以上）
