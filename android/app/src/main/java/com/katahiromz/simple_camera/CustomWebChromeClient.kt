@@ -391,33 +391,6 @@ class CustomWebChromeClient(
             "ja", "jp", "ja-JP" -> { // Japanese
                 locale = Locale.JAPANESE
             }
-            "zh-CN" -> { // Chinese (Simplified)
-                locale = Locale.SIMPLIFIED_CHINESE
-            }
-            "zh-TW" -> { // Chinese (Traditional)
-                locale = Locale.TRADITIONAL_CHINESE
-            }
-            "ko-KR" -> { // Korean
-                locale = Locale.KOREAN
-            }
-            "it", "it-IT" -> { // Italian
-                locale = Locale.ITALIAN
-            }
-            "de", "de-DE" -> { // German
-                locale = Locale.GERMAN
-            }
-            "es", "es-ES" -> { // Spanish
-                locale = Locale.Builder()
-                    .setLanguage("es")
-                    .setRegion("ES")
-                    .build()
-            }
-            "ru", "ru-RU" -> { // Russian
-                locale = Locale.Builder()
-                    .setLanguage("ru")
-                    .setRegion("RU")
-                    .build()
-            }
             else -> { // English is default
                 locale = Locale.ENGLISH
             }

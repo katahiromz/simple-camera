@@ -14,14 +14,19 @@ export const supportedLngs = {
   ja: '日本語',
   en: 'English'
 };
+const languageList = ['ja', 'en'];
 
 // HTMLの言語を変える
 const UserLang = () => {
-  return navigator.languages.filter((lang) => {
-    return !!supportedLngs[lang];
-  });
+  let language = navigator.language;
+  if (language.indexOf('-') != -1) language = language.split('-')[0]
+  for (let key of languageList) {
+    if (key == language)
+      return language;
+  }
+  return 'en';
 };
-document.getElementsByTagName('html')[0].lang = UserLang()[0] || 'en';
+document.getElementsByTagName('html')[0].lang = UserLang();
 
 i18n
   .use(HttpApi) // 翻訳ファイルを非同期に読み込むため
@@ -30,7 +35,15 @@ i18n
   .init({
     returnEmptyString: true, // 空文字での定義を許可に
     supportedLngs: Object.keys(supportedLngs),
-    debug: false,
+    debug: true,
+    load: 'languageOnly', // ja-JP ではなく ja をロードするように強制
+
+    // detection（言語検知）の設定を追加するとより確実です
+    detection: {
+      order: ['querystring', 'cookie', 'localStorage', 'navigator', 'htmlTag'],
+      caches: ['localStorage', 'cookie'],
+      convertDetectedLanguage: (lng) => lng.split('-')[0], // ここでもハイフン以下を無視する設定を入れる
+    },
 
     backend: {
       // 翻訳ファイルを読み込むパス
@@ -42,5 +55,13 @@ i18n
       escapeValue: false, // ReactではXSS対策が組み込まれているため不要
     },
   });
+
+i18n.on('languageChanged', (lng) => {
+  console.log('現在の言語:', lng);
+});
+
+i18n.on('failedLoading', (lng, ns, msg) => {
+  console.error('読み込み失敗:', lng, ns, msg);
+});
 
 export default i18n;
