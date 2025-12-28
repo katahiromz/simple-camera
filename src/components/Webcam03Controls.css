@@ -108,3 +108,16 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   text-shadow: 0 2px 4px rgba(0, 0, 0, 1);
 }
+
+/* QRコードボタンの基本スタイル（オフの時：青っぽいグレーなど） */
+.webcam03-button-code-reader {
+  background-color: rgba(173, 216, 230, 60%); /* ライトブルー */
+  transition: background-color 0.3s ease;
+}
+
+/* QRコードリーダーが有効（オン）の時のスタイル */
+.webcam03-button-code-reader.active {
+  background-color: rgba(0, 123, 255, 90%); /* 濃い青 */
+  border-color: white; /* 枠線を白にして強調 */
+  box-shadow: 0 0 15px rgba(0, 123, 255, 0.8); /* 光っているようなエフェクト */
+}

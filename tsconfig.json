@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    /* Required for CommonJS/ESM compatibility */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* Standard modern web settings */
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "strict": true,
+    "skipLibCheck": true
+  }
+}

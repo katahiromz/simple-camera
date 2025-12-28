@@ -7,6 +7,7 @@ import Webcam03Controls from './Webcam03Controls';
 import { PermissionManager, PermissionStatusValue } from '../libs/PermissionManager';
 import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset, saveMedia, getLocalDateTimeString } from '../libs/utils';
 import { fixWebmDuration } from '@fix-webm-duration/fix';
+import { CodeReader, QRResult } from '../libs/CodeReader';
 
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera, Settings } from 'lucide-react';
@@ -22,6 +23,7 @@ const ENABLE_CAMERA_SWITCH = true; // ユーザーによるカメラ切り替え
 const ENABLE_ZOOMING_REGISTANCE = true; // ズーム操作に抵抗の効果を導入するか？
 const ENABLE_PANNING_REGISTANCE = true; // パン操作に抵抗の効果を導入するか？
 const ENABLE_FIX_WEBM_DURATION = true; // fixWebmDurationを使って録画時間情報を修正するか？
+const SHOW_CODE_READER = true; // コードリーダーを表示するか？
 const SHOW_RECORDING_TIME = true; // 録画時間を表示するか？
 const SHOW_CONTROLS = true; // コントロール パネルを表示するか？
 const SHOW_ERROR = true; // エラーを表示するか？
@@ -80,6 +82,7 @@ interface CanvasWithWebcam03Props {
   showRecording?: boolean;
   showCameraSwitch?: boolean;
   showConfig?: boolean;
+  showCodeReader?: boolean;
   doConfig?: () => void;
   onImageProcess: (data: ImageProcessData) => void;
   dummyImageSrc?: string;
@@ -141,9 +144,12 @@ const clampZoomWithResistance = (ratio: number) => {
   return applyResistance(MIN_ZOOM, ratio, MAX_ZOOM, ZOOM_REGISTANCE * ratio);
 };
 
+let qrResults: QRResult[] = [];
+let lastScanTime = 0;
+
 // デフォルトの画像処理関数
-export const onDefaultImageProcess = (data: ImageProcessData) => {
-  const { ctx, x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset } = data;
+export const onDefaultImageProcess = async (data: ImageProcessData) => {
+  const { ctx, x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset, showCodeReader } = data;
 
   if (width <= 0 || height <= 0 || srcWidth <= 0 || srcHeight <= 0) return;
 
@@ -187,6 +193,19 @@ export const onDefaultImageProcess = (data: ImageProcessData) => {
   }
 
   ctx.restore(); // 座標変換を元に戻す
+
+  if (SHOW_CODE_READER && showCodeReader) {
+    const now = Date.now();
+    if (now - lastScanTime > 300) {
+      lastScanTime = now;
+      // 非同期で実行し、結果が得られたら qrResults を更新する
+      CodeReader.scanMultiple(canvas).then(results => {
+        qrResults = results;
+      });
+    }
+
+    CodeReader.drawAllBoxes(ctx, qrResults);
+  }
 
   if (SHOW_SHAPES && width > 2 && height > 2) { // ちょっと図形を描いてみるか？
     // 円を描画
@@ -241,6 +260,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     showRecording = true,
     showCameraSwitch = true,
     showConfig = true,
+    showCodeReader = true,
     doConfig = null,
     onImageProcess = onDefaultImageProcess,
     dummyImageSrc = null,
@@ -285,6 +305,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const recordingStartTimeRef = useRef<NodeJS.Timeout | null>([]); // 録画開始時の時刻
   const [showZoomInfo, setShowZoomInfo] = useState(false); // ズーム倍率を表示するか？
   const lastTapTimerRef = useRef<number>(0); // 最後のタップ時刻
+  const codeReaderRef = useRef(false);
+  const [isCodeReaderEnabled, setIsCodeReaderEnabled] = useState(false);
 
   // ズーム操作時にズーム倍率を表示させる関数
   const triggerZoomInfo = useCallback(() => {
@@ -548,6 +570,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             currentZoom: zoomRef.current,
             offset: offsetRef.current,
             isMirrored: isMirrored,
+            showCodeReader: showCodeReader && codeReaderRef.current,
+            enableCodeReader: codeReaderRef.current,
           });
         }
       }
@@ -1085,6 +1109,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     }
   }, []);
 
+  const toggleCodeReader = useCallback(() => {
+    setIsCodeReaderEnabled(prev => !prev);
+    codeReaderRef.current = !isCodeReaderEnabled;
+  }, [isCodeReaderEnabled]);
+
   useImperativeHandle(ref, () => ({
     canvas: canvasRef.current,
     controls: controlsRef.current,
@@ -1247,6 +1276,9 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
               showRecording={SHOW_RECORDING && showRecording}
               showCameraSwitch={ENABLE_CAMERA_SWITCH && showCameraSwitch}
               showConfig={SHOW_CONFIG && showConfig}
+              showCodeReader={SHOW_CODE_READER && showCodeReader}
+              toggleCodeReader={toggleCodeReader}
+              enableCodeReader={isCodeReaderEnabled}
               aria-label={t('camera_controls')}
             />
           )) : (() => (<></>))}

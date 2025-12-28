@@ -6,7 +6,7 @@ import React, { useRef, useState, useCallback } from 'react';
 import './Webcam03Controls.css';
 
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
-import { Camera, Video, Square, AlertCircle, SwitchCamera, Settings } from 'lucide-react';
+import { Camera, Video, Square, AlertCircle, SwitchCamera, Settings, QrCode  } from 'lucide-react';
 
 // 国際化(i18n)
 import '../libs/i18n.ts';
@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 const SHOW_TAKE_PHOTO = true; // 写真撮影ボタンを表示するか？
 const SHOW_RECORDING = true; // 録画開始・録画停止ボタンを表示するか？
 const SHOW_CAMERA_SWITCH = true; // カメラ切り替えボタンを表示するか？
+const SHOW_CODE_READER = true; // コードリーダーを表示するか？
 
 // Controls コンポーネント
 interface Camera03ControlsProps {
@@ -26,6 +27,8 @@ interface Camera03ControlsProps {
   showTakePhoto: boolean; // 写真撮影ボタンを表示するか？
   showRecording: boolean; // 録画開始・録画停止ボタンを表示するか？
   showCameraSwitch: boolean; // カメラ切り替えボタンを表示するか？
+  toggleCodeReader: () => void; // コードリーダーを切り替える
+  enableCodeReader: boolean; // コードリーダーを有効にするか？
 };
 
 // カメラCamera03のコントロール パネル (Camera03Controls) 本体
@@ -38,6 +41,9 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
   showTakePhoto,
   showRecording,
   showCameraSwitch,
+  toggleCodeReader,
+  showCodeReader,
+  enableCodeReader,
 }) => {
   const { t } = useTranslation(); // 翻訳用
   return (
@@ -52,6 +58,17 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
       }}
       aria-label={t('camera_container_2')}
     >
+      {/* コードリーダーボタン */}
+      {SHOW_CODE_READER && showCodeReader && (
+        <button
+          onClick={toggleCodeReader}
+          className={`webcam03-button webcam03-button-code-reader ${enableCodeReader ? 'active' : ''}`}
+          title="QRコード読み取り"
+        >
+          <QrCode size={30} color={enableCodeReader ? "white" : "black"} />
+        </button>
+      )}
+
       {/* カメラ切り替え(前面・背面)ボタン */}
       {SHOW_CAMERA_SWITCH && showCameraSwitch && (
         <button
