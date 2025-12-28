@@ -28,5 +28,6 @@
   "camera_taking_photo_failed": "Failed to save photo.",
   "camera_recording_error": "Recording error: {{error}}",
   "camera_recording_cannot_start": "Recording could not be started: {{error}}",
-  "camera_saving_movie_failed": "Failed to save the movie: {{error}}"
+  "camera_saving_movie_failed": "Failed to save the movie: {{error}}",
+  "camera_open_app_settings": "Open app settings"
 }

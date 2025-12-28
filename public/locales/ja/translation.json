@@ -28,5 +28,6 @@
   "camera_taking_photo_failed": "写真の保存に失敗しました。",
   "camera_recording_error": "録画エラー: {{error}}",
   "camera_recording_cannot_start": "録画を開始できませんでした: {{error}}",
-  "camera_saving_movie_failed": "動画の保存に失敗しました: {{error}}"
+  "camera_saving_movie_failed": "動画の保存に失敗しました: {{error}}",
+  "camera_open_app_settings": "アプリ設定を開く"
 }

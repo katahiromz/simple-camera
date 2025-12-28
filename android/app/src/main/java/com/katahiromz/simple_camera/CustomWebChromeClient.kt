@@ -148,6 +148,12 @@ class CustomWebChromeClient(
         listener.onStopVibrator()
     }
 
+    // アプリ設定を開く
+    @JavascriptInterface
+    fun openAppSettings() {
+      permissionManager.openAppSettings()
+    }
+
     // Toastを表示する。
     @JavascriptInterface
     fun showToast(text: String) {

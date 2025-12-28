@@ -719,7 +719,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       // isMirrored が更新されるため、ここでは何もしなくてOK
       setTimeout(() => {
         setIsSwitching(false);
-      }, 1000);
+      }, 1250);
       return (prev === "user" ? "environment" : "user");
     });
   }, [isRecordingNow, autoMirror]);
@@ -1052,10 +1052,30 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, [clampPan]);
 
   // アプリを再開する
+  let restartTimerRef = useRef<NodeJS.Timeout | null>(null);
   const onAppResume = useCallback(() => {
     if (window.android) {
       setIsInitialized(false);
-      webcamRef.current?.restartCamera();
+
+      // 頻繁にカメラ再開を繰り返すとまずいので、少し遅延を施す
+      if (restartTimerRef.current) {
+        clearTimeout(restartTimerRef.current);
+      }
+      restartTimerRef.current = setTimeout(() => {
+        webcamRef.current?.restartCamera();
+        restartTimerRef.current = null;
+      }, 1000);
+    }
+  }, []);
+
+  // アプリ設定を開く(Android専用)
+  const openAppSettings = useCallback(() => {
+    if (isAndroidApp && window.android) {
+      try {
+        window.android.openAppSettings();
+      } catch (e) {
+        console.warn(e);
+      }
     }
   }, []);
 
@@ -1148,17 +1168,22 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             padding: '10px 20px',
             backgroundColor: 'rgba(244, 67, 54, 0.9)',
             color: 'white',
-            borderRadius: '5px',
+            borderRadius: '10px',
             zIndex: 20,
             textAlign: 'center'
           }}
           aria-label={t('camera_error')}
         >
-          {errorString ? (
-            errorString
-          ) : (
-            <span>{t('camera_no_camera_permission_2')}</span>
-          )}
+          <div>
+            <div>{t('camera_no_camera_permission_2')}</div>
+            {isAndroidApp && (
+              <div>
+                <button onClick={openAppSettings} style={{ padding: '7px', marginTop: '5px', borderRadius: '4px' }}>
+                  {t('camera_open_app_settings')}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

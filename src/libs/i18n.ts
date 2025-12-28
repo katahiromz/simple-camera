@@ -34,16 +34,10 @@ i18n
   .use(initReactI18next) // i18next インスタンスを初期化
   .init({
     returnEmptyString: true, // 空文字での定義を許可に
-    supportedLngs: Object.keys(supportedLngs),
+    supportedLngs: languageList,
     debug: true,
-    load: 'languageOnly', // ja-JP ではなく ja をロードするように強制
-
-    // detection（言語検知）の設定を追加するとより確実です
-    detection: {
-      order: ['querystring', 'cookie', 'localStorage', 'navigator', 'htmlTag'],
-      caches: ['localStorage', 'cookie'],
-      convertDetectedLanguage: (lng) => lng.split('-')[0], // ここでもハイフン以下を無視する設定を入れる
-    },
+    load: 'languageOnly',
+    fallbackLng: 'en',
 
     backend: {
       // 翻訳ファイルを読み込むパス
