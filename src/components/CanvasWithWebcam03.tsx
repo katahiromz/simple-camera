@@ -1150,11 +1150,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           }}
           aria-label={t('camera_status')}
         >
-          {(!isInitialized ? (
-            <span><Camera size={50} color="white" /> <br />{ t('camera_starting_camera') }</span>
-          ) : (
+          {isSwitching ? (
             <span><Camera size={50} color="white" /> <br />{ t('camera_switching_camera') }</span>
-          ))}
+          ) : (
+            <span><Camera size={50} color="white" /> <br />{ t('camera_starting_camera') }</span>
+          )}
         </div>
       )}
 
