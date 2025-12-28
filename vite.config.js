@@ -38,7 +38,29 @@ export default defineConfig(({ mode }) => ({
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable' // Androidのアイコン形状適応用
+            purpose: 'any'
+          },
+          {
+            src: 'pwa-maskable-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
+        ],
+        screenshots: [
+          {
+            "src": "screenshot-mobile.png",
+            "sizes": "390x694",
+            "type": "image/png",
+            "form_factor": "narrow",
+            "label": "Mobile view of the app"
+          },
+          {
+            "src": "screenshot-desktop.png",
+            "sizes": "1920x1200",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "Desktop view of the app"
           }
         ]
       }
