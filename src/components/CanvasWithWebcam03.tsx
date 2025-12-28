@@ -6,6 +6,7 @@ import Webcam03, { FacingMode } from './Webcam03';
 import Webcam03Controls from './Webcam03Controls';
 import { PermissionManager, PermissionStatusValue } from '../libs/PermissionManager';
 import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset, saveMedia, getLocalDateTimeString } from '../libs/utils';
+import { fixWebmDuration } from '@fix-webm-duration/fix';
 
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera, Settings } from 'lucide-react';
@@ -20,6 +21,7 @@ const ENABLE_SOUND_EFFECTS = true; // 効果音を有効にするか？
 const ENABLE_CAMERA_SWITCH = true; // ユーザーによるカメラ切り替えを有効にするか？
 const ENABLE_ZOOMING_REGISTANCE = true; // ズーム操作に抵抗の効果を導入するか？
 const ENABLE_PANNING_REGISTANCE = true; // パン操作に抵抗の効果を導入するか？
+const ENABLE_FIX_WEBM_DURATION = true; // fixWebmDurationを使って録画時間情報を修正するか？
 const SHOW_RECORDING_TIME = true; // 録画時間を表示するか？
 const SHOW_CONTROLS = true; // コントロール パネルを表示するか？
 const SHOW_ERROR = true; // エラーを表示するか？
@@ -280,6 +282,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const zoomTimerRef = useRef<NodeJS.Timeout | null>(null); // ズームタイマー参照
   const zoomTimerRef2 = useRef<NodeJS.Timeout | null>(null); // ズームタイマー参照
   const recordingTimerRef = useRef<NodeJS.Timeout | null>([]); // 録画タイマー
+  const recordingStartTimeRef = useRef<NodeJS.Timeout | null>([]); // 録画開始時の時刻
   const [showZoomInfo, setShowZoomInfo] = useState(false); // ズーム倍率を表示するか？
   const lastTapTimerRef = useRef<number>(0); // 最後のタップ時刻
 
@@ -634,7 +637,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       }
     };
 
-    mediaRecorder.onstop = () => {
+    mediaRecorder.onstop = async () => {
       console.log('onstop');
       if (ENABLE_SOUND_EFFECTS) {
         playSound(videoCompleteAudioRef.current);
@@ -656,18 +659,21 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       }
 
       const blob = new Blob(chunksRef.current, { type: recordingFormat });
+      const duration = Date.now() - recordingStartTimeRef.current; // 経過時間を計算
+      const fixedBlob = (ENABLE_FIX_WEBM_DURATION && recordingFormat.indexOf('webm') !== -1) ? (await fixWebmDuration(blob, duration)) : blob;
       const extension = videoFormatToExtension(recordingFormat);
       const fileName = generateFileName(t('camera_text_video') + '_', extension);
       if (downloadFile)
-        downloadFile(blob, fileName, blob.type, 'video');
+        downloadFile(fixedBlob, fileName, blob.type, 'video');
       else
-        saveFile(blob, fileName, blob.type, 'video');
+        saveFile(fixedBlob, fileName, blob.type, 'video');
     };
 
     mediaRecorder.start();
     mediaRecorderRef.current = mediaRecorder;
     setIsRecordingNow(true);
     setRecordingTime(0);
+    recordingStartTimeRef.current = Date.now(); // 開始時間を記録
 
     // 録画タイマーを開始する
     recordingTimerRef.current = setInterval(() => {
