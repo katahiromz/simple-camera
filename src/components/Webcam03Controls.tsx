@@ -62,7 +62,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
         <button
           onClick={toggleCodeReader}
           className={`webcam03-button webcam03-button-code-reader ${enableCodeReader ? 'active' : ''}`}
-          title="{t('camera_qr_code_reader')}"
+          title={t('camera_qr_code_reader')}
         >
           <QrCode size={30} color={enableCodeReader ? "white" : "black"} />
         </button>
