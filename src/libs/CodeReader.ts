@@ -90,17 +90,16 @@ export class CodeReader {
 
       results.push(result);
 
-      // マスキング処理
       const p = result.location.points;
 
+      // マスキング処理
       ctx.beginPath();
       ctx.moveTo(p[0].x, p[0].y);
       for (let i = 1; i < p.length; i++) {
         ctx.lineTo(p[i].x, p[i].y);
       }
       ctx.closePath();
-
-      ctx.fillStyle = "#FFFFFF";
+      ctx.fillStyle = "black";
       ctx.fill();
     }
 
@@ -108,15 +107,16 @@ export class CodeReader {
   }
 
   // 枠（ボックス）を描画する
-  static drawQRBox(ctx: CanvasRenderingContext2D, result: QRResult) {
+  static drawQRBox(ctx: CanvasRenderingContext2D, result: QRResult, debug = false) {
     if (!result || !result.location || !result.location.points) {
       return;
     }
 
     const points = result.location.points;
 
-    ctx.save(); // 他の描画に影響を与えないよう保存
+    ctx.save();
 
+    // 通常の枠描画
     ctx.beginPath();
     ctx.moveTo(points[0].x, points[0].y);
     for (let i = 1; i < points.length; i++) {
@@ -128,11 +128,23 @@ export class CodeReader {
     ctx.strokeStyle = "#009900";
     ctx.stroke();
 
+    // デバッグモード：各頂点に番号を表示
+    if (true) {
+      ctx.fillStyle = "#ff0000";
+      ctx.font = "12px monospace";
+      points.forEach((p, i) => {
+        ctx.fillText(`${i}`, p.x - 5, p.y - 5);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
     ctx.fillStyle = "#009900";
     ctx.font = "15px san-serif";
     ctx.fillText(result.data, points[1].x, points[1].y - ctx.lineWidth * 1.2);
 
-    ctx.restore(); // 元に戻す
+    ctx.restore();
   }
 
   // 複数のQRボックスを一度に描画する
@@ -140,7 +152,11 @@ export class CodeReader {
     results.forEach(res => this.drawQRBox(ctx, res));
   }
 
-  static isURL(text: string): boolean {
-    return /^https?:\/\/\S+$/i.test(text);
+  // 文字列からURLをすべて抽出して配列で返す
+  static extractUrls(text: string): string[] {
+    // URLにマッチする正規表現
+    const urlPattern = /https?:\/\/[\w/:%#\$&\?\(\)~\.=\+\-]+/g;
+    // マッチするものがない場合は空の配列を返す
+    return text.match(urlPattern) || [];
   }
 }

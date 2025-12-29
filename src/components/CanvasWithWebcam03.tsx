@@ -88,6 +88,7 @@ interface CanvasWithWebcam03Props {
   dummyImageSrc?: string;
   width?: string;
   height?: string;
+  qrResultsRef: object;
 };
 
 // カメラ付きキャンバスのハンドル
@@ -144,12 +145,53 @@ const clampZoomWithResistance = (ratio: number) => {
   return applyResistance(MIN_ZOOM, ratio, MAX_ZOOM, ZOOM_REGISTANCE * ratio);
 };
 
-let qrResults: QRResult[] = [];
+// 点が多角形内部にあるかを判定
+const isPointInPolygon = (point: {x: number, y: number}, polygon: {x: number, y: number}[]): boolean => {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    
+    const intersect = ((yi > point.y) !== (yj > point.y))
+        && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+};
+
+const getCanvasCoordinates = (
+  clientX: number, 
+  clientY: number, 
+  canvas: HTMLCanvasElement,
+  objectFit: 'contain' | 'cover' = 'contain'
+): { x: number, y: number } | null => {
+  const rect = canvas.getBoundingClientRect();
+  const scale = (objectFit === 'contain' ? Math.min : Math.max)(
+    rect.width / canvas.width, 
+    rect.height / canvas.height
+  );
+  
+  const scaledWidth = canvas.width * scale;
+  const scaledHeight = canvas.height * scale;
+  const offsetX = (rect.width - scaledWidth) / 2;
+  const offsetY = (rect.height - scaledHeight) / 2;
+  
+  const x = (clientX - rect.left - offsetX) / scale;
+  const y = (clientY - rect.top - offsetY) / scale;
+  
+  // 範囲外チェック
+  if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) {
+    return null;
+  }
+  
+  return { x, y };
+};
+
 let lastScanTime = 0;
 
 // デフォルトの画像処理関数
 export const onDefaultImageProcess = async (data: ImageProcessData) => {
-  const { ctx, x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset, showCodeReader } = data;
+  const { ctx, x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset, showCodeReader, qrResultsRef } = data;
 
   if (width <= 0 || height <= 0 || srcWidth <= 0 || srcHeight <= 0) return;
 
@@ -200,11 +242,11 @@ export const onDefaultImageProcess = async (data: ImageProcessData) => {
       lastScanTime = now;
       // 非同期で実行し、結果が得られたら qrResults を更新する
       CodeReader.scanMultiple(canvas).then(results => {
-        qrResults = results;
+        qrResultsRef.current = results;
       });
     }
 
-    CodeReader.drawAllBoxes(ctx, qrResults);
+    CodeReader.drawAllBoxes(ctx, qrResultsRef.current);
   }
 
   if (SHOW_SHAPES && width > 2 && height > 2) { // ちょっと図形を描いてみるか？
@@ -307,6 +349,38 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const lastTapTimerRef = useRef<number>(0); // 最後のタップ時刻
   const codeReaderRef = useRef(false);
   const [isCodeReaderEnabled, setIsCodeReaderEnabled] = useState(false);
+  const [selectedQR, setSelectedQR] = useState<string | null>(null);
+  const qrResultsRef = useRef([]);
+  const [isPaused, setIsPaused] = useState(false);
+
+  // QRコードがクリックされたか判定する関数
+  const handleCanvasClick = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    console.log('handleCanvasClick');
+    if (!canvasRef.current || qrResultsRef.current.length === 0) return;
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    const coords = getCanvasCoordinates(clientX, clientY, canvasRef.current, 'contain');
+    if (!coords) return; // 黒帯をクリックした場合
+
+    let { x, y } = coords;
+
+    // ミラーモードの場合は座標を反転
+    if (isMirroredRef.current && !dummyImageRef.current) {
+      x = canvasRef.current.width - x;
+    }
+
+    // いずれかのQRコードの範囲内かチェック（多角形判定）
+    for (const qr of qrResultsRef.current) {
+      if (isPointInPolygon({x, y}, qr.location.points)) {
+        console.log(qr.data);
+        setSelectedQR(qr.data);
+        setIsPaused(true);
+        break;
+      }
+    }
+  }, []);
 
   // ズーム操作時にズーム倍率を表示させる関数
   const triggerZoomInfo = useCallback(() => {
@@ -572,6 +646,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             isMirrored: isMirrored,
             showCodeReader: showCodeReader && codeReaderRef.current,
             enableCodeReader: codeReaderRef.current,
+            qrResultsRef: qrResultsRef,
           });
         }
       }
@@ -580,12 +655,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // アニメーションフレームを次々と描画する関数
   const draw = useCallback(() => {
-    // 内部描画関数を呼ぶ
-    drawInner(canvasRef.current, isMirroredRef.current && !dummyImageRef.current);
+    if (!isPaused) {
+      // 内部描画関数を呼ぶ
+      drawInner(canvasRef.current, isMirroredRef.current && !dummyImageRef.current);
+    }
 
     // 次のアニメーション フレームを要求
     animationRef.current = requestAnimationFrame(draw);
-  }, []);
+  }, [isPaused]);
 
   // アニメーション フレームを起動・終了
   useEffect(() => {
@@ -1135,6 +1212,18 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     onAppResume: onAppResume.bind(this),
   }));
 
+  const copyQRCode = useCallback(() => {
+    navigator.clipboard.writeText(selectedQR);
+    alert('コピーしました');
+    setSelectedQR(null);
+  }, [selectedQR]);
+
+  const openQRCodeURL = useCallback(() => {
+    let urls = CodeReader.extractUrls(selectedQR);
+    window.open(urls[0], '_blank');
+    setSelectedQR(null);
+  }, [selectedQR]);
+
   return (
     <div
       className={className}
@@ -1159,9 +1248,30 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       <canvas
         ref={canvasRef}
         style={combinedCanvasStyle}
+        onClick={handleCanvasClick}
+        onTouchStart={handleCanvasClick}
         {...rest}
         aria-label={t('camera_canvas')}
       />
+
+      {/* QRコード選択時のダイアログ */}
+      {selectedQR && (
+        <div className="qr-dialog-overlay">
+          <div className="qr-dialog">
+            <p className="qr-dialog-text">QRコード:<br />{selectedQR}</p>
+            <div className="qr-dialog-controls">
+              <button className="qr-dialog-button" onClick={copyQRCode}>コピー</button>
+              {selectedQR && (
+                <button className="qr-dialog-button" onClick={openQRCodeURL}>URLを参照</button>
+              )}
+              <button className="qr-dialog-button" onClick={() => {
+                setSelectedQR(null);
+                setIsPaused(false); // カメラ再開
+              }}>キャンセル</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* カメラのメッセージ */}
       {(!isInitialized || isSwitching) && (

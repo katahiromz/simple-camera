@@ -121,3 +121,46 @@
   border-color: white; /* 枠線を白にして強調 */
   box-shadow: 0 0 15px rgba(0, 123, 255, 0.8); /* 光っているようなエフェクト */
 }
+
+.qr-dialog-overlay {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  zIndex: 100;
+}
+
+.qr-dialog {
+  color: black;
+  background: #ff9;
+  padding: 20px;
+  text-align: center;
+  border-radius: 10px;
+  border: black 3px solid;
+}
+
+.qr-dialog-text {
+  font-size: 12px;
+  word-break: break-all;
+  margin-bottom: 20px;
+}
+
+.qr-dialog-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: black;
+}
+
+.qr-dialog-button {
+  padding: 4px;
+  border-radius: 10px;
+  border: black 3px solid;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .qr-dialog-button:hover:not(:disabled) {
+    transform: scale(1.1);
+  }
+}
