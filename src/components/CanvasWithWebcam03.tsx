@@ -1222,27 +1222,27 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
       {/* QRコード選択時のダイアログ */}
       {selectedQR && (
-        <div className="qr-dialog-overlay" onClick={(e) => {
+        <div className="webcam03-qr-dialog-overlay" onClick={(e) => {
           setSelectedQR(null);
-          setIsPaused(false); // カメラ再開
+          setIsPaused(false); // カメラ映像再開
         }}>
-          <div className="qr-dialog">
-            <p className="qr-dialog-text">{t('camera_qr_code')}<br />{
+          <div className="webcam03-qr-dialog">
+            <p className="webcam03-qr-dialog-text">{t('camera_qr_code')}<br />{
               (selectedQR.length) <= 30 ? selectedQR : (selectedQR.substring(0, 27) + '...')
             }</p>
-            <div className="qr-dialog-controls">
-              <button className="qr-dialog-button" onClick={copyQRCode}>
+            <div className="webcam03-qr-dialog-controls">
+              <button className="webcam03-qr-dialog-button" onClick={copyQRCode}>
                 {t('camera_copy')}
               </button>
               {selectedQR && (
-                <button className="qr-dialog-button" onClick={openQRCodeURL}>
+                <button className="webcam03-qr-dialog-button" onClick={openQRCodeURL}>
                   {t('camera_url_access')}
                 </button>
               )}
-              <button className="qr-dialog-button" onClick={(e) => {
+              <button className="webcam03-qr-dialog-button" onClick={(e) => {
                 e.preventDefault();
                 setSelectedQR(null);
-                setIsPaused(false); // カメラ再開
+                setIsPaused(false); // カメラ映像再開
               }}>{t('camera_cancel')}</button>
             </div>
           </div>
@@ -1281,70 +1281,19 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
       {/* QRコード読み取り準備中のメッセージ */}
       {ENABLE_CODE_READER && isCodeReaderEnabled && !isWasmReady && (
-        <div style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            padding: '20px 40px',
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            color: 'white',
-            borderRadius: '20px',
-            zIndex: 31,
-            fontSize: '16px',
-            fontWeight: 'bold',
-            textAlign: 'center',
-            border: '1px solid #0f0',
-            overflow: 'hidden',
-          }}
-        >
+        <div className="webcam03-code-reader-waiting">
           {/* スキャンライン背景 */}
-          <div style={{
-            position: 'absolute',
-            top: 0, left: 0, right: 0, bottom: 0,
-            background: 'linear-gradient(rgba(0,255,0,0) 0%, rgba(0,255,0,0.4) 50%, rgba(0,255,0,0) 100%)',
-            backgroundSize: '100% 200%',
-            animation: 'qr-scan-line 1.5s linear infinite',
-            pointerEvents: 'none',
-            zIndex: -1
-          }} />
+          <div className="webcam03-code-reader-waiting-background" />
 
           {/* くるくる（回転用） */}
-          <div style={{
-            display: 'inline-block',
-            width: '35px',
-            height: '35px',
-            border: '3px solid rgba(0,255,0,0.2)',
-            borderTopColor: '#0f0',
-            borderRadius: '50%',
-            animation: 'qr-spin 1.5s linear infinite', // ここで確実に回転
-            marginBottom: '10px'
-          }}>
+          <div className="webcam03-code-reader-waiting-spin">
             {/* 内部で鼓動（パルス）を分けることで干渉を防ぐ */}
-            <div style={{
-              width: '100%',
-              height: '100%',
-              borderRadius: '50%',
-              animation: 'qr-pulse 2s ease-in-out infinite',
-            }} />
+            <div className="webcam03-code-reader-waiting-spin-2" />
           </div>
 
-          <style>{`
-            @keyframes qr-spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-            @keyframes qr-scan-line {
-              0% { background-position: 0% -100%; }
-              100% { background-position: 0% 100%; }
-            }
-            @keyframes qr-pulse {
-              0%, 100% { opacity: 1; transform: scale(1); }
-              50% { opacity: 0.5; transform: scale(1.2); }
-            }
-          `}</style>
           <br />
-          <span style={{ textShadow: '0 0 8px #0f0' }}>
+
+          <span className="webcam03-code-reader-waiting-text">
             {t('camera_code_reader_starting')}
           </span>
         </div>
@@ -1352,19 +1301,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
       {/* 権限エラーまたはその他のエラー表示 */}
       {SHOW_ERROR && (errorString || cameraPermission === 'denied') && (
-        <div style={{
-            position: 'absolute',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            padding: '10px 20px',
-            backgroundColor: 'rgba(244, 67, 54, 0.9)',
-            color: 'white',
-            borderRadius: '10px',
-            zIndex: 20,
-            textAlign: 'center'
-          }}
-          aria-label={t('camera_error')}
+        <div className="webcam03-error" aria-label={t('camera_error')}
         >
           <div>
             <div>{t('camera_no_camera_permission_2')}</div>
@@ -1381,18 +1318,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
       {/* 録画時間表示 */}
       {SHOW_RECORDING_TIME && showRecordingTime && isRecordingNow && (
-        <div style=
-          {{
-            position: 'absolute',
-            top: '20px',
-            left: '10px',
-            pointerEvents: 'none',
-            color: '#f66',
-            fontWeight: 'bold',
-            padding: '3px',
-            border: '2px solid #f66',
-            borderRadius: '20px',
-          }}
+        <div className="webcam03-recording-time"
           aria-label={t('camera_recording_time')}
           title={t('camera_recording_time')}
         >

@@ -20,10 +20,10 @@ const BASE_URL = import.meta.env.BASE_URL;
 const ENABLE_KEYS = true; // キーボード操作するか？
 
 // ダミー画像
-//const dummyImageUrl = `${BASE_URL}example-qr-code.png`;
-const dummyImageUrl = `${BASE_URL}dummy.jpg`;
-const USE_DUMMY_IMAGE = false;
-//const USE_DUMMY_IMAGE = true;
+const dummyImageUrl = `${BASE_URL}example-qr-code.png`;
+//const dummyImageUrl = `${BASE_URL}dummy.jpg`;
+//const USE_DUMMY_IMAGE = false;
+const USE_DUMMY_IMAGE = true;
 
 // 音声のURL
 const shutterSoundUrl = `${BASE_URL}ac-camera-shutter-sound.mp3`;

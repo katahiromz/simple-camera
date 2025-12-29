@@ -3,6 +3,7 @@
  * License: MIT
  */
 
+/* ボタン */
 .webcam03-button {
   width: 60px;
   height: 60px;
@@ -20,6 +21,7 @@
   position: relative;
 }
 
+/* ボタンのアイコン */
 .webcam03-button svg {
   pointer-events: none; /* アイコンがクリックを邪魔しないようにする */
 }
@@ -65,19 +67,28 @@
   }
 }
 
+/* カメラ切り替えのボタン */
 .webcam03-button-camera-switch {
   background-color: rgba(64, 255, 64, 60%);
 }
+
+/* 写真撮影ボタン */
 .webcam03-button-take-photo {
   background-color: rgba(255, 255, 64, 60%);
 }
+
+/* 録画開始ボタン */
 .webcam03-button-start-recording {
   background-color: rgba(255, 92, 92, 60%);
 }
+
+/* 録画停止ボタン */
 .webcam03-button-stop-recording {
   background-color: rgba(255, 64, 64, 60%);
   animation: webcam03-button-recording-pulse 1s infinite;
 }
+
+/* 設定ボタン */
 .webcam03-button-config {
   position: absolute;
   top: 10px;
@@ -85,12 +96,14 @@
   background-color: rgba(128, 128, 128, 60%);
 }
 
+/* 録画中のアニメーション */
 @keyframes webcam03-button-recording-pulse {
   0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
   70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
   100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
 }
 
+/* ズーム倍率表示 */
 .webcam03-zoom-indicator {
   position: absolute;
   top: 10px;
@@ -122,7 +135,101 @@
   box-shadow: 0 0 15px rgba(0, 123, 255, 0.8); /* 光っているようなエフェクト */
 }
 
-.qr-dialog-overlay {
+/* 録画時間表示 */
+.webcam03-recording-time {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  pointer-events: none;
+  color: #f66;
+  font-weight: bold;
+  padding: 3px;
+  border: 2px solid #f66;
+  border-radius: 20px;
+}
+
+/* コードリーダー待ち */
+.webcam03-code-reader-waiting {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px 40px;
+  background-color: rgba(0, 0, 0, 0.85);
+  color: white;
+  border-radius: 20px;
+  z-index: 31;
+  font-size: 16px;
+  font-weight: bold;
+  text-align: center;
+  border: 1px solid #0f0;
+  overflow: hidden;
+}
+
+/* コードリーダー待ち背景 */
+.webcam03-code-reader-waiting-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(rgba(0, 255, 0, 0) 0%, rgba(0, 255, 0, 0.4) 50%, rgba(0, 255, 0, 0) 100%);
+  background-size: 100% 200%;
+  animation: qr-scan-line 1.5s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* コードリーダー待ちのくるくる */
+.webcam03-code-reader-waiting-spin {
+  display: inline-block;
+  width: 35px;
+  height: 35px;
+  border: 3px solid rgba(0, 255, 0, 0.2);
+  border-top-color: #0f0;
+  border-radius: 50%;
+  animation: qr-spin 1.5s linear infinite;
+  margin-bottom: 10px;
+}
+.webcam03-code-reader-waiting-spin-2 {
+  width: 100;
+  height: 100%;
+  border-radius: 50%;
+}
+
+/* コードリーダー待ちのテキスト */
+.webcam03-code-reader-waiting-text {
+  text-shadow: 0 0 8px #0f0;
+}
+
+/* コードリーダー待ちのくるくるのアニメーション */
+@keyframes qr-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* コードリーダー待ちの背景のアニメーション */
+@keyframes qr-scan-line {
+  0% { background-position: 0% -100%; }
+  100% { background-position: 0% 100%; }
+}
+
+/* エラー表示 */
+.webcam03-error {
+  position: absolute;
+  top: 20px;
+  left: 50;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  background-color: rgba(244, 67, 54, 0.9);
+  color: white;
+  border-radius: 10px;
+  z-index: 20;
+  text-align: center;
+}
+
+/* QRダイアログ オーバーレイ */
+.webcam03-qr-dialog-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -136,7 +243,8 @@
   backdrop-filter: blur(4px);
 }
 
-.qr-dialog {
+/* QRダイアログ */
+.webcam03-qr-dialog {
   color: black;
   background: linear-gradient(135deg, #fff9c4 0%, #fffde7 100%);
   padding: 24px;
@@ -148,10 +256,11 @@
   max-width: 90%;
   max-height: 80%;
   overflow-y: auto;
-  animation: qr-dialog-appear 0.2s ease-out;
+  animation: webcam03-qr-dialog-appear 0.2s ease-out;
 }
 
-@keyframes qr-dialog-appear {
+/* QRダイアログ表示アニメーション */
+@keyframes webcam03-qr-dialog-appear {
   from {
     opacity: 0;
     transform: scale(0.9);
@@ -162,7 +271,8 @@
   }
 }
 
-.qr-dialog-text {
+/* QRダイアログのテキスト */
+.webcam03-qr-dialog-text {
   font-size: 14px;
   word-break: break-all;
   margin-bottom: 20px;
@@ -170,13 +280,15 @@
   font-weight: 500;
 }
 
-.qr-dialog-controls {
+/* QRダイアログのコントロール */
+.webcam03-qr-dialog-controls {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.qr-dialog-button {
+/* QRダイアログのボタン */
+.webcam03-qr-dialog-button {
   padding: 12px 20px;
   border-radius: 10px;
   border: black 3px solid;
@@ -187,12 +299,14 @@
   transition: transform 0.1s ease, background-color 0.2s ease;
 }
 
-.qr-dialog-button:active {
+/* QRダイアログのボタンが押されたときの効果 */
+.webcam03-qr-dialog-button:active {
   transform: scale(0.95);
 }
 
+/* QRダイアログのボタンの上なら少し大きくする */
 @media (hover: hover) {
-  .qr-dialog-button:hover:not(:disabled) {
+  .webcam03-qr-dialog-button:hover:not(:disabled) {
     transform: scale(1.05);
     background-color: #f0f0f0;
   }
