@@ -61,7 +61,7 @@ export default defineConfig(({ mode }) => ({
           },
           {
             "src": "screenshot-desktop.png",
-            "sizes": "1920x1200",
+            "sizes": "1920x1126",
             "type": "image/png",
             "form_factor": "wide",
             "label": "Desktop view of the app"
