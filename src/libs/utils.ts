@@ -199,3 +199,13 @@ export const getLocalDateTimeString = () => {
   let hhmmss = iso.substring(11, 19);
   return yyyymmdd + ' ' + hhmmss;
 };
+
+// キャンバスを複製する
+export const cloneCanvas = (oldCanvas: HTMLCanvasElement) => {
+  let newCanvas = document.createElement('canvas');
+  newCanvas.width = oldCanvas.width;
+  newCanvas.height = oldCanvas.height;
+  let ctx = newCanvas.getContext('2d');
+  ctx?.drawImage(oldCanvas, 0, 0);
+  return newCanvas;
+};

@@ -1,3 +1,7 @@
+// CodeReader.ts --- コードリーダー(QRコードなどを読み込む)
+// Author: katahiromz
+// License: MIT
+
 import { readBarcodesFromImageData, type ReaderOptions } from 'zxing-wasm/reader';
 
 export interface QRResult {
@@ -6,16 +10,6 @@ export interface QRResult {
     points: { x: number, y: number }[] // 座標を配列で保持
   };
 }
-
-// キャンバスを複製する
-export const cloneCanvas = (oldCanvas: HTMLCanvasElement) => {
-  let newCanvas = document.createElement('canvas');
-  newCanvas.width = oldCanvas.width;
-  newCanvas.height = oldCanvas.height;
-  let ctx = newCanvas.getContext('2d');
-  ctx?.drawImage(oldCanvas, 0, 0);
-  return newCanvas;
-};
 
 export class CodeReader {
   // WASMをウォームアップさせる静的メソッド
