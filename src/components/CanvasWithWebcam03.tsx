@@ -8,6 +8,7 @@ import { PermissionManager, PermissionStatusValue } from '../libs/PermissionMana
 import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset, saveMedia, getLocalDateTimeString } from '../libs/utils';
 import { fixWebmDuration } from '@fix-webm-duration/fix';
 import { CodeReader, QRResult } from '../libs/CodeReader';
+import { readBarcodesFromImageData } from 'zxing-wasm/reader';
 
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera, Settings } from 'lucide-react';
@@ -352,6 +353,23 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const [selectedQR, setSelectedQR] = useState<string | null>(null); // 選択中のQRコードの文字列
   const qrResultsRef = useRef([]); // QRコード読み込みの結果
   const [isPaused, setIsPaused] = useState(false); // 映像を一時停止中か？
+  const [isWasmReady, setIsWasmReady] = useState(false);
+
+  useEffect(() => {
+    // ダミーの小さなImageDataを作成して1回実行し、WASMをウォームアップさせる
+    const warmup = async () => {
+      try {
+        const dummyData = new ImageData(1, 1);
+        await readBarcodesFromImageData(dummyData, { formats: ['QRCode'] });
+        setIsWasmReady(true); // 準備完了
+        console.log('zxing-wasm warmed up');
+      } catch (e) {
+        // 初回はエラーが出る可能性がありますが、WASMのロード自体は進みます
+      }
+    };
+
+    warmup();
+  }, []);
 
   // QRコードがクリックされたか判定する関数
   const handleCanvasClick = useCallback((e: React.MouseEvent | React.TouchEvent) => {
@@ -1183,8 +1201,19 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, []);
 
   const toggleCodeReader = useCallback(() => {
-    setIsCodeReaderEnabled(prev => !prev);
-    showCodeReaderRef.current = !isCodeReaderEnabled;
+    console.log('toggleCodeReader - before:', isCodeReaderEnabled);
+    setIsCodeReaderEnabled(prev => {
+      const newValue = !prev;
+      console.log('toggleCodeReader - after:', newValue);
+      showCodeReaderRef.current = newValue; // 新しい値をrefに設定
+      return newValue;
+    });
+  }, [isCodeReaderEnabled]);
+
+  // useEffectでisCodeReaderEnabledの変更を監視
+  useEffect(() => {
+    console.log('isCodeReaderEnabled changed:', isCodeReaderEnabled);
+    showCodeReaderRef.current = isCodeReaderEnabled;
   }, [isCodeReaderEnabled]);
 
   useImperativeHandle(ref, () => ({
@@ -1306,6 +1335,42 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           ) : (
             <span style={{whiteSpace: 'nowrap'}}><Camera size={50} color="white" /> <br />{ t('camera_starting_camera') }</span>
           )}
+        </div>
+      )}
+
+      {/* QRコード読み取り準備中のメッセージ */}
+      {SHOW_CODE_READER && isCodeReaderEnabled && !isWasmReady && (
+        <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            padding: '15px 30px',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            color: 'white',
+            borderRadius: '30px',
+            zIndex: 31, 
+            fontSize: '16px',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            border: '1px solid #0f0', // QRらしく緑色
+          }}
+        >
+          <div style={{
+            display: 'inline-block',
+            width: '30px',
+            height: '30px',
+            border: '3px solid rgba(255,255,255,0.3)',
+            borderTopColor: '#0f0',
+            borderRadius: '50%',
+            animation: 'qr-spin 1s linear infinite',
+            marginBottom: '10px'
+          }} />
+          <style>{`
+            @keyframes qr-spin { to { transform: rotate(360deg); } }
+          `}</style>
+          <br />
+          {t('camera_code_reader_starting')}
         </div>
       )}
 

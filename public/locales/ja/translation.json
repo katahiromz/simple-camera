@@ -34,5 +34,6 @@
   "camera_qr_code_reader": "QRコード読み取り",
   "camera_copy": "コピー",
   "camera_cancel": "キャンセル",
-  "camera_url_access": "URLを参照"
+  "camera_url_access": "URLを参照",
+  "camera_code_reader_starting": "QRコード読み取り準備中..."
 }

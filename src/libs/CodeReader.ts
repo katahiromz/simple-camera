@@ -50,8 +50,8 @@ export class CodeReader {
       // zxing-wasmでバーコードを読み取る
       const results = await readBarcodesFromImageData(imageData, {
         formats: ['QRCode'],
-        tryHarder: true,
-        maxNumberOfSymbols: 10,
+        tryHarder: false,
+        maxNumberOfSymbols: 8,
       });
 
       // 結果を変換
