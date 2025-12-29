@@ -191,6 +191,17 @@ class CustomWebChromeClient(
         }
     }
 
+    // URLを開く
+    @JavascriptInterface
+    fun openURL(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            activity?.startActivity(intent)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to open URL: $url")
+        }
+    }
+
     // 画面ONのキープを解除する
     @JavascriptInterface
     fun onStopRecording() {

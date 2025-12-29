@@ -1183,10 +1183,23 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     setSelectedQR(null);
   }, [selectedQR]);
 
+  // URLを開く
+  const handleOpenURL = (url: string) => {
+    if (!url) return;
+    if (window.android && typeof window.android.openURL === 'function') {
+      window.android.openURL(url);
+    } else {
+      // Android経由でない場合のフォールバック
+      window.open(url, '_blank');
+    }
+  };
+
+  // QRコードのURLを参照
   const openQRCodeURL = useCallback((e) => {
     let urls = CodeReader.extractUrls(selectedQR);
-    if (urls.length > 0)
-      window.open(urls[0], '_blank');
+    if (urls.length > 0) {
+      handleOpenURL(urls[0]);
+    }
     setSelectedQR(null);
   }, [selectedQR]);
 
@@ -1231,16 +1244,18 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
               (selectedQR.length) <= 30 ? selectedQR : (selectedQR.substring(0, 27) + '...')
             }</p>
             <div className="webcam03-qr-dialog-controls">
+              {/* 「コピー」ボタン */}
               <button className="webcam03-qr-dialog-button" onClick={copyQRCode}>
                 {t('camera_copy')}
               </button>
+              {/* 「URLを参照」ボタン */}
               {selectedQR && (
                 <button className="webcam03-qr-dialog-button" onClick={openQRCodeURL}>
                   {t('camera_url_access')}
                 </button>
               )}
+              {/* 「キャンセル」ボタン */}
               <button className="webcam03-qr-dialog-button" onClick={(e) => {
-                e.preventDefault();
                 setSelectedQR(null);
                 setIsPaused(false); // カメラ映像再開
               }}>{t('camera_cancel')}</button>

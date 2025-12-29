@@ -3,6 +3,7 @@
 
 package com.katahiromz.simple_camera
 
+import android.content.Intent
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -43,15 +44,25 @@ class CustomWebViewClient(
         view: WebView?,
         request: WebResourceRequest?
     ): Boolean {
-        // WebViewAssetLoaderを使用するため、appassets.androidplatform.netドメインのURLを許可する。
         if (view != null && request != null) {
-            val url: String = request.url.toString()
-            // WebViewAssetLoaderドメインのURLの場合は許可
+            val url: String = request.url.toString() // 文字列化
+
+            // 1. アプリ内アセット（内部コンテンツ）の場合はWebView内で処理を続行
             if (url.startsWith(ASSET_LOADER_DOMAIN)) {
-                return false // WebViewが処理するように false を返す
+                return false
+            }
+
+            // 2. それ以外のURL（http/https）は外部ブラウザを起動する
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, request.url)
+                view.context.startActivity(intent)
+                return true // アプリ側で処理（Intent発行）したのでWebViewには遷移させない
+            } catch (e: Exception) {
+                // ブラウザが見つからないなどのエラーハンドリング
+                return false
             }
         }
-        return true // その他のURLは外部ブラウザなどで処理
+        return true
     }
 
     // ウェブビューからのエラーをリスナーに渡す。
