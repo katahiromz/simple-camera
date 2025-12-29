@@ -1,4 +1,13 @@
-import { readBarcodesFromImageData, type ReaderOptions } from 'zxing-wasm/reader';
+import {
+  BrowserQRCodeReader,
+  BrowserMultiFormatReader,
+  HTMLCanvasElementLuminanceSource,
+  BinaryBitmap,
+  BarcodeFormat,
+  HybridBinarizer,
+  DecodeHintType,
+  MultiFormatReader,
+} from '@zxing/library';
 
 export interface QRResult {
   data: string;
@@ -7,49 +16,25 @@ export interface QRResult {
   };
 }
 
-// WASMモジュールの初期化状態を管理
-let isInitialized = false;
-let initPromise: Promise<void> | null = null;
-
-// 初期化関数
-async function ensureInitialized() {
-  if (isInitialized) return;
-  
-  if (initPromise) {
-    await initPromise;
-    return;
-  }
-
-  initPromise = (async () => {
-    try {
-      // ダミー呼び出しで初期化
-      const dummyData = new ImageData(1, 1);
-      await readBarcodesFromImageData(dummyData, { formats: ['QRCode'] });
-      isInitialized = true;
-    } catch (e) {
-      // 初期化エラーは無視（ダミーデータなので）
-      isInitialized = true;
-    }
-  })();
-
-  await initPromise;
-}
-
 // キャンバスを複製する
-export const cloneCanvas = (oldCanvas: HTMLCanvasElement) => {
+export const cloneCanvas = (oldCanvas) => {
   let newCanvas = document.createElement('canvas');
   newCanvas.width = oldCanvas.width;
   newCanvas.height = oldCanvas.height;
   let ctx = newCanvas.getContext('2d');
-  ctx?.drawImage(oldCanvas, 0, 0);
+  ctx.drawImage(oldCanvas, 0, 0);
   return newCanvas;
 };
 
+const hints = new Map();
+const enabledFormats = [
+    BarcodeFormat.QR_CODE,
+];
+hints.set(DecodeHintType.POSSIBLE_FORMATS, enabledFormats);
+
 export class CodeReader {
-  // 初期化メソッド（アプリ起動時に呼ぶことを推奨）
-  static async initialize(): Promise<void> {
-    await ensureInitialized();
-  }
+  // 複数スキャン用にヒントを設定（必要に応じて）
+  private static reader = new BrowserMultiFormatReader();
 
   // @zxing/library の頂点の配置が不格好なので、正方形になるよう補正
   static fixPoints(p0: { x: number, y: number }[]): { x: number, y: number }[] {
@@ -58,9 +43,11 @@ export class CodeReader {
     let dx0 = p0[1].x - p0[0].x, dy0 = p0[1].y - p0[0].y;
     let dx1 = p0[2].x - p0[0].x, dy1 = p0[2].y - p0[0].y;
     points.push({ x: p0[0].x - dx0 + dx1, y: p0[0].y - dy0 + dy1 });
+
     // 重心を求める
     const cx = (points[0].x + points[1].x + points[2].x + points[3].x) / 4;
     const cy = (points[0].y + points[1].y + points[2].y + points[3].y) / 4;
+
     // 各頂点を中心から遠ざける
     const scale = 1.5;
     return points.map(p => ({
@@ -69,57 +56,71 @@ export class CodeReader {
     }));
   }
 
-  // 複数のQRコードの検出が可能
-  static async scanMultiple(canvas: HTMLCanvasElement): Promise<QRResult[]> {
+  // 1つのQRコードを検出
+  static async scanSingle(canvas: HTMLCanvasElement): Promise<QRResult | null> {
     try {
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        throw new Error('Failed to get canvas context');
-      }
+      const source = new HTMLCanvasElementLuminanceSource(canvas);
+      const binarizer = new HybridBinarizer(source);
+      const bitmap = new BinaryBitmap(binarizer);
 
-      // ImageDataを取得
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const result = await this.reader.decodeBitmap(bitmap);
+      const text = result.getText();
 
-      // zxing-wasmでバーコードを読み取る
-      const results = await readBarcodesFromImageData(imageData, {
-        formats: ['QRCode'],
-        tryHarder: true,
-        maxNumberOfSymbols: 8,
-      });
+      const resultPoints = result.getResultPoints();
+      const points = resultPoints.map(p => ({ x: p.getX(), y: p.getY() }));
+      console.assert(points.length == 4);
 
-      console.log(results);
+      const fixedPoints = CodeReader.fixPoints(points);
+      console.assert(fixedPoints.length == 4);
 
-      // 結果を変換
-      return results.map(result => {
-        // zxing-wasmの座標を取得
-        const position = result.position;
-        const points = [
-          { x: position.topLeft.x, y: position.topLeft.y },
-          { x: position.topRight.x, y: position.topRight.y },
-          { x: position.bottomRight.x, y: position.bottomRight.y },
-          { x: position.bottomLeft.x, y: position.bottomLeft.y }
-        ];
-
-        return {
-          data: result.text,
-          location: {
-            points: points
-          }
-        };
-      });
-    } catch (e) {
-      console.log('Scan error:', e);
-      return [];
+      return {
+        data: text,
+        location: { points: fixedPoints },
+      };
+    } catch (err) {
+      console.log(err);
+      return null;
     }
   }
 
-  // 枠(ボックス)を描画する
+  // 複数のQRコードの検出が可能
+  static async scanMultiple(canvas: HTMLCanvasElement): Promise<QRResult[]> {
+    const results: QRResult[] = [];
+    const workingCanvas = cloneCanvas(canvas);
+    const ctx = workingCanvas.getContext('2d');
+
+    while (results.length < 10) { // 最大10個
+      const result = await this.scanSingle(workingCanvas);
+      if (!result) break;
+
+      results.push(result);
+
+      const p = result.location.points;
+
+      // マスキング処理
+      ctx.beginPath();
+      ctx.moveTo(p[0].x, p[0].y);
+      for (let i = 1; i < p.length; i++) {
+        ctx.lineTo(p[i].x, p[i].y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = "white";
+      ctx.fill();
+    }
+
+    return results;
+  }
+
+  // 枠（ボックス）を描画する
   static drawQRBox(ctx: CanvasRenderingContext2D, result: QRResult, debug = false) {
     if (!result || !result.location || !result.location.points) {
       return;
     }
+
     const points = result.location.points;
+
     ctx.save();
+
     // 通常の枠描画
     ctx.beginPath();
     ctx.moveTo(points[0].x, points[0].y);
@@ -127,10 +128,12 @@ export class CodeReader {
       ctx.lineTo(points[i].x, points[i].y);
     }
     ctx.closePath();
+
     ctx.lineWidth = 4;
     ctx.strokeStyle = "#009900";
     ctx.stroke();
-    // デバッグモード:各頂点に番号を表示
+
+    // デバッグモード：各頂点に番号を表示
     if (debug) {
       ctx.fillStyle = "#ff0000";
       ctx.font = "12px monospace";
@@ -141,9 +144,11 @@ export class CodeReader {
         ctx.fill();
       });
     }
+
     ctx.fillStyle = "#009900";
-    ctx.font = "15px sans-serif";
-    ctx.fillText(result.data, points[0].x, points[0].y - ctx.lineWidth * 1.2);
+    ctx.font = "15px san-serif";
+    ctx.fillText(result.data, points[1].x, points[1].y - ctx.lineWidth * 1.2);
+
     ctx.restore();
   }
 

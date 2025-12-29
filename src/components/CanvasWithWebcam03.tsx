@@ -44,7 +44,6 @@ const BACKGROUND_IS_WHITE = false; // 背景は白か？
 
 // 画像処理用のデータ
 export interface ImageProcessData {
-  ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   width: number,
@@ -191,9 +190,10 @@ let lastScanTime = 0;
 
 // デフォルトの画像処理関数
 export const onDefaultImageProcess = async (data: ImageProcessData) => {
-  const { ctx, x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset, showCodeReader, qrResultsRef } = data;
+  const { x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset, showCodeReader, qrResultsRef } = data;
+  const ctx = canvas.getContext('2d');
 
-  if (width <= 0 || height <= 0 || srcWidth <= 0 || srcHeight <= 0) return;
+  if (!ctx || width <= 0 || height <= 0 || srcWidth <= 0 || srcHeight <= 0) return;
 
   ctx.save(); // 現在のキャンバス状態を保存
 
@@ -633,22 +633,18 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       }
 
       if (src && srcWidth > 0 && srcHeight > 0) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          onImageProcess({
-            ctx,
-            x: 0, y: 0, width: canvas.width, height: canvas.height,
-            src, srcWidth, srcHeight,
-            video: video,
-            canvas: canvas,
-            currentZoom: zoomRef.current,
-            offset: offsetRef.current,
-            isMirrored: isMirrored,
-            showCodeReader: showCodeReader && codeReaderRef.current,
-            enableCodeReader: codeReaderRef.current,
-            qrResultsRef: qrResultsRef,
-          });
-        }
+        onImageProcess({
+          x: 0, y: 0, width: canvas.width, height: canvas.height,
+          src, srcWidth, srcHeight,
+          video: video,
+          canvas: canvas,
+          currentZoom: zoomRef.current,
+          offset: offsetRef.current,
+          isMirrored: isMirrored,
+          showCodeReader: showCodeReader && codeReaderRef.current,
+          enableCodeReader: codeReaderRef.current,
+          qrResultsRef: qrResultsRef,
+        });
       }
     }
   }, []);
@@ -1214,7 +1210,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   const copyQRCode = useCallback(() => {
     navigator.clipboard.writeText(selectedQR);
-    alert('コピーしました');
     setSelectedQR(null);
   }, [selectedQR]);
 
@@ -1258,7 +1253,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       {selectedQR && (
         <div className="qr-dialog-overlay">
           <div className="qr-dialog">
-            <p className="qr-dialog-text">QRコード:<br />{selectedQR}</p>
+            <p className="qr-dialog-text">【QRコード】<br />{selectedQR}</p>
             <div className="qr-dialog-controls">
               <button className="qr-dialog-button" onClick={copyQRCode}>コピー</button>
               {selectedQR && (
