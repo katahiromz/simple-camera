@@ -356,6 +356,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const [isWasmReady, setIsWasmReady] = useState(false);
 
   useEffect(() => {
+    if (!SHOW_CODE_READER) return;
+
     // ダミーの小さなImageDataを作成して1回実行し、WASMをウォームアップさせる
     const warmup = async () => {
       try {
@@ -374,6 +376,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   // QRコードがクリックされたか判定する関数
   const handleCanvasClick = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     console.log('handleCanvasClick');
+    if (!SHOW_CODE_READER) return;
     if (!canvasRef.current || qrResultsRef.current.length === 0) return;
 
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -1201,6 +1204,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, []);
 
   const toggleCodeReader = useCallback(() => {
+    if (!SHOW_CODE_READER) return;
     console.log('toggleCodeReader - before:', isCodeReaderEnabled);
     setIsCodeReaderEnabled(prev => {
       const newValue = !prev;
@@ -1212,6 +1216,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // useEffectでisCodeReaderEnabledの変更を監視
   useEffect(() => {
+    if (!SHOW_CODE_READER) return;
     console.log('isCodeReaderEnabled changed:', isCodeReaderEnabled);
     showCodeReaderRef.current = isCodeReaderEnabled;
   }, [isCodeReaderEnabled]);
@@ -1345,32 +1350,67 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            padding: '15px 30px',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            padding: '20px 40px',
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
             color: 'white',
-            borderRadius: '30px',
+            borderRadius: '20px',
             zIndex: 31, 
             fontSize: '16px',
             fontWeight: 'bold',
             textAlign: 'center',
-            border: '1px solid #0f0', // QRらしく緑色
+            border: '1px solid #0f0',
+            overflow: 'hidden',
           }}
         >
+          {/* スキャンライン背景 */}
+          <div style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'linear-gradient(rgba(0,255,0,0) 0%, rgba(0,255,0,0.4) 50%, rgba(0,255,0,0) 100%)',
+            backgroundSize: '100% 200%',
+            animation: 'qr-scan-line 1.5s linear infinite',
+            pointerEvents: 'none',
+            zIndex: -1
+          }} />
+
+          {/* くるくる（回転用） */}
           <div style={{
             display: 'inline-block',
-            width: '30px',
-            height: '30px',
-            border: '3px solid rgba(255,255,255,0.3)',
+            width: '35px',
+            height: '35px',
+            border: '3px solid rgba(0,255,0,0.2)',
             borderTopColor: '#0f0',
             borderRadius: '50%',
-            animation: 'qr-spin 1s linear infinite',
+            animation: 'qr-spin 1.5s linear infinite', // ここで確実に回転
             marginBottom: '10px'
-          }} />
+          }}>
+            {/* 内部で鼓動（パルス）を分けることで干渉を防ぐ */}
+            <div style={{
+              width: '100%',
+              height: '100%',
+              borderRadius: '50%',
+              animation: 'qr-pulse 2s ease-in-out infinite',
+            }} />
+          </div>
+          
           <style>{`
-            @keyframes qr-spin { to { transform: rotate(360deg); } }
+            @keyframes qr-spin { 
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); } 
+            }
+            @keyframes qr-scan-line {
+              0% { background-position: 0% -100%; }
+              100% { background-position: 0% 100%; }
+            }
+            @keyframes qr-pulse {
+              0%, 100% { opacity: 1; transform: scale(1); }
+              50% { opacity: 0.5; transform: scale(1.2); }
+            }
           `}</style>
           <br />
-          {t('camera_code_reader_starting')}
+          <span style={{ textShadow: '0 0 8px #0f0' }}>
+            {t('camera_code_reader_starting')}
+          </span>
         </div>
       )}
 
