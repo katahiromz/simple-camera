@@ -9,6 +9,10 @@ export default defineConfig(({ mode }) => ({
   // 例: アプリケーションが example.com/camera/ にデプロイされる場合
   base: '/camera/',
 
+  optimizeDeps: {
+    exclude: ['zxing-wasm'] // Exclude the lib from pre-bundling if it handles wasm oddly
+  },
+
   plugins: [
     react(),
     basicSsl(),

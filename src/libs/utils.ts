@@ -209,3 +209,65 @@ export const cloneCanvas = (oldCanvas: HTMLCanvasElement) => {
   ctx?.drawImage(oldCanvas, 0, 0);
   return newCanvas;
 };
+
+// 抵抗付きの値制限
+export const applyResistance = (min: number, current: number, max: number, resistance: number) => {
+  if (current > max) {
+    const overflow = current - max;
+    return max + (overflow * resistance);
+  } else if (current < min) {
+    const overflow = current - min;
+    return min + (overflow * resistance);
+  }
+  return current;
+};
+
+// 点が多角形内部にあるかを判定
+export const isPointInPolygon = (point: {x: number, y: number}, polygon: {x: number, y: number}[]): boolean => {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    
+    const intersect = ((yi > point.y) !== (yj > point.y))
+        && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+};
+
+// タッチ距離を計算
+export const getDistance = (touches: React.TouchList | TouchList) => {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
+// キャンバスの座標系を変換する
+export const getCanvasCoordinates = (
+  clientX: number,
+  clientY: number,
+  canvas: HTMLCanvasElement,
+  objectFit: 'contain' | 'cover' = 'contain'
+): { x: number, y: number } | null => {
+  const rect = canvas.getBoundingClientRect();
+  const scale = (objectFit === 'contain' ? Math.min : Math.max)(
+    rect.width / canvas.width,
+    rect.height / canvas.height
+  );
+
+  const scaledWidth = canvas.width * scale;
+  const scaledHeight = canvas.height * scale;
+  const offsetX = (rect.width - scaledWidth) / 2;
+  const offsetY = (rect.height - scaledHeight) / 2;
+
+  const x = (clientX - rect.left - offsetX) / scale;
+  const y = (clientY - rect.top - offsetY) / scale;
+
+  // 範囲外チェック
+  if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) {
+    return null;
+  }
+
+  return { x, y };
+};

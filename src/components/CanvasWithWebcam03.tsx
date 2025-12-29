@@ -5,7 +5,9 @@ import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef, u
 import Webcam03, { FacingMode } from './Webcam03';
 import Webcam03Controls from './Webcam03Controls';
 import { PermissionManager, PermissionStatusValue } from '../libs/PermissionManager';
-import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset, saveMedia, getLocalDateTimeString } from '../libs/utils';
+import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension,
+         formatTime, getMaxOffset, saveMedia, getLocalDateTimeString, applyResistance,
+         isPointInPolygon, getDistance, getCanvasCoordinates } from '../libs/utils';
 import { fixWebmDuration } from '@fix-webm-duration/fix';
 import { CodeReader, QRResult } from '../libs/CodeReader';
 
@@ -111,79 +113,19 @@ interface CanvasWithWebcam03Handle {
   onAppResume?: () => void;
 };
 
-// タッチ距離を計算
-const getDistance = (touches: React.TouchList | TouchList) => {
-  const dx = touches[0].clientX - touches[1].clientX;
-  const dy = touches[0].clientY - touches[1].clientY;
-  return Math.sqrt(dx * dx + dy * dy);
-};
-
 const PAN_RESISTANCE = 0.8; // 境界外での移動倍率
 const ZOOM_REGISTANCE = 0.2; // 境界外での移動倍率
-
-// 抵抗付きの値制限
-const applyResistance = (min: number, current: number, max: number, resistance: number) => {
-  if (current > max) {
-    const overflow = current - max;
-    return max + (overflow * resistance);
-  } else if (current < min) {
-    const overflow = current - min;
-    return min + (overflow * resistance);
-  }
-  return current;
-};
 
 // ズーム倍率を制限する
 const clampZoom = (ratio: number) => {
   return clamp(MIN_ZOOM, ratio, MAX_ZOOM);
 };
+
 // 抵抗する効果付きでズーム倍率を制限する
 const clampZoomWithResistance = (ratio: number) => {
   if (!ENABLE_ZOOMING_REGISTANCE)
     return clamp(MIN_ZOOM, ratio, MAX_ZOOM);
   return applyResistance(MIN_ZOOM, ratio, MAX_ZOOM, ZOOM_REGISTANCE * ratio);
-};
-
-// 点が多角形内部にあるかを判定
-const isPointInPolygon = (point: {x: number, y: number}, polygon: {x: number, y: number}[]): boolean => {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].x, yi = polygon[i].y;
-    const xj = polygon[j].x, yj = polygon[j].y;
-    
-    const intersect = ((yi > point.y) !== (yj > point.y))
-        && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
-};
-
-const getCanvasCoordinates = (
-  clientX: number, 
-  clientY: number, 
-  canvas: HTMLCanvasElement,
-  objectFit: 'contain' | 'cover' = 'contain'
-): { x: number, y: number } | null => {
-  const rect = canvas.getBoundingClientRect();
-  const scale = (objectFit === 'contain' ? Math.min : Math.max)(
-    rect.width / canvas.width, 
-    rect.height / canvas.height
-  );
-  
-  const scaledWidth = canvas.width * scale;
-  const scaledHeight = canvas.height * scale;
-  const offsetX = (rect.width - scaledWidth) / 2;
-  const offsetY = (rect.height - scaledHeight) / 2;
-  
-  const x = (clientX - rect.left - offsetX) / scale;
-  const y = (clientY - rect.top - offsetY) / scale;
-  
-  // 範囲外チェック
-  if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) {
-    return null;
-  }
-  
-  return { x, y };
 };
 
 let lastScanTime = 0;
@@ -359,6 +301,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     // CodeReaderの静的メソッドを呼び出し、完了後にステートを更新する
     CodeReader.warmup().then(() => {
       setIsWasmReady(true);
+    }).catch((err) => {
+      console.error("Wasm Loading Failed:", err);
+      setErrorString("Failed to initialize Code Reader. Please check network.");
+      // Optionally disable the feature automatically
+      setIsCodeReaderEnabled(false);
     });
   }, []);
 
@@ -1343,7 +1290,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             backgroundColor: 'rgba(0, 0, 0, 0.85)',
             color: 'white',
             borderRadius: '20px',
-            zIndex: 31, 
+            zIndex: 31,
             fontSize: '16px',
             fontWeight: 'bold',
             textAlign: 'center',
@@ -1381,11 +1328,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
               animation: 'qr-pulse 2s ease-in-out infinite',
             }} />
           </div>
-          
+
           <style>{`
-            @keyframes qr-spin { 
+            @keyframes qr-spin {
               from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); } 
+              to { transform: rotate(360deg); }
             }
             @keyframes qr-scan-line {
               0% { background-position: 0% -100%; }
