@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "postbuild": "bash postbuild.sh"
+    "postbuild": "node postbuild.js"
   },
   "dependencies": {
     "@fix-webm-duration/fix": "^1.0.1",
