@@ -26,10 +26,10 @@ React 19 と Vite 7 で構築された、高性能なカメラWebアプリケー
 * **Build Tool**: Vite 7
 * **PWA**: `vite-plugin-pwa` (Service Worker によるオフライン対応)
 * **Library**:
-* `lucide-react` (アイコン)
-* `i18next` (多言語対応)
-* `zxing-wasm` (コード解析)
-* `@fix-webm-duration/fix` (録画データの再生時間修復)
+    * `lucide-react` (アイコン)
+    * `i18next` (多言語対応)
+    * `zxing-wasm` (コード解析)
+    * `@fix-webm-duration/fix` (録画データの再生時間修復)
 
 ### Backend (Android Native)
 
