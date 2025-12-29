@@ -8,7 +8,6 @@ import { PermissionManager, PermissionStatusValue } from '../libs/PermissionMana
 import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension, formatTime, getMaxOffset, saveMedia, getLocalDateTimeString } from '../libs/utils';
 import { fixWebmDuration } from '@fix-webm-duration/fix';
 import { CodeReader, QRResult } from '../libs/CodeReader';
-import { readBarcodesFromImageData } from 'zxing-wasm/reader';
 
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera, Settings } from 'lucide-react';
@@ -24,7 +23,7 @@ const ENABLE_CAMERA_SWITCH = true; // ユーザーによるカメラ切り替え
 const ENABLE_ZOOMING_REGISTANCE = true; // ズーム操作に抵抗の効果を導入するか？
 const ENABLE_PANNING_REGISTANCE = true; // パン操作に抵抗の効果を導入するか？
 const ENABLE_FIX_WEBM_DURATION = true; // fixWebmDurationを使って録画時間情報を修正するか？
-const SHOW_CODE_READER = true; // コードリーダーを表示するか？
+const ENABLE_CODE_READER = true; // コードリーダーを有効にするか？
 const SHOW_RECORDING_TIME = true; // 録画時間を表示するか？
 const SHOW_CONTROLS = true; // コントロール パネルを表示するか？
 const SHOW_ERROR = true; // エラーを表示するか？
@@ -237,7 +236,7 @@ export const onDefaultImageProcess = async (data: ImageProcessData) => {
 
   ctx.restore(); // 座標変換を元に戻す
 
-  if (SHOW_CODE_READER && showCodeReader) {
+  if (ENABLE_CODE_READER && showCodeReader) {
     const now = Date.now();
     if (now - lastScanTime > 300) {
       lastScanTime = now;
@@ -356,27 +355,17 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const [isWasmReady, setIsWasmReady] = useState(false);
 
   useEffect(() => {
-    if (!SHOW_CODE_READER) return;
-
-    // ダミーの小さなImageDataを作成して1回実行し、WASMをウォームアップさせる
-    const warmup = async () => {
-      try {
-        const dummyData = new ImageData(1, 1);
-        await readBarcodesFromImageData(dummyData, { formats: ['QRCode'] });
-        setIsWasmReady(true); // 準備完了
-        console.log('zxing-wasm warmed up');
-      } catch (e) {
-        // 初回はエラーが出る可能性がありますが、WASMのロード自体は進みます
-      }
-    };
-
-    warmup();
+    if (!ENABLE_CODE_READER) return;
+    // CodeReaderの静的メソッドを呼び出し、完了後にステートを更新する
+    CodeReader.warmup().then(() => {
+      setIsWasmReady(true);
+    });
   }, []);
 
   // QRコードがクリックされたか判定する関数
   const handleCanvasClick = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (!ENABLE_CODE_READER) return;
     console.log('handleCanvasClick');
-    if (!SHOW_CODE_READER) return;
     if (!canvasRef.current || qrResultsRef.current.length === 0) return;
 
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -1204,7 +1193,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, []);
 
   const toggleCodeReader = useCallback(() => {
-    if (!SHOW_CODE_READER) return;
+    if (!ENABLE_CODE_READER) return;
     console.log('toggleCodeReader - before:', isCodeReaderEnabled);
     setIsCodeReaderEnabled(prev => {
       const newValue = !prev;
@@ -1216,7 +1205,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // useEffectでisCodeReaderEnabledの変更を監視
   useEffect(() => {
-    if (!SHOW_CODE_READER) return;
+    if (!ENABLE_CODE_READER) return;
     console.log('isCodeReaderEnabled changed:', isCodeReaderEnabled);
     showCodeReaderRef.current = isCodeReaderEnabled;
   }, [isCodeReaderEnabled]);
@@ -1344,7 +1333,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       )}
 
       {/* QRコード読み取り準備中のメッセージ */}
-      {SHOW_CODE_READER && isCodeReaderEnabled && !isWasmReady && (
+      {ENABLE_CODE_READER && isCodeReaderEnabled && !isWasmReady && (
         <div style={{
             position: 'absolute',
             top: '50%',
@@ -1497,7 +1486,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
               showRecording={SHOW_RECORDING && showRecording}
               showCameraSwitch={ENABLE_CAMERA_SWITCH && showCameraSwitch}
               showConfig={SHOW_CONFIG && showConfig}
-              showCodeReader={SHOW_CODE_READER && showCodeReader}
+              showCodeReader={ENABLE_CODE_READER && showCodeReader}
               toggleCodeReader={toggleCodeReader}
               enableCodeReader={isCodeReaderEnabled}
               aria-label={t('camera_controls')}

@@ -18,6 +18,20 @@ export const cloneCanvas = (oldCanvas: HTMLCanvasElement) => {
 };
 
 export class CodeReader {
+  // WASMをウォームアップさせる静的メソッド
+  // 内部でダミーデータを読み込み、ランタイムを初期化します。
+  static async warmup(): Promise<void> {
+    try {
+      const dummyData = new ImageData(1, 1);
+      // zxing-wasmの初期化を促す
+      await readBarcodesFromImageData(dummyData, { formats: ['QRCode'] });
+      console.log('zxing-wasm warmed up');
+    } catch (e) {
+      // 初回ロード時は内部的に例外を投げる可能性があるため、ログ出力に留める
+      console.warn('zxing-wasm warmup notice:', e);
+    }
+  }
+
   // @zxing/library の頂点の配置が不格好なので、正方形になるよう補正
   static fixPoints(p0: { x: number, y: number }[]): { x: number, y: number }[] {
     // まずは元のロジックで4点目を計算
