@@ -1251,30 +1251,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
       {/* カメラのメッセージ */}
       {(!isInitialized || isSwitching) && (
-        <div style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            padding: '15px 30px',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            color: 'white',
-            borderRadius: '30px',
-            zIndex: 30, // コントロールより前面に
-            fontSize: '16px',
-            fontWeight: 'bold',
-            pointerEvents: 'none', // クリックを透過させる
-            display: 'flex',
-            alignItems: 'center',
-            textAlign: 'center',
-            border: '1px solid white',
-          }}
-          aria-label={t('camera_status')}
-        >
+        <div className="webcam03-camera-message" aria-label={t('camera_status')}>
           {isSwitching ? (
-            <span style={{whiteSpace: 'nowrap'}}><Camera size={50} color="white" /> <br />{ t('camera_switching_camera') }</span>
+            <span><Camera size={50} color="white" /> <br />{ t('camera_switching_camera') }</span>
           ) : (
-            <span style={{whiteSpace: 'nowrap'}}><Camera size={50} color="white" /> <br />{ t('camera_starting_camera') }</span>
+            <span><Camera size={50} color="white" /> <br />{ t('camera_starting_camera') }</span>
           )}
         </div>
       )}
