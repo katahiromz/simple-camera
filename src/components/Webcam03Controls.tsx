@@ -3,7 +3,6 @@
 // License: MIT
 
 import React, { useRef, useState, useCallback } from 'react';
-import './Webcam03Controls.css';
 
 /* lucide-reactのアイコンを使用: https://lucide.dev/icons/ */
 import { Camera, Video, Square, AlertCircle, SwitchCamera, Settings, QrCode  } from 'lucide-react';

@@ -3,6 +3,7 @@
 // License: MIT
 
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from "react";
+import './Webcam03.css';
 
 // Webcam03 コンポーネント
 interface ScreenshotDimensions {
