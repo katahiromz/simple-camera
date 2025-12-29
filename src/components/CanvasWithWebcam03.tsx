@@ -347,11 +347,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const recordingStartTimeRef = useRef<NodeJS.Timeout | null>([]); // 録画開始時の時刻
   const [showZoomInfo, setShowZoomInfo] = useState(false); // ズーム倍率を表示するか？
   const lastTapTimerRef = useRef<number>(0); // 最後のタップ時刻
-  const codeReaderRef = useRef(false);
-  const [isCodeReaderEnabled, setIsCodeReaderEnabled] = useState(false);
-  const [selectedQR, setSelectedQR] = useState<string | null>(null);
-  const qrResultsRef = useRef([]);
-  const [isPaused, setIsPaused] = useState(false);
+  const showCodeReaderRef = useRef(false); // コードリーダー
+  const [isCodeReaderEnabled, setIsCodeReaderEnabled] = useState(false); // コードリーダが有効か？
+  const [selectedQR, setSelectedQR] = useState<string | null>(null); // 選択中のQRコードの文字列
+  const qrResultsRef = useRef([]); // QRコード読み込みの結果
+  const [isPaused, setIsPaused] = useState(false); // 映像を一時停止中か？
 
   // QRコードがクリックされたか判定する関数
   const handleCanvasClick = useCallback((e: React.MouseEvent | React.TouchEvent) => {
@@ -641,8 +641,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           currentZoom: zoomRef.current,
           offset: offsetRef.current,
           isMirrored: isMirrored,
-          showCodeReader: showCodeReader && codeReaderRef.current,
-          enableCodeReader: codeReaderRef.current,
+          showCodeReader: showCodeReader && showCodeReaderRef.current,
+          enableCodeReader: showCodeReaderRef.current,
           qrResultsRef: qrResultsRef,
         });
       }
@@ -1184,7 +1184,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   const toggleCodeReader = useCallback(() => {
     setIsCodeReaderEnabled(prev => !prev);
-    codeReaderRef.current = !isCodeReaderEnabled;
+    showCodeReaderRef.current = !isCodeReaderEnabled;
   }, [isCodeReaderEnabled]);
 
   useImperativeHandle(ref, () => ({
@@ -1208,14 +1208,15 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     onAppResume: onAppResume.bind(this),
   }));
 
-  const copyQRCode = useCallback(() => {
+  const copyQRCode = useCallback((e) => {
     navigator.clipboard.writeText(selectedQR);
     setSelectedQR(null);
   }, [selectedQR]);
 
-  const openQRCodeURL = useCallback(() => {
+  const openQRCodeURL = useCallback((e) => {
     let urls = CodeReader.extractUrls(selectedQR);
-    window.open(urls[0], '_blank');
+    if (urls.length > 0)
+      window.open(urls[0], '_blank');
     setSelectedQR(null);
   }, [selectedQR]);
 
@@ -1251,18 +1252,28 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
       {/* QRコード選択時のダイアログ */}
       {selectedQR && (
-        <div className="qr-dialog-overlay">
+        <div className="qr-dialog-overlay" onClick={(e) => {
+          setSelectedQR(null);
+          setIsPaused(false); // カメラ再開
+        }}>
           <div className="qr-dialog">
-            <p className="qr-dialog-text">【QRコード】<br />{selectedQR}</p>
+            <p className="qr-dialog-text">{t('camera_qr_code')}<br />{
+              (selectedQR.length) <= 30 ? selectedQR : (selectedQR.substring(0, 27) + '...')
+            }</p>
             <div className="qr-dialog-controls">
-              <button className="qr-dialog-button" onClick={copyQRCode}>コピー</button>
+              <button className="qr-dialog-button" onClick={copyQRCode}>
+                {t('camera_copy')}
+              </button>
               {selectedQR && (
-                <button className="qr-dialog-button" onClick={openQRCodeURL}>URLを参照</button>
+                <button className="qr-dialog-button" onClick={openQRCodeURL}>
+                  {t('camera_url_access')}
+                </button>
               )}
-              <button className="qr-dialog-button" onClick={() => {
+              <button className="qr-dialog-button" onClick={(e) => {
+                e.preventDefault();
                 setSelectedQR(null);
                 setIsPaused(false); // カメラ再開
-              }}>キャンセル</button>
+              }}>{t('camera_cancel')}</button>
             </div>
           </div>
         </div>

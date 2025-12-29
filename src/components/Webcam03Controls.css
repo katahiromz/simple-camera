@@ -123,44 +123,76 @@
 }
 
 .qr-dialog-overlay {
-  position: absolute;
-  background-color: rgba(0, 0, 0, 0.5);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
 }
 
 .qr-dialog {
   color: black;
-  background: #ff9;
-  padding: 20px;
+  background: linear-gradient(135deg, #fff9c4 0%, #fffde7 100%);
+  padding: 24px;
   text-align: center;
-  border-radius: 10px;
+  border-radius: 16px;
   border: black 3px solid;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 90%;
+  max-height: 80%;
+  overflow-y: auto;
+  animation: qr-dialog-appear 0.2s ease-out;
+}
+
+@keyframes qr-dialog-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .qr-dialog-text {
-  font-size: 12px;
+  font-size: 14px;
   word-break: break-all;
   margin-bottom: 20px;
+  line-height: 1.5;
+  font-weight: 500;
 }
 
 .qr-dialog-controls {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  border: black;
+  gap: 12px;
 }
 
 .qr-dialog-button {
-  padding: 4px;
+  padding: 12px 20px;
   border-radius: 10px;
   border: black 3px solid;
   cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  background: white;
+  transition: transform 0.1s ease, background-color 0.2s ease;
 }
+
+.qr-dialog-button:active {
+  transform: scale(0.95);
+}
+
 @media (hover: hover) {
   .qr-dialog-button:hover:not(:disabled) {
-    transform: scale(1.1);
+    transform: scale(1.05);
+    background-color: #f0f0f0;
   }
 }

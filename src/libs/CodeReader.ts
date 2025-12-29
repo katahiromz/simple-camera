@@ -7,34 +7,6 @@ export interface QRResult {
   };
 }
 
-// WASMモジュールの初期化状態を管理
-let isInitialized = false;
-let initPromise: Promise<void> | null = null;
-
-// 初期化関数
-async function ensureInitialized() {
-  if (isInitialized) return;
-  
-  if (initPromise) {
-    await initPromise;
-    return;
-  }
-
-  initPromise = (async () => {
-    try {
-      // ダミー呼び出しで初期化
-      const dummyData = new ImageData(1, 1);
-      await readBarcodesFromImageData(dummyData, { formats: ['QRCode'] });
-      isInitialized = true;
-    } catch (e) {
-      // 初期化エラーは無視（ダミーデータなので）
-      isInitialized = true;
-    }
-  })();
-
-  await initPromise;
-}
-
 // キャンバスを複製する
 export const cloneCanvas = (oldCanvas: HTMLCanvasElement) => {
   let newCanvas = document.createElement('canvas');
@@ -46,11 +18,6 @@ export const cloneCanvas = (oldCanvas: HTMLCanvasElement) => {
 };
 
 export class CodeReader {
-  // 初期化メソッド（アプリ起動時に呼ぶことを推奨）
-  static async initialize(): Promise<void> {
-    await ensureInitialized();
-  }
-
   // @zxing/library の頂点の配置が不格好なので、正方形になるよう補正
   static fixPoints(p0: { x: number, y: number }[]): { x: number, y: number }[] {
     // まずは元のロジックで4点目を計算
@@ -62,7 +29,7 @@ export class CodeReader {
     const cx = (points[0].x + points[1].x + points[2].x + points[3].x) / 4;
     const cy = (points[0].y + points[1].y + points[2].y + points[3].y) / 4;
     // 各頂点を中心から遠ざける
-    const scale = 1.5;
+    const scale = 1.07;
     return points.map(p => ({
       x: cx + (p.x - cx) * scale,
       y: cy + (p.y - cy) * scale
@@ -84,10 +51,8 @@ export class CodeReader {
       const results = await readBarcodesFromImageData(imageData, {
         formats: ['QRCode'],
         tryHarder: true,
-        maxNumberOfSymbols: 8,
+        maxNumberOfSymbols: 10,
       });
-
-      console.log(results);
 
       // 結果を変換
       return results.map(result => {
@@ -100,10 +65,12 @@ export class CodeReader {
           { x: position.bottomLeft.x, y: position.bottomLeft.y }
         ];
 
+        let fixedPoints = CodeReader.fixPoints(points);
+
         return {
           data: result.text,
           location: {
-            points: points
+            points: fixedPoints
           }
         };
       });
@@ -120,6 +87,7 @@ export class CodeReader {
     }
     const points = result.location.points;
     ctx.save();
+
     // 通常の枠描画
     ctx.beginPath();
     ctx.moveTo(points[0].x, points[0].y);
@@ -127,23 +95,25 @@ export class CodeReader {
       ctx.lineTo(points[i].x, points[i].y);
     }
     ctx.closePath();
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = "#009900";
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#009900"; // 緑色
     ctx.stroke();
-    // デバッグモード:各頂点に番号を表示
-    if (debug) {
-      ctx.fillStyle = "#ff0000";
-      ctx.font = "12px monospace";
-      points.forEach((p, i) => {
-        ctx.fillText(`${i}`, p.x - 5, p.y - 5);
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-        ctx.fill();
-      });
+
+    let fontSize = 15;
+    ctx.font = `${fontSize}px sans-serif`;
+
+    let data = result.data;
+    let measure = ctx.measureText(data);
+    for (let i = 0; i < 50; ++i) {
+      if (measure.width < (points[2].x - points[0].x) * 1.6)
+        break;
+      data = data.substring(0, data.length - 4) + '...';
+      measure = ctx.measureText(data);
     }
-    ctx.fillStyle = "#009900";
-    ctx.font = "15px sans-serif";
-    ctx.fillText(result.data, points[0].x, points[0].y - ctx.lineWidth * 1.2);
+
+    // 文字列
+    ctx.fillStyle = "#009900"; // 緑色
+    ctx.fillText(data, (points[0].x + points[2].x - measure.width) / 2, points[0].y - ctx.lineWidth - fontSize * 0.2);
     ctx.restore();
   }
 

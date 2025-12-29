@@ -29,5 +29,10 @@
   "camera_recording_error": "Recording error: {{error}}",
   "camera_recording_cannot_start": "Recording could not be started: {{error}}",
   "camera_saving_movie_failed": "Failed to save the movie: {{error}}",
-  "camera_open_app_settings": "Open app settings"
+  "camera_open_app_settings": "Open app settings",
+  "camera_qr_code": "[[ QR code ]]",
+  "camera_qr_code_reader": "QR code reader",
+  "camera_copy": "Copy",
+  "camera_cancel": "Cancel",
+  "camera_url_access": "Refer to URL"
 }
