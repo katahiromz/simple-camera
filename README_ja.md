@@ -1,5 +1,7 @@
 [English](README.md) | Japanese
 
+---
+
 # Simple Camera (PWA & Android Hybrid)
 
 React 19 と Vite 7 で構築された、高性能なカメラWebアプリケーションです。PWAとしての動作に加え、Androidネイティブアプリとしての高度な連携機能を備えています。
