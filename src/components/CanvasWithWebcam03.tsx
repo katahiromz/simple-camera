@@ -43,6 +43,7 @@ const MOUSE_WHEEL_SPEED = 0.004; // マウスホイールの速度
 const MOUSE_WHEEL_PAN_SPEED = 0.1; // マウスホイールによるパンの速度
 const PAN_SPEED = 10; // パンの速度
 const BACKGROUND_IS_WHITE = false; // 背景は白か？
+const CAMERA_FACING_MODE_KEY = 'Camera_facingMode'; // localStorageのキー
 
 // 画像処理用のデータ
 export interface ImageProcessData {
@@ -275,7 +276,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const initialPinchDistance = useRef<number | null>(null); // 初期のピンチング距離
   const initialZoomAtPinchStart = useRef<number>(1.0); // ピンチング開始時のズーム倍率
   const [facingMode, setFacingMode] = useState<FacingMode>((() => {
-    const oldFacingMode = localStorage.getItem("SimpleCamera_facingMode");
+    const oldFacingMode = localStorage.getItem(CAMERA_FACING_MODE_KEY);
     if (oldFacingMode === 'user' || oldFacingMode === 'environment')
       return oldFacingMode;
     return 'environment';
@@ -1102,7 +1103,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       if (autoMirror && webcamRef.current) {
         setIsMirrored(actualMode === 'user');
       }
-      localStorage.setItem("SimpleCamera_facingMode", actualMode);
+      localStorage.setItem(CAMERA_FACING_MODE_KEY, actualMode);
     }
 
     const audioTracks = stream.getAudioTracks();
@@ -1282,7 +1283,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
                 {t('camera_copy')}
               </button>
               {/* 「URLを参照」ボタン */}
-              {selectedQR && (
+              {selectedQR && CodeReader.extractUrls(selectedQR).length > 0 && (
                 <button className="webcam03-qr-dialog-button" onClick={openQRCodeURL}>
                   {t('camera_url_access')}
                 </button>

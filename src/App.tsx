@@ -190,7 +190,7 @@ function App() {
       videoCompleteSoundUrl={videoCompleteSoundUrl}
       downloadFile={isAndroidApp ? saveMediaEx : saveMedia}
       eventTarget={document.body}
-      autoMirror={true}
+      autoMirror={false}
       dummyImageSrc={ USE_DUMMY_IMAGE ? dummyImageUrl : null }
       showConfig={SHOW_CONFIG}
       doConfig={doConfig}
