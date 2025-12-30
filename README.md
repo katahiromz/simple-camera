@@ -1,80 +1,87 @@
+English | [Japanese](README_ja.md)
+
+---
+
 # Simple Camera (PWA & Android Hybrid)
 
-React 19 と Vite 7 で構築された、高性能なカメラWebアプリケーションです。PWAとしての動作に加え、Androidネイティブアプリとしての高度な連携機能を備えています。
+A high-performance camera web application built with React 19 and Vite 7. In addition to functioning as a PWA, it features advanced integration as an Android native app.
 
 <p align="center">
-  <img src="public/pwa-192x192.png" alt="[カメラ アイコン]" height="192" />　　
-  <img src="img/screenshot.png" alt="[スクリーンショット]" height="192" />
+<img src="public/pwa-192x192.png" alt="[Camera Icon]" height="192" />　　
+<img src="img/screenshot.png" alt="[Screenshot]" height="192" />
 </p>
 
-## 🌟 主な機能
+## 🌟 Key Features
 
-* **高度なカメラ操作**: 写真撮影、動画録画（WebM）、リアルタイムズーム、パン操作。
-* **QRコード解析**: `zxing-wasm` を使用した高速なスキャン機能。
-* **Android ネイティブ連携**:
-* **物理ボタン対応**: 音量ボタンをシャッターとして利用可能。
-* **インセット対応**: Androidのノッチやシステムバーを考慮したセーフエリア設計。
-* **バイブレーション**: 撮影時の触覚フィードバック。
-* **国際化 (i18n)**: 日本語と英語に対応し、OS設定に基づき自動切り替え。
-* **座標変換**: キャンバス上の描画とビデオ映像の正確な座標マッピング。
+* **Advanced Camera Controls**: Photo capture, video recording (WebM), real-time zoom, and pan operations.
+* **QR Code Analysis**: Fast scanning functionality using `zxing-wasm`.
+* **Android Native Integration**:
+* **Physical Button Support**: Use volume buttons as a shutter.
+* **Inset Support**: Safe area design considering Android notches and system bars.
+* **Vibration**: Haptic feedback during capture.
 
-## 🛠 技術スタック
+
+* **Internationalization (i18n)**: Supports Japanese and English with automatic switching based on OS settings.
+* **Coordinate Transformation**: Accurate coordinate mapping between canvas drawings and video footage.
+
+## 🛠 Tech Stack
 
 ### Frontend (Web)
 
 * **Framework**: React 19 (TypeScript)
 * **Build Tool**: Vite 7
-* **PWA**: `vite-plugin-pwa` (Service Worker によるオフライン対応)
-* **Library**:
-    * `lucide-react` (アイコン)
-    * `i18next` (多言語対応)
-    * `zxing-wasm` (コード解析)
-    * `@fix-webm-duration/fix` (録画データの再生時間修復)
+* **PWA**: `vite-plugin-pwa` (Offline support via Service Worker)
+* **Libraries**:
+    * `lucide-react` (Icons)
+    * `i18next` (Multilingual support)
+    * `zxing-wasm` (Code analysis)
+    * `@fix-webm-duration/fix` (Repair duration of recorded data)
 
 ### Backend (Android Native)
 
-* **言語**: Kotlin 1.9
-* **UI**: WebView (WebViewAssetLoader によるセキュアなローカル読み込み)
+* **Language**: Kotlin 1.9
+* **UI**: WebView (Secure local loading via WebViewAssetLoader)
 
-## 🚀 開発とビルド
+## 🚀 Development and Build
 
-### Web側セットアップ
+### Web Setup
 
 ```bash
-# 依存関係のインストール
+# Install dependencies
 npm install
 
-# 開発サーバー起動
+# Start development server
 npm run dev
 
-# ビルド（ビルド後、自動的にAndroidのアセットフォルダへコピーされます）
+# Build (After building, files are automatically copied to the Android assets folder)
 npm run build
 
 ```
 
-### Android側セットアップ
+### Android Setup
 
-1. `npm run build` 実行後、`app/src/main/assets/camera` にファイルが生成されていることを確認します。
-2. Android Studio で `android` フォルダを開きます。
-3. ビルド＆実行します。
+1. After running `npm run build`, confirm that files are generated in `app/src/main/assets/camera`.
+2. Open the `android` folder in Android Studio.
+3. Build and run.
 
-## 📁 プロジェクト構造 (主要部)
+## 📁 Project Structure (Main Parts)
 
 ```text
 src/
-├── components/           # UIコンポーネント (Webcam, Controls, Canvas)
-├── libs/                 # ユーティリティ、権限管理、i18n、デバイス管理
-├── App.tsx               # アプリのエントリポイント・メッセージ受信
+├── components/           # UI Components (Webcam, Controls, Canvas)
+├── libs/                 # Utilities, Permission Mgmt, i18n, Device Mgmt
+├── App.tsx               # App entry point & message handling
 android/
-├── app/src/main/assets/  # Webビルド成果物の配置先
-└── app/src/main/java/... # Kotlinによるネイティブ実装 (WebViewClient, ChromeClient)
+├── app/src/main/assets/  # Destination for Web build artifacts
+└── app/src/main/java/... # Kotlin native implementation (WebViewClient, ChromeClient)
+
 ```
 
-## 📝 ライセンス
+## 📝 License
 
 * MIT License
 
-## 👤 開発者
+## 👤 Developer
 
-* **片山博文MZ** (katahiromz)
+* **Hirofumi Katayama MZ** (katahiromz)
 * [katayama.hirofumi.mz@gmail.com](mailto:katayama.hirofumi.mz@gmail.com)

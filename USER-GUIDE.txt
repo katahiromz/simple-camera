@@ -1,0 +1,23 @@
+﻿# Simple Camera: User Guide
+
+## **App Overview**
+
+This is the ultimate minimalist camera app designed for those who want to "just take a photo" without dealing with complex settings. With its intuitive interface, you can handle photography, video recording, and QR code scanning all in one place.
+
+## **Key Features**
+
+* **Easy Photography**: Capture precious moments instantly just by pressing the shutter button.
+* **Smooth Video Recording**: Enjoy effortless filming with a simple tap to start and stop.
+* **QR Code Scanner**: Includes a dedicated scanning mode, eliminating the need for a separate reader app.
+* **Camera Toggle**: Quickly switch between the front (selfie) and rear (landscape) cameras with a single tap.
+
+## **Simple Operation**
+
+The app is operated using only four buttons located at the bottom of the screen:
+
+* **QR Code Button**: Activates the scanning function.
+* **Camera Toggle Button**: Switches between the front and rear cameras.
+* **Shutter Button**: Used to take still photos.
+* **Record Button**: Starts and stops video recording.
+
+> **Note**: You can check the app's version information at any time by tapping the **gear icon** in the top right corner.
