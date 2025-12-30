@@ -106,7 +106,7 @@ export class CodeReader {
       ctx.lineTo(points[i].x, points[i].y);
     }
     ctx.closePath();
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 5;
     ctx.strokeStyle = "#009900"; // 緑色
     ctx.stroke();
 
