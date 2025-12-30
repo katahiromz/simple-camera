@@ -38,11 +38,12 @@ const SHOW_SHAPES = false; // 図形を描画するか？
 const SHOW_ZOOM_INFO = true; // ズーム倍率を描画するか？
 const USE_MIDDLE_BUTTON_FOR_PANNING = true; // パン操作にマウスの中央ボタンを使用するか？
 const MIN_ZOOM = 1.0; // ズーム倍率の最小値
-const MAX_ZOOM = 4.0; // ズーム倍率の最大値
+const MAX_ZOOM = 8.0; // ズーム倍率の最大値
 const ZOOM_DELTA = 0.2; // ズーム倍率のステップ
 const MOUSE_WHEEL_SPEED = 0.004; // マウスホイールの速度
 const MOUSE_WHEEL_PAN_SPEED = 0.1; // マウスホイールによるパンの速度
-const PAN_SPEED = 10; // パンの速度
+const KEYBOARD_PAN_SPEED = 10; // キーボードによるパンの速度
+const TOUCH_PAN_SPEED = 1.5; // タッチによるパンの速度
 const BACKGROUND_IS_WHITE = false; // 背景は白か？
 const CAMERA_FACING_MODE_KEY = 'Camera_facingMode'; // localStorageのキー
 const MAX_CODE_READING_DISPLAY = 100; // コード表示の最大文字数
@@ -210,16 +211,17 @@ export const onDefaultImageProcess = async (data: ImageProcessData) => {
   }
 
   if (SHOW_CURRENT_TIME) { // ちょっと日時を描画してみるか？
+    let minxy = Math.min(width, height);
     let text = getLocalDateTimeString();
-    ctx.font = "20px monospace, san-serif";
+    ctx.font = `${minxy * 0.05}px monospace, san-serif`;
     let measure = ctx.measureText(text);
-    ctx.fillStyle = "#000";
-    ctx.fillText(text, x + width - measure.width - 5 - 1, height - 5 - 1);
-    ctx.fillText(text, x + width - measure.width - 5 - 1, height - 5 + 1);
-    ctx.fillText(text, x + width - measure.width - 5 + 1, height - 5 - 1);
-    ctx.fillText(text, x + width - measure.width - 5 + 1, height - 5 + 1);
+    const margin = minxy * 0.015;
+    let x0 = x + width - measure.width - margin, y0 = height - margin;
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = minxy * 0.01;
+    ctx.strokeText(text, x0, y0);
     ctx.fillStyle = "#0f0";
-    ctx.fillText(text, x + width - measure.width - 5, height - 5);
+    ctx.fillText(text, x0, y0);
   }
 };
 
@@ -439,8 +441,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   // ビデオの制約
   const videoConstraints = useMemo(() => ({
     facingMode: { ideal: facingMode },
-    width: { max: 1600, min: 160 },
-    height: { max: 1600, min: 160 },
+    width: { max: 1300, min: 160, ideal: 1300 },
+    height: { max: 1300, min: 160, ideal: 1300 },
   }), [facingMode]);
 
   // ダミー画像
@@ -927,7 +929,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       // ビデオ座標系への変換
       const scaleX = srcWidth / canvas.clientWidth;
       const scaleY = srcHeight / canvas.clientHeight;
-      const moveX = dx * scaleX, moveY = dy * scaleY;
 
       // --- 状態の更新 ---
 
@@ -949,9 +950,9 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           const zoomFactor = (1 / oldZoom - 1 / newZoom);
 
           // B. 二本の指の移動によるパン
-          // ズーム補正分に、指自体の移動(moveX, moveY)を加算する
-          const nextX = prev.x + focalX * zoomFactor - moveX;
-          const nextY = prev.y + focalY * zoomFactor - moveY;
+          // ズーム補正分に、指自体の移動を加算する
+          const nextX = prev.x + focalX * zoomFactor - dx * TOUCH_PAN_SPEED;
+          const nextY = prev.y + focalY * zoomFactor - dy * TOUCH_PAN_SPEED;
 
           return clampPanWithResistance(nextX, nextY, newZoom);
         });
@@ -973,15 +974,9 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
     if (isMirroredRef.current && !dummyImageRef.current) dx = -dx;
 
-    // 画面上のピクセル移動量をビデオの座標系（解像度）に変換
-    // キャンバスの表示サイズとビデオの実際の解像度の比率を考慮
-    const scaleX = srcWidth / canvas.clientWidth;
-    const scaleY = srcHeight / canvas.clientHeight;
-
-    const moveX = dx * scaleX, moveY = dy * scaleY;
-
     setOffset(prev => {
-      const nextX = prev.x - moveX, nextY = prev.y - moveY;
+      const nextX = prev.x - dx * TOUCH_PAN_SPEED;
+      const nextY = prev.y - dy * TOUCH_PAN_SPEED;
       return clampPanWithResistance(nextX, nextY);
     });
 
@@ -1137,22 +1132,22 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   // キーボードでパンを操作する？
   const panLeft = useCallback(() => {
     setOffset(prev => {
-      return clampPan(prev.x - PAN_SPEED, prev.y);
+      return clampPan(prev.x - KEYBOARD_PAN_SPEED, prev.y);
     });
   }, [clampPan]);
   const panRight = useCallback(() => {
     setOffset(prev => {
-      return clampPan(prev.x + PAN_SPEED, prev.y);
+      return clampPan(prev.x + KEYBOARD_PAN_SPEED, prev.y);
     });
   }, [clampPan]);
   const panUp = useCallback(() => {
     setOffset(prev => {
-      return clampPan(prev.x, prev.y - PAN_SPEED);
+      return clampPan(prev.x, prev.y - KEYBOARD_PAN_SPEED);
     });
   }, [clampPan]);
   const panDown = useCallback(() => {
     setOffset(prev => {
-      return clampPan(prev.x, prev.y + PAN_SPEED);
+      return clampPan(prev.x, prev.y + KEYBOARD_PAN_SPEED);
     });
   }, [clampPan]);
 
