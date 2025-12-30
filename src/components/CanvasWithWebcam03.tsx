@@ -441,8 +441,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   // ビデオの制約
   const videoConstraints = useMemo(() => ({
     facingMode: { ideal: facingMode },
-    width: { max: 1300, min: 160, ideal: 1300 },
-    height: { max: 1300, min: 160, ideal: 1300 },
+    width: { max: 1200, min: 160, ideal: 1200 },
+    height: { max: 1200, min: 160, ideal: 1200 },
   }), [facingMode]);
 
   // ダミー画像
