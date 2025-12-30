@@ -536,6 +536,19 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     };
   }, []);
 
+  // マイク権限が後から許可された場合にカメラを再起動する
+  useEffect(() => {
+    // 以前の状態を保持するための変数（初回実行時は現在の値を入れる）
+    if (micPermission === 'granted' && isInitialized) {
+      console.log('Microphone permission granted later. Restarting camera with audio...');
+
+      // WebCam03のrestartCameraメソッドを呼び出す
+      if (webcamRef.current) {
+        webcamRef.current.restartCamera();
+      }
+    }
+  }, [micPermission]); // micPermission の変化を監視
+
   // ソース情報を種痘
   const getSourceInfo = () => {
     let src, srcWidth, srcHeight;

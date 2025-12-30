@@ -103,8 +103,6 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
       // audioがあるかどうか？
       try {
         const audioTrack = stream.getAudioTracks()[0];
-        const settings = audioTrack.getSettings();
-        //console.log(settings);
         console.info('Audio is available');
         setHasAudio(true);
       } catch (error) {
