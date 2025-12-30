@@ -7,7 +7,7 @@ import Webcam03Controls from './Webcam03Controls';
 import { PermissionManager, PermissionStatusValue } from '../libs/PermissionManager';
 import { isAndroidApp, clamp, generateFileName, playSound, photoFormatToExtension, videoFormatToExtension,
          formatTime, getMaxOffset, saveMedia, getLocalDateTimeString, applyResistance,
-         isPointInPolygon, getDistance, getCanvasCoordinates } from '../libs/utils';
+         isPointInPolygon, getDistance, getCanvasCoordinates, truncateLongString } from '../libs/utils';
 import { fixWebmDuration } from '@fix-webm-duration/fix';
 import { CodeReader, QRResult } from '../libs/CodeReader';
 
@@ -44,6 +44,7 @@ const MOUSE_WHEEL_PAN_SPEED = 0.1; // マウスホイールによるパンの速
 const PAN_SPEED = 10; // パンの速度
 const BACKGROUND_IS_WHITE = false; // 背景は白か？
 const CAMERA_FACING_MODE_KEY = 'Camera_facingMode'; // localStorageのキー
+const MAX_CODE_READING_DISPLAY = 100;
 
 // 画像処理用のデータ
 export interface ImageProcessData {
@@ -1280,7 +1281,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         }}>
           <div className="webcam03-qr-dialog">
             <p className="webcam03-qr-dialog-text">{t('camera_qr_code')}<br />{
-              (selectedQR.length) <= 30 ? selectedQR : (selectedQR.substring(0, 27) + '...')
+              truncateLongString(selectedQR, MAX_CODE_READING_DISPLAY)
             }</p>
             <div className="webcam03-qr-dialog-controls">
               {/* 「コピー」ボタン */}
