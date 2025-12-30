@@ -1180,6 +1180,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       const newValue = !prev;
       console.log('toggleCodeReader - after:', newValue);
       codeReaderOnRef.current = newValue; // 新しい値をrefに設定
+      if (!newValue) {
+        // QRコード読み取り結果をクリア
+        qrResultsRef.current = [];
+        setSelectedQR(null);
+      }
       return newValue;
     });
   }, [isCodeReaderON]);

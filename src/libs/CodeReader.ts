@@ -93,13 +93,13 @@ export class CodeReader {
 
   // 枠(ボックス)を描画する
   static drawQRBox(ctx: CanvasRenderingContext2D, result: QRResult, debug = false) {
-    if (!result || !result.location || !result.location.points) {
+    if (!result || !result.location || !result.location.points || result.location.points.length < 4) {
       return;
     }
     const points = result.location.points;
     ctx.save();
 
-    // 通常の枠描画
+    // 1. 枠線の描画
     ctx.beginPath();
     ctx.moveTo(points[0].x, points[0].y);
     for (let i = 1; i < points.length; i++) {
@@ -110,21 +110,44 @@ export class CodeReader {
     ctx.strokeStyle = "#009900"; // 緑色
     ctx.stroke();
 
-    let fontSize = 15;
-    ctx.font = `${fontSize}px sans-serif`;
+    // 2. テキストの描画設定
+    let fontSize = 16;
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.fillStyle = "#009900";
 
+    // 3. 傾きと位置の計算
+    // 上辺のベクトル (p0 -> p1)
+    const dx = points[1].x - points[0].x;
+    const dy = points[1].y - points[0].y;
+    const angle = Math.atan2(dy, dx); // 角度(ラジアン)
+    const topWidth = Math.sqrt(dx * dx + dy * dy); // 上辺の長さ
+
+    // 4. テキストの省略処理
     let data = result.data;
     let measure = ctx.measureText(data);
-    for (let i = 0; i < 50; ++i) {
-      if (measure.width < (points[2].x - points[0].x) * 1.6)
-        break;
-      data = data.substring(0, data.length - 4) + '...';
+    const maxWidth = topWidth * 1.75; // ボックス幅の1.75倍まで許容
+
+    if (measure.width > maxWidth) {
+      while (data.length > 0 && ctx.measureText(data + '...').width > maxWidth) {
+        data = data.substring(0, data.length - 1);
+      }
+      data += '...';
       measure = ctx.measureText(data);
     }
 
-    // 文字列
-    ctx.fillStyle = "#009900"; // 緑色
-    ctx.fillText(data, (points[0].x + points[2].x - measure.width) / 2, points[0].y - ctx.lineWidth - fontSize * 0.2);
+    // 5. 座標系を回転させてテキストを描画
+    // テキストの配置位置：上辺の中央 (p0とp1の中点)
+    const centerX = (points[0].x + points[1].x) / 2;
+    const centerY = (points[0].y + points[1].y) / 2;
+
+    ctx.translate(centerX, centerY); // 原点を上辺中央に移動
+    ctx.rotate(angle);               // QRコードの傾きに合わせて回転
+
+    // 描画 (y方向のマイナスは枠線の少し上に表示するため)
+    // textAlignをcenterにすることで計算を簡略化
+    ctx.textAlign = "center";
+    ctx.fillText(data, 0, - (ctx.lineWidth + 5));
+
     ctx.restore();
   }
 
