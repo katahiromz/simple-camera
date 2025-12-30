@@ -372,7 +372,10 @@ object TopSnackbar {
 
                 setOnClickListener {
                     try {
-                        action.invoke()
+                        // メインスレッドの処理を軽くするため、ポストして実行する
+                        it.post {
+                            action.invoke()
+                        }
                         dismissWithAnimation()
                     } catch (e: Exception) {
                         Timber.e(e, "Error executing TopSnackbar action")

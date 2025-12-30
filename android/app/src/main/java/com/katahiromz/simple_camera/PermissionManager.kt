@@ -133,75 +133,36 @@ class PermissionManager(private val activity: AppCompatActivity) {
     // Web側からの権限リクエストを処理
     fun onPermissionRequest(request: PermissionRequest) {
         val resources = request.resources
-
-        // リクエストされたリソースを分類
-        val needsCamera = resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-        val needsAudio = resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
-
-        // 必要なAndroid権限とリソースのマッピング
-        val permissionResourceMap = mutableMapOf<String, String>()
-        if (needsCamera) {
-            permissionResourceMap[Manifest.permission.CAMERA] = PermissionRequest.RESOURCE_VIDEO_CAPTURE
+        val requiredAndroidPermissions = mutableListOf<String>()
+        
+        if (resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+            requiredAndroidPermissions.add(Manifest.permission.RECORD_AUDIO)
         }
-        if (needsAudio) {
-            permissionResourceMap[Manifest.permission.RECORD_AUDIO] = PermissionRequest.RESOURCE_AUDIO_CAPTURE
+        if (resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
+            requiredAndroidPermissions.add(Manifest.permission.CAMERA)
         }
 
-        // 権限が不要なリソースリクエストなら即座に拒否して終了
-        if (permissionResourceMap.isEmpty()) {
+        requestPermissions(requiredAndroidPermissions.toTypedArray()) { results ->
             activity.runOnUiThread {
-                request.deny()
-            }
-            return
-        }
-
-        val androidPermissions = permissionResourceMap.keys.toTypedArray()
-
-        // すでに許可されている権限をチェック
-        val alreadyGranted = androidPermissions.filter { permission ->
-            ContextCompat.checkSelfPermission(activity, permission) == PackageManager.PERMISSION_GRANTED
-        }
-
-        // すべて許可済みの場合
-        if (alreadyGranted.size == androidPermissions.size) {
-            activity.runOnUiThread {
-                request.grant(resources)
-            }
-            return
-        }
-
-        // 一部または全て未許可の場合、権限をリクエスト
-        requestPermissions(androidPermissions) { results ->
-            activity.runOnUiThread {
-                try {
-                    // 許可されたリソースのリストを作成
-                    val grantedResources = mutableListOf<String>()
-                    
-                    permissionResourceMap.forEach { (permission, resource) ->
-                        // この権限が許可されていれば対応するリソースを追加
-                        if (results[permission] == true) {
-                            grantedResources.add(resource)
-                        }
+                val grantedResources = mutableListOf<String>()
+                
+                // ビデオ権限のチェック
+                if (results[Manifest.permission.CAMERA] == true || 
+                    !resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
+                    if (resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
+                        grantedResources.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
                     }
+                }
+                
+                // オーディオ権限のチェック（個別判定）
+                if (results[Manifest.permission.RECORD_AUDIO] == true) {
+                    grantedResources.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+                }
 
-                    // 許可されたリソースがある場合は部分的に許可
-                    if (grantedResources.isNotEmpty()) {
-                        request.grant(grantedResources.toTypedArray())
-                        
-                        // 一部だけ許可された場合はログ出力
-                        if (grantedResources.size < permissionResourceMap.size) {
-                            val deniedPermissions = permissionResourceMap.keys.filter { 
-                                results[it] != true 
-                            }
-                            Timber.w("部分的に権限が許可されました。拒否された権限: $deniedPermissions")
-                        }
-                    } else {
-                        // すべて拒否された場合
-                        request.deny()
-                        Timber.w("すべての権限が拒否されました")
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "Error granting/denying permission request")
+                if (grantedResources.isNotEmpty()) {
+                    // 許可されたリソースのみを grant する
+                    request.grant(grantedResources.toTypedArray())
+                } else {
                     request.deny()
                 }
             }

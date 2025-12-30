@@ -43,7 +43,7 @@ export type FacingMode = 'user' | 'environment';
 const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
   (
     {
-      audio = false,
+      audio = true,
       audioConstraints,
       videoConstraints,
       onUserMedia = () => {},
@@ -70,8 +70,8 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
     const realFacingMode = useRef<FacingMode | null>(null);
 
     useEffect(() => {
-      hasAudioRef.current = hasAudio;
-    }, [hasAudio]);
+      hasAudioRef.current = audio && hasAudio;
+    }, [audio, hasAudio]);
 
     const stopMediaStream = useCallback(() => {
       console.log('stopMediaStream');

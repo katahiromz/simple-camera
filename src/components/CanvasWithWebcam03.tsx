@@ -686,17 +686,25 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
     chunksRef.current = [];
 
-    // Canvasからストリームを取得 (30fps)
-    const stream = canvasRef.current.captureStream(30);
+    // Canvasからのビデオストリーム取得 (30fps)
+    const canvasStream = canvasRef.current.captureStream(30);
+    const videoTrack = canvasStream.getVideoTracks()[0];
 
-    // 必要に応じてWebcamからの音声トラックを追加
+    // 音声トラックの取得
+    let combinedTracks = [videoTrack];
     if (isMicEnabled && webcamRef.current?.video?.srcObject) {
-      const audioTracks = (webcamRef.current.video.srcObject as MediaStream).getAudioTracks();
-      audioTracks.forEach(track => stream.addTrack(track));
+      const audioStream = webcamRef.current.video.srcObject as MediaStream;
+      const audioTrack = audioStream.getAudioTracks()[0];
+      if (audioTrack) {
+        combinedTracks.push(audioTrack);
+      }
     }
 
+    // 新しいストリームとして再構成
+    const combinedStream = new MediaStream(combinedTracks);
+
     const options = { mimeType: recordingFormat };
-    const mediaRecorder = new MediaRecorder(stream, options);
+    const mediaRecorder = new MediaRecorder(combinedStream, options);
 
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {

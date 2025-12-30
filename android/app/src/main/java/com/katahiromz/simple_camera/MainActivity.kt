@@ -214,6 +214,9 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
 
         super.onCreate(savedInstanceState)
 
+        // Timberを初期化。
+        initTimber()
+
         // レイアウト ビューを指定する。
         setContentView(R.layout.activity_main)
 
@@ -234,9 +237,6 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
 
         // ロケールをセットする。
         setCurLocale(Locale.getDefault())
-
-        // Timberを初期化。
-        initTimber()
 
         // システムバーが変更された場合を検出する。
         ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, insets ->
