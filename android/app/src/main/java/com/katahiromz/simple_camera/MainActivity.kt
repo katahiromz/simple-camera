@@ -683,8 +683,8 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         oldVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
         val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        // 最小でも最大音量の30%は確保する
-        val minVolume = (maxVolume * 3) / 10
+        // 最小でも最大音量の20%は確保する
+        val minVolume = (maxVolume * 2) / 10
         val finalVolume = max(oldVolume, minVolume)
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, finalVolume, 0)
     }
