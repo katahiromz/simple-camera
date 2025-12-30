@@ -697,7 +697,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       const audioTrack = audioStream.getAudioTracks()[0];
       if (audioTrack) {
         combinedTracks.push(audioTrack);
+      } else {
+        console.log('audioTrack is not available');
       }
+    } else {
+      console.log('audio is not available:', isMicEnabled);
     }
 
     // 新しいストリームとして再構成

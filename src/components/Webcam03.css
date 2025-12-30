@@ -217,8 +217,8 @@
 /* エラー表示 */
 .webcam03-error {
   position: absolute;
-  top: 20px;
-  left: 50;
+  top: 15px;
+  left: 50%;
   transform: translateX(-50%);
   padding: 10px 20px;
   background-color: rgba(244, 67, 54, 0.9);

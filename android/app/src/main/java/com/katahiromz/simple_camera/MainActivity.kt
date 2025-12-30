@@ -226,8 +226,17 @@ class MainActivity : AppCompatActivity(), ValueCallback<String>, TextToSpeech.On
         // 権限管理を作成
         permissionManager = PermissionManager(this)
 
-        // WebViewを初期化。
-        initWebView(savedInstanceState)
+        // WebViewが表示される前に、あらかじめOSの権限ダイアログを出しておく
+        val permissions = arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
+        )
+
+        // PermissionManager経由でリクエスト
+        permissionManager.requestPermissions(permissions) { results ->
+            // WebViewを初期化。
+            initWebView(savedInstanceState)
+        }
 
         // 音声合成を使うか？
         if (USE_TEXTTOSPEECH) {
