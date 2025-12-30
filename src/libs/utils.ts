@@ -274,7 +274,8 @@ export const getCanvasCoordinates = (
 
 // 長い文字列の末尾を省略する
 export const truncateLongString = (text: string, maxLength = 100) => {
-  if (selectedQR.length <= maxLength)
-    return selectedQR;
-  return selectedQR.substring(0, maxLength - 3) + '...';
+  if (text.length <= maxLength)
+    return text;
+  console.assert(maxLength >= 3);
+  return text.substring(0, maxLength - 3) + '...';
 };
