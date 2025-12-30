@@ -1079,6 +1079,13 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       localStorage.setItem("SimpleCamera_facingMode", actualMode);
     }
 
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length > 0 && audio) {
+      setIsMicEnabled(true);
+    } else if (audio) {
+      setIsMicEnabled(false);
+    }
+
     if (onUserMedia) onUserMedia(stream);
   }, [onUserMedia, autoMirror]);
 
@@ -1326,7 +1333,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       {cameraPermission !== 'denied' && (
         <Webcam03
           ref={webcamRef}
-          audio={audio && isMicEnabled}
+          audio={audio && isMicEnabled && (micPermission !== 'denied')}
           videoConstraints={videoConstraints}
           muted={true}
           onUserMedia={onUserMediaBridge}
