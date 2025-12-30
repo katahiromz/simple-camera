@@ -44,7 +44,7 @@ const MOUSE_WHEEL_PAN_SPEED = 0.1; // マウスホイールによるパンの速
 const PAN_SPEED = 10; // パンの速度
 const BACKGROUND_IS_WHITE = false; // 背景は白か？
 const CAMERA_FACING_MODE_KEY = 'Camera_facingMode'; // localStorageのキー
-const MAX_CODE_READING_DISPLAY = 100;
+const MAX_CODE_READING_DISPLAY = 100; // コード表示の最大文字数
 
 // 画像処理用のデータ
 export interface ImageProcessData {
