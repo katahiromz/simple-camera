@@ -1389,10 +1389,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
               showCameraSwitch={ENABLE_CAMERA_SWITCH && showCameraSwitch}
               showConfig={SHOW_CONFIG && showConfig}
               showCodeReader={ENABLE_CODE_READER && showCodeReader}
-              enableTakePhoto={!errorString && cameraPermission === 'granted'}
-              enableRecording={!errorString && cameraPermission === 'granted'}
-              enableCameraSwitch={!errorString && cameraPermission === 'granted'}
-              enableCodeReader={!errorString && cameraPermission === 'granted'}
+              enableTakePhoto={!errorString && cameraPermission !== 'denied'}
+              enableRecording={!errorString && cameraPermission !== 'denied'}
+              enableCameraSwitch={!errorString && cameraPermission !== 'denied'}
+              enableCodeReader={!errorString && cameraPermission !== 'denied'}
               toggleCodeReader={toggleCodeReader}
               showCodes={ENABLE_CODE_READER && isCodeReaderON}
               aria-label={t('camera_controls')}
