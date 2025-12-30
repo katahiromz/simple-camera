@@ -10,6 +10,7 @@ This is the ultimate minimalist camera app designed for those who want to "just 
 * **Smooth Video Recording**: Enjoy effortless filming with a simple tap to start and stop.
 * **QR Code Scanner**: Includes a dedicated scanning mode, eliminating the need for a separate reader app.
 * **Camera Toggle**: Quickly switch between the front (selfie) and rear (landscape) cameras with a single tap.
+* **Time Stamp**: Displays a date/time stamp in the bottom-right of the footage. Ideal for documenting evidence during onsite.
 
 ## **Simple Operation**
 

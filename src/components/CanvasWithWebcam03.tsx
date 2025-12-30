@@ -291,7 +291,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const recordingTimerRef = useRef<NodeJS.Timeout | null>([]); // 録画タイマー
   const recordingStartTimeRef = useRef<NodeJS.Timeout | null>([]); // 録画開始時の時刻
   const [showZoomInfo, setShowZoomInfo] = useState(false); // ズーム倍率を表示するか？
-  const lastTapTimerRef = useRef<number>(0); // 最後のタップ時刻
+  const lastTapTimerRef = useRef<number | null>(null); // 最後のタップ時刻
   const codeReaderOnRef = useRef(false); // コードリーダーのON/OFF
   const [isCodeReaderON, setIsCodeReaderON] = useState(false); // コードリーダがONか？
   const [selectedQR, setSelectedQR] = useState<string | null>(null); // 選択中のQRコードの文字列
@@ -357,6 +357,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     setZoomValue(1.0);
     setOffset({ x: 0, y: 0 });
     triggerZoomInfo();
+    lastTapTimerRef.current = null; // リセット
   }, []);
 
   // ダブルタップを検出する
@@ -365,14 +366,22 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     e.preventDefault();
 
     const now = Date.now();
+
+    // 指が1本だけの時だけダブルタップ判定を行う
+    if (e.touches.length !== 1) {
+      lastTapTimerRef.current = null; // リセット
+      return;
+    }
+
     const DOUBLE_TAP_DELAY = 300; // 300ミリ秒以内ならダブルタップ
 
-    if (now - lastTapTimerRef.current < DOUBLE_TAP_DELAY) {
+    if (lastTapTimerRef.current !== null && now - lastTapTimerRef.current < DOUBLE_TAP_DELAY) {
       console.log('fire!');
       // ダブルタップ時の処理
       handleDoubleTap();
+    } else {
+      lastTapTimerRef.current = now;
     }
-    lastTapTimerRef.current = now;
   }, [handleDoubleTap]);
 
   // 鏡像反転の監視
