@@ -27,7 +27,11 @@ interface Camera03ControlsProps {
   showRecording: boolean; // 録画開始・録画停止ボタンを表示するか？
   showCameraSwitch: boolean; // カメラ切り替えボタンを表示するか？
   toggleCodeReader: () => void; // コードリーダーを切り替える
+  showCodes: boolean; // コードを表示するか？
   enableCodeReader: boolean; // コードリーダーを有効にするか？
+  enableTakePhoto: boolean; // 写真撮影を有効にするか？
+  enableRecording: boolean; // 録画を有効にするか？
+  enableCameraSwitch: boolean; // カメラ切り替えを有効にするか？
 };
 
 // カメラCamera03のコントロール パネル (Camera03Controls) 本体
@@ -37,12 +41,16 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
   startRecording,
   stopRecording,
   toggleCamera,
-  showTakePhoto,
-  showRecording,
-  showCameraSwitch,
   toggleCodeReader,
-  showCodeReader,
-  enableCodeReader,
+  showCodes = false,
+  showTakePhoto = true,
+  showRecording = true,
+  showCameraSwitch = true,
+  showCodeReader = true,
+  enableCodeReader = true,
+  enableTakePhoto = true,
+  enableRecording = true,
+  enableCameraSwitch = true,
 }) => {
   const { t } = useTranslation(); // 翻訳用
   return (
@@ -61,10 +69,11 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
       {SHOW_CODE_READER && showCodeReader && (
         <button
           onClick={toggleCodeReader}
-          className={`webcam03-button webcam03-button-code-reader ${enableCodeReader ? 'active' : ''}`}
+          disabled={!enableCodeReader}
+          className={`webcam03-button webcam03-button-code-reader ${showCodes ? 'active' : ''}`}
           title={t('camera_qr_code_reader')}
         >
-          <QrCode size={30} color={enableCodeReader ? "white" : "black"} />
+          <QrCode size={30} color={showCodes ? "white" : "black"} />
         </button>
       )}
 
@@ -72,7 +81,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
       {SHOW_CAMERA_SWITCH && showCameraSwitch && (
         <button
           onClick={toggleCamera}
-          disabled={isRecording}
+          disabled={isRecording || !enableCameraSwitch}
           className="webcam03-button webcam03-button-camera-switch"
           title={t('camera_switch_camera')}
           aria-label={t('camera_switch_camera')}
@@ -85,6 +94,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
       {SHOW_TAKE_PHOTO && showTakePhoto && (
         <button
           onClick={takePhoto}
+          disabled={!enableTakePhoto}
           className="webcam03-button webcam03-button-take-photo"
           title={t('camera_take_photo')}
           aria-label={t('camera_take_photo')}
@@ -97,6 +107,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
       {SHOW_RECORDING && showRecording && !isRecording ? (
         <button
           onClick={startRecording}
+          disabled={!enableRecording}
           className="webcam03-button webcam03-button-start-recording"
           aria-label={t('camera_start_recording')}
           aria-pressed="false"
@@ -107,6 +118,7 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
       ) : (
         <button
           onClick={stopRecording}
+          disabled={!enableRecording}
           className="webcam03-button webcam03-button-stop-recording"
           aria-label={t('camera_stop_recording')}
           aria-pressed="true"

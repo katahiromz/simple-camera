@@ -58,6 +58,7 @@ export interface ImageProcessData {
   isMirrored: boolean,
   currentZoom: number,
   offset: { x: number, y: number },
+  showCodes: booean,
 };
 
 // CanvasWithWebcam03のprops
@@ -132,7 +133,7 @@ let lastScanTime = 0;
 
 // デフォルトの画像処理関数
 export const onDefaultImageProcess = async (data: ImageProcessData) => {
-  const { x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset, showCodeReader, qrResultsRef } = data;
+  const { x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset, showCodes, qrResultsRef } = data;
   const ctx = canvas.getContext('2d');
 
   if (!ctx || width <= 0 || height <= 0 || srcWidth <= 0 || srcHeight <= 0) return;
@@ -178,7 +179,7 @@ export const onDefaultImageProcess = async (data: ImageProcessData) => {
 
   ctx.restore(); // 座標変換を元に戻す
 
-  if (ENABLE_CODE_READER && showCodeReader) {
+  if (ENABLE_CODE_READER && showCodes) {
     const now = Date.now();
     if (now - lastScanTime > 300) {
       lastScanTime = now;
@@ -289,8 +290,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const recordingStartTimeRef = useRef<NodeJS.Timeout | null>([]); // 録画開始時の時刻
   const [showZoomInfo, setShowZoomInfo] = useState(false); // ズーム倍率を表示するか？
   const lastTapTimerRef = useRef<number>(0); // 最後のタップ時刻
-  const showCodeReaderRef = useRef(false); // コードリーダー
-  const [isCodeReaderEnabled, setIsCodeReaderEnabled] = useState(false); // コードリーダが有効か？
+  const codeReaderOnRef = useRef(false); // コードリーダーのON/OFF
+  const [isCodeReaderON, setIsCodeReaderON] = useState(false); // コードリーダがONか？
   const [selectedQR, setSelectedQR] = useState<string | null>(null); // 選択中のQRコードの文字列
   const qrResultsRef = useRef([]); // QRコード読み込みの結果
   const [isPaused, setIsPaused] = useState(false); // 映像を一時停止中か？
@@ -305,7 +306,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       console.error("Wasm Loading Failed:", err);
       setErrorString("Failed to initialize Code Reader. Please check network.");
       // Optionally disable the feature automatically
-      setIsCodeReaderEnabled(false);
+      setIsCodeReaderON(false);
     });
   }, []);
 
@@ -611,8 +612,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           currentZoom: zoomRef.current,
           offset: offsetRef.current,
           isMirrored: isMirrored,
-          showCodeReader: showCodeReader && showCodeReaderRef.current,
-          enableCodeReader: showCodeReaderRef.current,
+          showCodeReader: showCodeReader,
+          showCodes: codeReaderOnRef.current,
           qrResultsRef: qrResultsRef,
         });
       }
@@ -1173,21 +1174,21 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   const toggleCodeReader = useCallback(() => {
     if (!ENABLE_CODE_READER) return;
-    console.log('toggleCodeReader - before:', isCodeReaderEnabled);
-    setIsCodeReaderEnabled(prev => {
+    console.log('toggleCodeReader - before:', isCodeReaderON);
+    setIsCodeReaderON(prev => {
       const newValue = !prev;
       console.log('toggleCodeReader - after:', newValue);
-      showCodeReaderRef.current = newValue; // 新しい値をrefに設定
+      codeReaderOnRef.current = newValue; // 新しい値をrefに設定
       return newValue;
     });
-  }, [isCodeReaderEnabled]);
+  }, [isCodeReaderON]);
 
-  // useEffectでisCodeReaderEnabledの変更を監視
+  // useEffectでisCodeReaderONの変更を監視
   useEffect(() => {
     if (!ENABLE_CODE_READER) return;
-    console.log('isCodeReaderEnabled changed:', isCodeReaderEnabled);
-    showCodeReaderRef.current = isCodeReaderEnabled;
-  }, [isCodeReaderEnabled]);
+    console.log('isCodeReaderON changed:', isCodeReaderON);
+    codeReaderOnRef.current = isCodeReaderON;
+  }, [isCodeReaderON]);
 
   useImperativeHandle(ref, () => ({
     canvas: canvasRef.current,
@@ -1297,7 +1298,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       )}
 
       {/* カメラのメッセージ */}
-      {(!isInitialized || isSwitching) && (
+      {(!isInitialized || isSwitching) && !errorString && cameraPermission !== 'denied' && (
         <div className="webcam03-camera-message" aria-label={t('camera_status')}>
           {isSwitching ? (
             <span><Camera size={50} color="white" /> <br />{ t('camera_switching_camera') }</span>
@@ -1308,7 +1309,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       )}
 
       {/* QRコード読み取り準備中のメッセージ */}
-      {ENABLE_CODE_READER && isCodeReaderEnabled && !isWasmReady && (
+      {ENABLE_CODE_READER && isCodeReaderON && !isWasmReady && (
         <div className="webcam03-code-reader-waiting">
           {/* スキャンライン背景 */}
           <div className="webcam03-code-reader-waiting-background" />
@@ -1354,8 +1355,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
         </div>
       )}
 
-      {/* カメラ権限が拒否されていない場合のみWebcamを起動 */}
-      {cameraPermission !== 'denied' && (
+      {/* Webcam */}
+      {(cameraPermission !== 'denied') && (
         <Webcam03
           ref={webcamRef}
           audio={audio && isMicEnabled && (micPermission !== 'denied')}
@@ -1388,8 +1389,12 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
               showCameraSwitch={ENABLE_CAMERA_SWITCH && showCameraSwitch}
               showConfig={SHOW_CONFIG && showConfig}
               showCodeReader={ENABLE_CODE_READER && showCodeReader}
+              enableTakePhoto={!errorString && cameraPermission === 'granted'}
+              enableRecording={!errorString && cameraPermission === 'granted'}
+              enableCameraSwitch={!errorString && cameraPermission === 'granted'}
+              enableCodeReader={!errorString && cameraPermission === 'granted'}
               toggleCodeReader={toggleCodeReader}
-              enableCodeReader={isCodeReaderEnabled}
+              showCodes={ENABLE_CODE_READER && isCodeReaderON}
               aria-label={t('camera_controls')}
             />
           )) : (() => (<></>))}
