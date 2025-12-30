@@ -138,36 +138,71 @@ class PermissionManager(private val activity: AppCompatActivity) {
         val needsCamera = resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
         val needsAudio = resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)
 
-        // 必要なAndroid権限を決定
-        val androidPermissions = mutableListOf<String>()
-        if (needsCamera) androidPermissions.add(Manifest.permission.CAMERA)
-        if (needsAudio) androidPermissions.add(Manifest.permission.RECORD_AUDIO)
+        // 必要なAndroid権限とリソースのマッピング
+        val permissionResourceMap = mutableMapOf<String, String>()
+        if (needsCamera) {
+            permissionResourceMap[Manifest.permission.CAMERA] = PermissionRequest.RESOURCE_VIDEO_CAPTURE
+        }
+        if (needsAudio) {
+            permissionResourceMap[Manifest.permission.RECORD_AUDIO] = PermissionRequest.RESOURCE_AUDIO_CAPTURE
+        }
 
         // 権限が不要なリソースリクエストなら即座に拒否して終了
-        if (androidPermissions.isEmpty()) {
-            activity?.runOnUiThread {
+        if (permissionResourceMap.isEmpty()) {
+            activity.runOnUiThread {
                 request.deny()
             }
             return
         }
 
-        // 権限チェックとリクエスト
-        if (hasPermissions(androidPermissions.toTypedArray())) {
-            // すでに権限がある場合は許可
-            activity.runOnUiThread { request.grant(request.resources) }
-        } else {
-            // 権限をリクエスト
-            requestPermissions(androidPermissions.toTypedArray()) { results ->
-                activity?.runOnUiThread {
-                    try {
-                        if (results.values.all { it }) {
-                            request.grant(resources)
-                        } else {
-                            request.deny()
+        val androidPermissions = permissionResourceMap.keys.toTypedArray()
+
+        // すでに許可されている権限をチェック
+        val alreadyGranted = androidPermissions.filter { permission ->
+            ContextCompat.checkSelfPermission(activity, permission) == PackageManager.PERMISSION_GRANTED
+        }
+
+        // すべて許可済みの場合
+        if (alreadyGranted.size == androidPermissions.size) {
+            activity.runOnUiThread {
+                request.grant(resources)
+            }
+            return
+        }
+
+        // 一部または全て未許可の場合、権限をリクエスト
+        requestPermissions(androidPermissions) { results ->
+            activity.runOnUiThread {
+                try {
+                    // 許可されたリソースのリストを作成
+                    val grantedResources = mutableListOf<String>()
+                    
+                    permissionResourceMap.forEach { (permission, resource) ->
+                        // この権限が許可されていれば対応するリソースを追加
+                        if (results[permission] == true) {
+                            grantedResources.add(resource)
                         }
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error granting/denying permission request")
                     }
+
+                    // 許可されたリソースがある場合は部分的に許可
+                    if (grantedResources.isNotEmpty()) {
+                        request.grant(grantedResources.toTypedArray())
+                        
+                        // 一部だけ許可された場合はログ出力
+                        if (grantedResources.size < permissionResourceMap.size) {
+                            val deniedPermissions = permissionResourceMap.keys.filter { 
+                                results[it] != true 
+                            }
+                            Timber.w("部分的に権限が許可されました。拒否された権限: $deniedPermissions")
+                        }
+                    } else {
+                        // すべて拒否された場合
+                        request.deny()
+                        Timber.w("すべての権限が拒否されました")
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Error granting/denying permission request")
+                    request.deny()
                 }
             }
         }
