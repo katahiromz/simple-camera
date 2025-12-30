@@ -17,6 +17,7 @@ import { Camera, Settings } from 'lucide-react';
 // 国際化(i18n)
 import '../libs/i18n.ts';
 import { useTranslation } from 'react-i18next';
+import { t } from 'i18next';
 
 const ENABLE_USER_ZOOMING = true; // ユーザーによるズームを有効にするか？
 const ENABLE_USER_PANNING = true; // ユーザーによるパン操作を有効にするか？

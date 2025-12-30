@@ -10,6 +10,13 @@
     "moduleResolution": "node",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+
+    "allowJs": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "include": ["src"],
+    "jsx": "react-jsx"
   }
 }
