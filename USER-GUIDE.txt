@@ -1,24 +1,25 @@
-﻿# Simple Camera: User Guide
+﻿# Simple Camera
 
-## **App Overview**
+## App Overview
 
-This is the ultimate minimalist camera app designed for those who want to "just take a photo" without dealing with complex settings. With its intuitive interface, you can handle photography, video recording, and QR code scanning all in one place.
+The ultimate camera app for those who want to skip the complex settings and just start shooting. With an intuitive interface, this all-in-one tool handles everything from photography and video recording to QR code scanning.
 
-## **Key Features**
+## Key Features
 
-* **Easy Photography**: Capture precious moments instantly just by pressing the shutter button.
-* **Smooth Video Recording**: Enjoy effortless filming with a simple tap to start and stop.
-* **QR Code Scanner**: Includes a dedicated scanning mode, eliminating the need for a separate reader app.
-* **Camera Toggle**: Quickly switch between the front (selfie) and rear (landscape) cameras with a single tap.
-* **Time Stamp**: Displays a date/time stamp in the bottom-right of the footage. Ideal for documenting evidence during onsite.
+* **Effortless Photography:** Capture precious moments instantly with a single tap of the shutter button.
+* **Smooth Video Recording:** Enjoy hassle-free filming with simple start/stop controls.
+* **Built-in QR Code Scanner:** No need for a separate app—scan QR codes directly within the dedicated mode.
+* **Quick Camera Toggle:** Switch between the front-facing (selfie) and rear cameras with one tap.
+* **Timestamp Overlay:** The current date and time are automatically imprinted on the bottom-right of the image. This is perfect for maintaining records or evidence for professional on-site work.
 
-## **Simple Operation**
+## Simple Operation
 
-The app is operated using only four buttons located at the bottom of the screen:
+* **Zoom & Pan:** Use two fingers to zoom in/out or move the display position.
+* **Reset Zoom:** Double-tap the screen to instantly reset the zoom magnification.
 
-* **QR Code Button**: Activates the scanning function.
-* **Camera Toggle Button**: Switches between the front and rear cameras.
-* **Shutter Button**: Used to take still photos.
-* **Record Button**: Starts and stops video recording.
+### Control Guide (Bottom Buttons)
 
-> **Note**: You can check the app's version information at any time by tapping the **gear icon** in the top right corner.
+1. **QR Code Button:** Activates the scanning feature.
+2. **Toggle Camera Button:** Switches between the front and rear cameras.
+3. **Photo Button:** Captures a still image.
+4. **Record Button:** Starts and stops video recording.
