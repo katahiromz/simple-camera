@@ -47,6 +47,9 @@ const TOUCH_PAN_SPEED = 1.5; // タッチによるパンの速度
 const BACKGROUND_IS_WHITE = false; // 背景は白か？
 const CAMERA_FACING_MODE_KEY = 'Camera_facingMode'; // localStorageのキー
 const MAX_CODE_READING_DISPLAY = 100; // コード表示の最大文字数
+const TARGET_FPS = 30; // フレームレート
+const FRAME_INTERVAL = 1000 / TARGET_FPS;
+const SCAN_INTERVAL = 500; // コード読み取り頻度(ミリ秒)
 
 // 画像処理用のデータ
 export interface ImageProcessData {
@@ -138,11 +141,11 @@ let lastScanTime = 0;
 // デフォルトの画像処理関数
 export const onDefaultImageProcess = async (data: ImageProcessData) => {
   const { x, y, width, height, src, srcWidth, srcHeight, video, canvas, isMirrored, currentZoom, offset, showCodes, qrResultsRef } = data;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d',
+    { alpha: false, desynchronized: true, willReadFrequently: false } // 速度優先
+  );
 
-  if (!ctx || width <= 0 || height <= 0 || srcWidth <= 0 || srcHeight <= 0) return;
-
-  ctx.save(); // 現在のキャンバス状態を保存
+  if (!ctx || width <= 0 || height <= 0) return;
 
   // 鏡像なら左右反転の座標変換
   if (isMirrored) {
@@ -150,10 +153,7 @@ export const onDefaultImageProcess = async (data: ImageProcessData) => {
     ctx.scale(-1, 1);
   }
 
-  if (currentZoom === 1.0 && offset.x == 0 && offset.y == 0) {
-    // ズームなし、パンなし
-    ctx.drawImage(src, x, y, width, height);
-  } else {
+  if (currentZoom !== 1.0 || offset.x != 0 || offset.y != 0) {
     // 背景を塗りつぶす
     if (BACKGROUND_IS_WHITE) {
       ctx.fillStyle = 'white';
@@ -179,13 +179,16 @@ export const onDefaultImageProcess = async (data: ImageProcessData) => {
       src, Math.round(sourceX), Math.round(sourceY), sourceWidth, sourceHeight,
       x, y, width, height
     );
+  } else {
+    // ズームなし、パンなし
+    ctx.drawImage(src, x, y, width, height);
   }
 
-  ctx.restore(); // 座標変換を元に戻す
+  ctx.setTransform(1, 0, 0, 1, 0, 0); // 座標変換を元に戻す
 
   if (ENABLE_CODE_READER && showCodes) {
     const now = Date.now();
-    if (now - lastScanTime > 300) {
+    if (now - lastScanTime > SCAN_INTERVAL) {
       lastScanTime = now;
       // 非同期で実行し、結果が得られたら qrResults を更新する
       CodeReader.scanMultiple(canvas).then(results => {
@@ -301,6 +304,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const qrResultsRef = useRef([]); // QRコード読み込みの結果
   const [isPaused, setIsPaused] = useState(false); // 映像を一時停止中か？
   const [isWasmReady, setIsWasmReady] = useState(false);
+  const lastDrawTimeRef = useRef(0);
 
   useEffect(() => {
     if (!ENABLE_CODE_READER) return;
@@ -610,27 +614,32 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
     const videoReady = video && video.readyState === video.HAVE_ENOUGH_DATA;
     const dummyReady = dummyImageRef.current && dummyImageRef.current.complete;
-    if (canvas && src && (videoReady || dummyReady) && srcWidth > 0 && srcHeight > 0) {
-      // キャンバスをビデオのサイズに合わせる
-      if (canvas.width !== srcWidth || canvas.height !== srcHeight) {
-        canvas.width = srcWidth;
-        canvas.height = srcHeight;
-      }
 
-      if (src && srcWidth > 0 && srcHeight > 0) {
-        onImageProcess({
-          x: 0, y: 0, width: canvas.width, height: canvas.height,
-          src, srcWidth, srcHeight,
-          video: video,
-          canvas: canvas,
-          currentZoom: zoomRef.current,
-          offset: offsetRef.current,
-          isMirrored: isMirrored,
-          showCodeReader: showCodeReader,
-          showCodes: codeReaderOnRef.current,
-          qrResultsRef: qrResultsRef,
-        });
-      }
+    if (!canvas || !src || (!videoReady && !dummyReady) || srcWidth <= 0 || srcHeight <= 0) return;
+
+    // キャンバスをビデオのサイズに合わせる
+    if (canvas.width !== srcWidth || canvas.height !== srcHeight) {
+      canvas.width = srcWidth;
+      canvas.height = srcHeight;
+    }
+
+    const now = performance.now();
+    const elapsed = now - lastDrawTimeRef.current;
+
+    if (elapsed >= FRAME_INTERVAL) {
+      onImageProcess({
+        x: 0, y: 0, width: canvas.width, height: canvas.height,
+        src, srcWidth, srcHeight,
+        video: video,
+        canvas: canvas,
+        currentZoom: zoomRef.current,
+        offset: offsetRef.current,
+        isMirrored: isMirrored,
+        showCodeReader: showCodeReader,
+        showCodes: codeReaderOnRef.current,
+        qrResultsRef: qrResultsRef,
+      });
+      lastDrawTimeRef.current = now - (elapsed % FRAME_INTERVAL);
     }
   }, []);
 
@@ -701,8 +710,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
     chunksRef.current = [];
 
-    // Canvasからのビデオストリーム取得 (30fps)
-    const canvasStream = canvasRef.current.captureStream(30);
+    // Canvasからのビデオストリーム取得
+    const canvasStream = canvasRef.current.captureStream(TARGET_FPS);
     const videoTrack = canvasStream.getVideoTracks()[0];
 
     // 音声トラックの取得
