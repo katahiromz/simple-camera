@@ -92,7 +92,7 @@ export class CodeReader {
   }
 
   // 枠(ボックス)を描画する
-  static drawQRBox(ctx: CanvasRenderingContext2D, result: QRResult, debug = false) {
+  static drawQRBox(ctx: CanvasRenderingContext2D, result: QRResult, size: number) {
     if (!result || !result.location || !result.location.points || result.location.points.length < 4) {
       return;
     }
@@ -111,7 +111,7 @@ export class CodeReader {
     ctx.stroke();
 
     // 2. テキストの描画設定
-    let fontSize = 16;
+    let fontSize = size * 0.03;
     ctx.font = `bold ${fontSize}px sans-serif`;
     ctx.fillStyle = "#009900";
 
@@ -125,7 +125,7 @@ export class CodeReader {
     // 4. テキストの省略処理
     let data = result.data;
     let measure = ctx.measureText(data);
-    const maxWidth = topWidth * 1.75; // ボックス幅の1.75倍まで許容
+    const maxWidth = topWidth * 1.4;
 
     if (measure.width > maxWidth) {
       while (data.length > 0 && ctx.measureText(data + '...').width > maxWidth) {
@@ -146,14 +146,14 @@ export class CodeReader {
     // 描画 (y方向のマイナスは枠線の少し上に表示するため)
     // textAlignをcenterにすることで計算を簡略化
     ctx.textAlign = "center";
-    ctx.fillText(data, 0, - (ctx.lineWidth + 5));
+    ctx.fillText(data, 0, -ctx.lineWidth);
 
     ctx.restore();
   }
 
   // 複数のQRボックスを一度に描画する
-  static drawAllBoxes(ctx: CanvasRenderingContext2D, results: QRResult[]) {
-    results.forEach(res => this.drawQRBox(ctx, res));
+  static drawAllBoxes(ctx: CanvasRenderingContext2D, results: QRResult[], size: number) {
+    results.forEach(res => this.drawQRBox(ctx, res, size));
   }
 
   // 文字列からURLをすべて抽出して配列で返す

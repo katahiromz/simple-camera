@@ -186,6 +186,10 @@ export const onDefaultImageProcess = async (data: ImageProcessData) => {
 
   ctx.setTransform(1, 0, 0, 1, 0, 0); // 座標変換を元に戻す
 
+  let minxy = Math.min(width, height);
+  let maxxy = Math.max(width, height);
+  let avgxy = (width + height) / 2;
+
   if (ENABLE_CODE_READER && showCodes) {
     const now = Date.now();
     if (now - lastScanTime > SCAN_INTERVAL) {
@@ -196,7 +200,7 @@ export const onDefaultImageProcess = async (data: ImageProcessData) => {
       });
     }
 
-    CodeReader.drawAllBoxes(ctx, qrResultsRef.current);
+    CodeReader.drawAllBoxes(ctx, qrResultsRef.current, minxy);
   }
 
   if (SHOW_SHAPES && width > 2 && height > 2) { // ちょっと図形を描いてみるか？
@@ -214,7 +218,6 @@ export const onDefaultImageProcess = async (data: ImageProcessData) => {
   }
 
   if (SHOW_CURRENT_TIME) { // ちょっと日時を描画してみるか？
-    let minxy = Math.min(width, height);
     let text = getLocalDateTimeString();
     ctx.font = `${minxy * 0.05}px monospace, san-serif`;
     let measure = ctx.measureText(text);
