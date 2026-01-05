@@ -281,18 +281,63 @@ object TopSnackbar {
         })
 
         view.setOnTouchListener { v, event ->
-            // まずジェスチャーディテクターに渡す
-            val handled = gestureDetector.onTouchEvent(event)
-
-            // アクションボタンなどの子ビューがタップされたかチェック
-            if (event.action == MotionEvent.ACTION_UP) {
-                // 子ビューのクリック判定を OS の標準処理に任せるため、
-                // ここでは false を返してイベントを透過させる
+            // Check if touch is within a clickable child view (e.g., action button)
+            if (isTouchOnClickableChild(v as ViewGroup, event)) {
+                // Let the child view handle the touch event normally
                 return@setOnTouchListener false
             }
 
-            handled
+            // Otherwise, pass to gesture detector for swipe-to-dismiss
+            gestureDetector.onTouchEvent(event)
         }
+    }
+
+    /**
+     * Check if a touch event is within the bounds of any clickable child view.
+     *
+     * @param viewGroup The parent ViewGroup to check for clickable children
+     * @param event The touch event containing coordinates
+     * @return true if the touch is within a clickable child's bounds, false otherwise
+     */
+    private fun isTouchOnClickableChild(viewGroup: ViewGroup, event: MotionEvent): Boolean {
+        val x = event.x
+        val y = event.y
+
+        for (i in 0 until viewGroup.childCount) {
+            val child = viewGroup.getChildAt(i)
+            
+            // Check if child is clickable (e.g., Button)
+            if (child.isClickable) {
+                // Use child.left/top for efficient relative position calculation
+                val childLeft = child.left.toFloat()
+                val childTop = child.top.toFloat()
+                val childRight = childLeft + child.width
+                val childBottom = childTop + child.height
+
+                // Check if touch is within child bounds
+                if (x >= childLeft && x < childRight &&
+                    y >= childTop && y < childBottom) {
+                    return true
+                }
+            }
+
+            // Recursively check if the child is a ViewGroup with clickable children
+            if (child is ViewGroup) {
+                // Adjust event coordinates relative to the child ViewGroup
+                val childX = x - child.left
+                val childY = y - child.top
+                val childEvent = MotionEvent.obtain(event)
+                childEvent.setLocation(childX, childY)
+                
+                if (isTouchOnClickableChild(child, childEvent)) {
+                    childEvent.recycle()
+                    return true
+                }
+                childEvent.recycle()
+            }
+        }
+
+        return false
     }
 
     /**
