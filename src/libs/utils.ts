@@ -43,13 +43,28 @@ export const getMaxOffset = (videoWidth: number, videoHeight: number, zoom: numb
  * ダウンロードファイル名の生成
  */
 export const generateFileName = (prefix: 'video_' | 'photo_', extension: string): string => {
-  // 日時文字列を取得
+  // ローカル日時を取得
   const now = new Date();
-  let timestamp = now.toLocaleDateString() + " " + now.toLocaleTimeString();
-  // 空白文字やファイル名に使用できない文字を _ に置き換える
-  timestamp = timestamp.replace(/[ :\.\\\/]/g, '_');
+
+  // YYYY_MM_DD形式の日付
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const dateStr = `${year}_${month}_${day}`;
+
+  // HH_MM_SS形式の時刻
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const timeStr = `${hours}_${minutes}_${seconds}`;
+
   console.assert(extension[0] == '.');
-  return `${prefix}${timestamp}${extension}`;
+  const filename = `${prefix}${dateStr}_${timeStr}${extension}`;
+
+  // 空白文字やファイル名に使用できない文字を _ に置き換える
+  const sanitizedFilename = filename.replace(/[ :\.\\\/]/g, '_');
+  console.assert(extension[0] == '.');
+  return sanitizedFilename;
 };
 
 /**
@@ -59,7 +74,7 @@ export const formatTime = (seconds: number): string => {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
-  
+
   const pad = (n: number) => n.toString().padStart(2, '0');
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
 };
@@ -228,7 +243,7 @@ export const isPointInPolygon = (point: {x: number, y: number}, polygon: {x: num
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const xi = polygon[i].x, yi = polygon[i].y;
     const xj = polygon[j].x, yj = polygon[j].y;
-    
+
     const intersect = ((yi > point.y) !== (yj > point.y))
         && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
     if (intersect) inside = !inside;
