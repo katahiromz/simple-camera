@@ -204,7 +204,11 @@ export const polyfillGetUserMedia = () => {
 
       // Otherwise, wrap the call to the old navigator.getUserMedia with a Promise
       return new Promise(function(resolve, reject) {
-        getUserMedia.call(navigator, constraints, resolve, reject);
+        if (constraints) {
+          getUserMedia.call(navigator, constraints, resolve, reject);
+        } else {
+          reject(new Error("MediaStreamConstraints required"));
+        }
       });
     };
   }

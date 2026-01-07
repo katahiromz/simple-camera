@@ -85,8 +85,8 @@ interface CanvasWithWebcam03Props {
   photoFormat?: "image/png" | "image/webp" | "image/jpeg";
   photoQuality?: number;
   recordingFormat?: "video/webm" | "video/mp4";
-  saveFile?: ((blob: Blob, fileName: string, mimeType: string, type: string) => void) | null;
-  downloadFile?: ((blob: Blob, fileName: string, mimeType: string, type: string) => void) | null;
+  saveFile?: ((blob: Blob, fileName: string, mimeType: string, type: 'video' | 'photo' | 'audio') => void) | null;
+  downloadFile?: ((blob: Blob, fileName: string, mimeType: string, type: 'video' | 'photo' | 'audio') => void) | null;
   eventTarget?: HTMLElement | null;
   showControls?: boolean;
   showRecordingTime?: boolean;
@@ -109,6 +109,7 @@ interface CanvasWithWebcam03Handle {
   controls?: HTMLElement;
   getZoomRatio?: () => number;
   setZoomRatio?: (ratio: number) => void;
+  takePhoto?: () => void;
   startRecording?: () => void;
   stopRecording?: () => void;
   zoomIn?: () => void;
@@ -270,10 +271,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   ref: React.ForwardedRef<CanvasWithWebcam03Handle>
 ) => {
   const { t } = useTranslation(); // 翻訳用
-  const webcamRef = useRef(null); // Webcam03への参照
-  const canvasRef = useRef(null); // キャンバスへの参照
-  const controlsRef = useRef(null); // コントロール パネル (Webcam03Controls)への参照
-  const animationRef = useRef(null); // アニメーションフレーム要求への参照
+  const webcamRef = useRef<React.ElementRef<typeof Webcam03> | null>(null); // Webcam03への参照
+  const canvasRef = useRef<HTMLCanvasElement | null>(null); // キャンバスへの参照
+  const controlsRef = useRef<HTMLDivElement | null>(null); // コントロール パネル (Webcam03Controls)への参照
+  const animationRef = useRef<number | null>(null); // アニメーションフレーム要求への参照
   const dummyImageRef = useRef<HTMLImageElement | null>(null); // ダミー画像への参照
   const mediaRecorderRef = useRef<MediaRecorder | null>(null); // メディア レコーダー
   const chunksRef = useRef<Blob[]>([]); // 録画用のchunkデータ
@@ -307,7 +308,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   const codeReaderOnRef = useRef(false); // コードリーダーのON/OFF
   const [isCodeReaderON, setIsCodeReaderON] = useState(false); // コードリーダがONか？
   const [selectedQR, setSelectedQR] = useState<string | null>(null); // 選択中のQRコードの文字列
-  const qrResultsRef = useRef([]); // QRコード読み込みの結果
+  const qrResultsRef = useRef<QRResult[]>([]); // QRコード読み込みの結果
   const [isPaused, setIsPaused] = useState(false); // 映像を一時停止中か？
   const [isWasmReady, setIsWasmReady] = useState(false);
   const lastDrawTimeRef = useRef(0);
@@ -424,7 +425,9 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
             console.log('clearInterval');
             clearInterval(zoomTimerRef.current);
             zoomTimerRef.current = null;
-            clearTimeout(zoomTimerRef2.current);
+            if (zoomTimerRef2.current) {
+              clearTimeout(zoomTimerRef2.current);
+            }
             zoomTimerRef2.current = null;
             setShowZoomInfo(false);
           }
@@ -651,7 +654,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // アニメーションフレームを次々と描画する関数
   const draw = useCallback(() => {
-    if (!isPaused) {
+    if (!isPaused && canvasRef.current) {
       // 内部描画関数を呼ぶ
       drawInner(canvasRef.current, isMirroredRef.current && !dummyImageRef.current);
     }
@@ -885,7 +888,9 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     if (ENABLE_USER_ZOOMING && ('touches' in e) && e.touches.length === 2) {
       // ピンチ操作開始
       isDragging.current = false; // パンを優先させない
-      initialPinchDistance.current = getDistance(e.touches);
+      // Convert React.TouchList to array for getDistance
+      const touchArray = Array.from(e.touches) as unknown as TouchList;
+      initialPinchDistance.current = getDistance(touchArray);
       initialZoomAtPinchStart.current = zoomRef.current;
 
       // 二本指の中間点を初期位置として保存
@@ -900,10 +905,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     // 1本指ならパン操作へ
 
     if (USE_MIDDLE_BUTTON_FOR_PANNING && !('touches' in e)) {
-      if (e.button != 1) return; // 中央ボタン？
+      if ((e as React.MouseEvent).button != 1) return; // 中央ボタン？
     }
 
-    if (e.button == 2) return; // 右ボタンは無視
+    if ('button' in e && e.button == 2) return; // 右ボタンは無視
 
     isDragging.current = true;
     const pos = 'touches' in e ? e.touches[0] : e;
@@ -925,7 +930,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       e.preventDefault();
 
       // --- ズーム計算 ---
-      const currentDistance = getDistance(e.touches);
+      const touchArray = Array.from(e.touches) as unknown as TouchList;
+      const currentDistance = getDistance(touchArray);
       const pinchScale = currentDistance / initialPinchDistance.current;
       const oldZoom = zoomRef.current;
       const newZoom = clampZoomWithResistance(initialZoomAtPinchStart.current * pinchScale);
@@ -940,6 +946,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       if (isMirroredRef.current && !dummyImageRef.current) dx = -dx;
 
       // ビデオ座標系への変換
+      const { srcWidth, srcHeight } = getSourceInfo();
       const scaleX = srcWidth / canvas.clientWidth;
       const scaleY = srcHeight / canvas.clientHeight;
 
@@ -1101,9 +1108,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, [offset]);
   // 位置のずれを設定する
   const setPan = useCallback((newPanX: number, newPanY: number) => {
+    const { srcWidth, srcHeight } = getSourceInfo();
     const max = getMaxOffset(srcWidth, srcHeight, zoomRef.current);
     setOffset({ x: clamp(-max.x, newPanX, max.x), y: clamp(-max.y, newPanY, max.y) });
-  }, [srcWidth, srcHeight]);
+  }, []);
 
   // 本当の facingMode (前面・背面)を返す
   const getRealFacingMode = useCallback((): string | null => {
@@ -1221,8 +1229,8 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, [isCodeReaderON]);
 
   useImperativeHandle(ref, () => ({
-    canvas: canvasRef.current,
-    controls: controlsRef.current,
+    canvas: canvasRef.current ?? undefined,
+    controls: controlsRef.current ?? undefined,
     getZoomRatio: getZoomRatio.bind(this),
     setZoomRatio: setZoomRatio.bind(this),
     getPan: getPan.bind(this),
@@ -1242,7 +1250,9 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }));
 
   const copyQRCode = useCallback((e: React.MouseEvent) => {
-    navigator.clipboard.writeText(selectedQR);
+    if (selectedQR) {
+      navigator.clipboard.writeText(selectedQR);
+    }
     setSelectedQR(null);
   }, [selectedQR]);
 
@@ -1259,6 +1269,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // QRコードのURLを参照
   const openQRCodeURL = useCallback((e: React.MouseEvent) => {
+    if (!selectedQR) return;
     let urls = CodeReader.extractUrls(selectedQR);
     if (urls.length > 0) {
       handleOpenURL(urls[0]);
@@ -1391,7 +1402,6 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
           ref={webcamRef}
           audio={audio && isMicEnabled && (micPermission !== 'denied')}
           videoConstraints={videoConstraints}
-          muted={true}
           onUserMedia={onUserMediaBridge}
           onUserMediaError={onUserMediaErrorBridge}
           style={{
@@ -1432,7 +1442,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       )}
 
       {/* 設定ボタン */}
-      {SHOW_CONFIG && showConfig && (
+      {SHOW_CONFIG && showConfig && doConfig && (
         <button
           onClick={doConfig}
           className="webcam03-button webcam03-button-config"
