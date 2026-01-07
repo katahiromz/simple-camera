@@ -3,7 +3,7 @@
 // License: MIT
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import CanvasWithWebcam03 from './components/CanvasWithWebcam03';
-import { isAndroidApp, emulateInsets, saveMedia, saveMediaEx, polyfillGetUserMedia } from './libs/utils.ts';
+import { isAndroidApp, emulateInsets, saveMedia, saveMediaEx, polyfillGetUserMedia } from './libs/utils';
 import './App.css';
 
 const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
@@ -11,7 +11,7 @@ const SHOW_CONFIG = true; // 設定ボタンを表示するか？
 const ENABLE_CONFIG = true; // 設定を有効にするか？
 
 // 国際化(i18n)
-import './libs/i18n.ts';
+import './libs/i18n';
 import { useTranslation } from 'react-i18next';
 
 // アプリケーションのベースパスを取得
@@ -40,7 +40,7 @@ polyfillGetUserMedia();
 // アプリ
 function App() {
   const { t } = useTranslation(); // 翻訳用
-  const canvasWithCamera = useRef<CanvasWithWebcam03>(null);
+  const canvasWithCamera = useRef<React.ElementRef<typeof CanvasWithWebcam03>>(null);
 
   // 設定をする
   const doConfig = () => {
@@ -64,7 +64,9 @@ function App() {
       console.log(`Volume: ${volumeType}`);
 
       // 音量ボタンでシャッターを切るなど
-      canvasWithCamera.current?.takePhoto();
+      if (canvasWithCamera.current?.takePhoto) {
+        canvasWithCamera.current.takePhoto();
+      }
     };
 
     // イベントリスナーの登録
@@ -80,7 +82,9 @@ function App() {
     // Android側から呼ばれるグローバル関数を定義
     if ((window as any).onPhysicalVolumeButton) {
       (window as any).onPhysicalVolumeButton = () => {
-        canvasWithCamera.current?.takePhoto();
+        if (canvasWithCamera.current?.takePhoto) {
+          canvasWithCamera.current.takePhoto();
+        }
       };
     }
     // コンポーネントがアンマウントされる時にクリーンアップ
@@ -98,48 +102,64 @@ function App() {
       case ';': // (日本語キーボード対応用)
         if (!event.ctrlKey && !event.altKey) { // CtrlキーやAltキーが押されていない？
           event.preventDefault();
-          canvasWithCamera.current?.zoomIn(); // ズームイン
+          if (canvasWithCamera.current?.zoomIn) {
+            canvasWithCamera.current.zoomIn(); // ズームイン
+          }
         }
         break;
       case '-': // ズームアウト
         if (!event.ctrlKey && !event.altKey) { // CtrlキーやAltキーが押されていない？
           event.preventDefault();
-          canvasWithCamera.current?.zoomOut(); // ズームアウト
+          if (canvasWithCamera.current?.zoomOut) {
+            canvasWithCamera.current.zoomOut(); // ズームアウト
+          }
         }
         break;
       case ' ': // スペース キー
         if (!event.ctrlKey && !event.altKey) { // CtrlキーやAltキーが押されていない？
           event.preventDefault();
-          canvasWithCamera.current?.takePhoto(); // 写真撮影
+          if (canvasWithCamera.current?.takePhoto) {
+            canvasWithCamera.current.takePhoto(); // 写真撮影
+          }
         }
         break;
       case 'Enter': // Enterキー
         if (!event.ctrlKey && !event.altKey) { // CtrlキーやAltキーが押されていない？
           event.preventDefault();
           // 録画開始・録画停止を切り替える
-          if (canvasWithCamera.current?.isRecording()) {
-            canvasWithCamera.current?.stopRecording();
-          } else {
-            canvasWithCamera.current?.startRecording();
+          if (canvasWithCamera.current?.isRecording && canvasWithCamera.current.isRecording()) {
+            if (canvasWithCamera.current.stopRecording) {
+              canvasWithCamera.current.stopRecording();
+            }
+          } else if (canvasWithCamera.current?.startRecording) {
+            canvasWithCamera.current.startRecording();
           }
         }
         break;
       // パン操作 (矢印)
       case 'ArrowUp':
         event.preventDefault();
-        canvasWithCamera.current?.panUp();
+        if (canvasWithCamera.current?.panUp) {
+          canvasWithCamera.current.panUp();
+        }
         break;
       case 'ArrowDown':
         event.preventDefault();
-        canvasWithCamera.current?.panDown();
+        if (canvasWithCamera.current?.panDown) {
+          canvasWithCamera.current.panDown();
+        }
         break;
       case 'ArrowLeft':
         event.preventDefault();
-        canvasWithCamera.current?.panRight();
+        if (canvasWithCamera.current?.panRight) {
+          canvasWithCamera.current.panRight();
+        }
         break;
       case 'ArrowRight':
         event.preventDefault();
-        canvasWithCamera.current?.panLeft();
+        if (canvasWithCamera.current?.panLeft) {
+          canvasWithCamera.current.panLeft();
+        }
         break;
       default:
         //console.log(event.key);
@@ -153,7 +173,7 @@ function App() {
 
   // メッセージを処理する
   useEffect(() => {
-    const onMessage = (e) => {
+    const onMessage = (e: MessageEvent) => {
       switch (e.data) {
       case 'go_back': // Android標準の「戻る」ボタンをサポートする。
         if (window.android) {
@@ -165,7 +185,9 @@ function App() {
       case 'onAppResume': // Androidアプリ再開時の処理を行う。
         if (window.android) {
           e.preventDefault(); // イベントのデフォルトの処理をスキップ。
-          canvasWithCamera.current?.onAppResume();
+          if (canvasWithCamera.current?.onAppResume) {
+            canvasWithCamera.current.onAppResume();
+          }
         }
         break;
       default:

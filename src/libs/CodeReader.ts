@@ -12,7 +12,7 @@ export interface QRResult {
 }
 
 // 読み取るコードの形式
-const CODE_FORMATS = ['QRCode', 'MicroQRCode', 'rMQRCode', 'EAN-13'];
+const CODE_FORMATS = ['QRCode', 'MicroQRCode', 'rMQRCode', 'EAN-13'] as const;
 
 export class CodeReader {
   // WASMをウォームアップさせる静的メソッド
@@ -21,7 +21,7 @@ export class CodeReader {
     try {
       const dummyData = new ImageData(1, 1);
       // zxing-wasmの初期化を促す
-      await readBarcodesFromImageData(dummyData, { formats: CODE_FORMATS });
+      await readBarcodesFromImageData(dummyData, { formats: [...CODE_FORMATS] as any });
       console.log('zxing-wasm warmed up');
     } catch (e) {
       // 初回ロード時は内部的に例外を投げる可能性があるため、ログ出力に留める
@@ -60,13 +60,13 @@ export class CodeReader {
 
       // zxing-wasmでバーコードを読み取る
       const results = await readBarcodesFromImageData(imageData, {
-        formats: CODE_FORMATS,
+        formats: [...CODE_FORMATS] as any,
         tryHarder: false,
         maxNumberOfSymbols: 8,
       });
 
       // 結果を変換
-      return results.map(result => {
+      return results.map((result: any) => {
         // zxing-wasmの座標を取得
         const position = result.position;
         const points = [

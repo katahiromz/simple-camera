@@ -44,23 +44,23 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
   (
     {
       audio = true,
-      audioConstraints,
-      videoConstraints,
+      audioConstraints = undefined,
+      videoConstraints = undefined,
       onUserMedia = () => {},
       onUserMediaError = () => {},
       screenshotFormat = "image/webp",
       screenshotQuality = 0.92,
       mirrored = false,
       forceScreenshotSourceSize = false,
-      minScreenshotWidth,
-      minScreenshotHeight,
+      minScreenshotWidth = undefined,
+      minScreenshotHeight = undefined,
       imageSmoothing = true,
-      children,
-      style,
-      className,
+      children = undefined,
+      style = undefined,
+      className = undefined,
       ...rest
     },
-    ref
+    ref: React.ForwardedRef<WebcamCanvasHandle>
   ) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
@@ -76,7 +76,7 @@ const Webcam03 = forwardRef<WebcamCanvasHandle, WebcamProps>(
     const stopMediaStream = useCallback(() => {
       console.log('stopMediaStream');
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop());
         streamRef.current = null;
       }
       if (videoRef.current) {

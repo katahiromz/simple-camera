@@ -8,7 +8,7 @@ import React, { useRef, useState, useCallback } from 'react';
 import { Camera, Video, Square, AlertCircle, SwitchCamera, Settings, QrCode  } from 'lucide-react';
 
 // 国際化(i18n)
-import '../libs/i18n.ts';
+import '../libs/i18n';
 import { useTranslation } from 'react-i18next';
 
 const SHOW_TAKE_PHOTO = true; // 写真撮影ボタンを表示するか？
@@ -26,6 +26,7 @@ interface Camera03ControlsProps {
   showTakePhoto: boolean; // 写真撮影ボタンを表示するか？
   showRecording: boolean; // 録画開始・録画停止ボタンを表示するか？
   showCameraSwitch: boolean; // カメラ切り替えボタンを表示するか？
+  showCodeReader: boolean; // コードリーダーを表示するか？
   toggleCodeReader: () => void; // コードリーダーを切り替える
   showCodes: boolean; // コードを表示するか？
   enableCodeReader: boolean; // コードリーダーを有効にするか？
@@ -35,7 +36,7 @@ interface Camera03ControlsProps {
 };
 
 // カメラCamera03のコントロール パネル (Camera03Controls) 本体
-const Camera03Controls: React.FC<Camera03ControlsProps> = ({
+const Camera03Controls = React.forwardRef<HTMLDivElement, Camera03ControlsProps>(({
   isRecording,
   takePhoto,
   startRecording,
@@ -51,10 +52,10 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
   enableTakePhoto = true,
   enableRecording = true,
   enableCameraSwitch = true,
-}) => {
+}, ref) => {
   const { t } = useTranslation(); // 翻訳用
   return (
-    <div style={{
+    <div ref={ref} style={{
         position: 'absolute',
         bottom: '8px',
         left: '50%',
@@ -129,6 +130,8 @@ const Camera03Controls: React.FC<Camera03ControlsProps> = ({
       )}
     </div>
   );
-};
+});
+
+Camera03Controls.displayName = 'Camera03Controls';
 
 export default Camera03Controls;
