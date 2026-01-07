@@ -96,7 +96,7 @@ interface CanvasWithWebcam03Props {
   showConfig?: boolean;
   showCodeReader?: boolean;
   doConfig?: (() => void) | null;
-  onImageProcess: (data: ImageProcessData) => void;
+  onImageProcess?: (data: ImageProcessData) => void;
   dummyImageSrc?: string | null;
   width?: string;
   height?: string;
@@ -194,17 +194,21 @@ export const onDefaultImageProcess = async (data: ImageProcessData) => {
   let maxxy = Math.max(width, height);
   let avgxy = (width + height) / 2;
 
-  if (ENABLE_CODE_READER && showCodes) {
+  if (ENABLE_CODE_READER && showCodes && qrResultsRef) {
     const now = Date.now();
     if (now - lastScanTime > SCAN_INTERVAL) {
       lastScanTime = now;
       // 非同期で実行し、結果が得られたら qrResults を更新する
       CodeReader.scanMultiple(canvas).then(results => {
-        qrResultsRef.current = results;
+        if (qrResultsRef) {
+          qrResultsRef.current = results;
+        }
       });
     }
 
-    CodeReader.drawAllBoxes(ctx, qrResultsRef.current, minxy);
+    if (qrResultsRef) {
+      CodeReader.drawAllBoxes(ctx, qrResultsRef.current, minxy);
+    }
   }
 
   if (SHOW_SHAPES && width > 2 && height > 2) { // ちょっと図形を描いてみるか？
@@ -375,7 +379,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, []);
 
   // ダブルタップを検出する
-  const handleTouchStartForDoubleTap = useCallback((e: React.TouchEvent) => {
+  const handleTouchStartForDoubleTap = useCallback((e: TouchEvent) => {
     console.log('handleTouchStartForDoubleTap');
     e.preventDefault();
 
@@ -639,7 +643,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       onImageProcess({
         x: 0, y: 0, width: canvas.width, height: canvas.height,
         src, srcWidth, srcHeight,
-        video: video,
+        video: video || undefined,
         canvas: canvas,
         currentZoom: zoomRef.current,
         offset: offsetRef.current,
@@ -881,14 +885,14 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
   }, [clampZoomWithResistance, clampPan]);
 
   // マウスのボタンが押された／タッチが開始された
-  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleMouseDown = (e: MouseEvent | TouchEvent) => {
     //console.log('handleMouseDown');
     if (!ENABLE_USER_PANNING && !ENABLE_USER_ZOOMING) return;
 
     if (ENABLE_USER_ZOOMING && ('touches' in e) && e.touches.length === 2) {
       // ピンチ操作開始
       isDragging.current = false; // パンを優先させない
-      // Convert React.TouchList to array for getDistance
+      // Convert TouchList to array for getDistance
       const touchArray = Array.from(e.touches) as unknown as TouchList;
       initialPinchDistance.current = getDistance(touchArray);
       initialZoomAtPinchStart.current = zoomRef.current;
@@ -905,10 +909,10 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     // 1本指ならパン操作へ
 
     if (USE_MIDDLE_BUTTON_FOR_PANNING && !('touches' in e)) {
-      if ((e as React.MouseEvent).button != 1) return; // 中央ボタン？
+      if ((e as MouseEvent).button != 1) return; // 中央ボタン？
     }
 
-    if ('button' in e && e.button == 2) return; // 右ボタンは無視
+    if ('button' in e && (e as MouseEvent).button == 2) return; // 右ボタンは無視
 
     isDragging.current = true;
     const pos = 'touches' in e ? e.touches[0] : e;
@@ -1115,7 +1119,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
 
   // 本当の facingMode (前面・背面)を返す
   const getRealFacingMode = useCallback((): string | null => {
-    return webcamRef.current?.getRealFacingMode();
+    return webcamRef.current?.getRealFacingMode() ?? null;
   }, []);
 
   // カメラが実際に準備できた時の最終判定
@@ -1123,9 +1127,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
     console.log('onUserMediaBridge');
     setIsInitialized(true);
     setErrorString('');
-    console.log(canvasRef.current.width, canvasRef.current.height);
+    if (canvasRef.current) {
+      console.log(canvasRef.current.width, canvasRef.current.height);
+    }
 
-    const actualMode = webcamRef.current.getRealFacingMode();
+    const actualMode = webcamRef.current?.getRealFacingMode();
     if (actualMode) {
       console.log('actualMode:', actualMode);
       if (autoMirror && webcamRef.current) {
@@ -1427,12 +1433,11 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
               showTakePhoto={SHOW_TAKE_PHOTO && showTakePhoto}
               showRecording={SHOW_RECORDING && showRecording}
               showCameraSwitch={ENABLE_CAMERA_SWITCH && showCameraSwitch}
-              showConfig={SHOW_CONFIG && showConfig}
               showCodeReader={ENABLE_CODE_READER && showCodeReader}
-              enableTakePhoto={!errorString && cameraPermission !== 'denied'}
-              enableRecording={!errorString && cameraPermission !== 'denied'}
-              enableCameraSwitch={!errorString && cameraPermission !== 'denied'}
-              enableCodeReader={!errorString && cameraPermission !== 'denied'}
+              enableTakePhoto={!errorString && (cameraPermission as PermissionStatusValue) !== 'denied'}
+              enableRecording={!errorString && (cameraPermission as PermissionStatusValue) !== 'denied'}
+              enableCameraSwitch={!errorString && (cameraPermission as PermissionStatusValue) !== 'denied'}
+              enableCodeReader={!errorString && (cameraPermission as PermissionStatusValue) !== 'denied'}
               toggleCodeReader={toggleCodeReader}
               showCodes={ENABLE_CODE_READER && isCodeReaderON}
               aria-label={t('camera_controls')}
