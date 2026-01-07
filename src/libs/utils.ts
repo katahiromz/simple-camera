@@ -261,9 +261,11 @@ export const isPointInPolygon = (point: {x: number, y: number}, polygon: {x: num
 };
 
 // タッチ距離を計算
-export const getDistance = (touches: TouchList) => {
-  const dx = touches[0].clientX - touches[1].clientX;
-  const dy = touches[0].clientY - touches[1].clientY;
+export const getDistance = (touches: TouchList | Touch[]) => {
+  const touch0 = touches[0];
+  const touch1 = touches[1];
+  const dx = touch0.clientX - touch1.clientX;
+  const dy = touch0.clientY - touch1.clientY;
   return Math.sqrt(dx * dx + dy * dy);
 };
 

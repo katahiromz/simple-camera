@@ -893,8 +893,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       // ピンチ操作開始
       isDragging.current = false; // パンを優先させない
       // Convert TouchList to array for getDistance
-      const touchArray = Array.from(e.touches) as unknown as TouchList;
-      initialPinchDistance.current = getDistance(touchArray);
+      initialPinchDistance.current = getDistance(Array.from(e.touches));
       initialZoomAtPinchStart.current = zoomRef.current;
 
       // 二本指の中間点を初期位置として保存
@@ -934,8 +933,7 @@ const CanvasWithWebcam03 = forwardRef<CanvasWithWebcam03Handle, CanvasWithWebcam
       e.preventDefault();
 
       // --- ズーム計算 ---
-      const touchArray = Array.from(e.touches) as unknown as TouchList;
-      const currentDistance = getDistance(touchArray);
+      const currentDistance = getDistance(Array.from(e.touches));
       const pinchScale = currentDistance / initialPinchDistance.current;
       const oldZoom = zoomRef.current;
       const newZoom = clampZoomWithResistance(initialZoomAtPinchStart.current * pinchScale);
