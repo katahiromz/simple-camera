@@ -66,7 +66,7 @@ export class CodeReader {
       });
 
       // 結果を変換
-      return results.map(result => {
+      return results.map((result: any) => {
         // zxing-wasmの座標を取得
         const position = result.position;
         const points = [

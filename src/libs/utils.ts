@@ -116,12 +116,14 @@ export const playSound = (audio: HTMLAudioElement | null) => {
   try {
     audio?.addEventListener('ended', (event) => { // 再生終了時
       // 可能ならばシステム音量を元に戻す
-      if (isAndroidApp)
+      if (isAndroidApp && window.android)
         window.android.onEndShutterSound();
     }, { once: true });
     // 再生位置をリセットしてから再生
-    audio.currentTime = 0;
-    audio.play();
+    if (audio) {
+      audio.currentTime = 0;
+      audio.play();
+    }
   } catch (error) {
     console.warn('sound playback failed:', error);
   }
@@ -152,15 +154,18 @@ export const saveMediaEx = (blob: Blob, fileName: string, mimeType: string, type
   reader.onloadend = () => {
     console.log("reader.onloadend");
     const result = reader.result;
-    const base64data = result.substr(result.indexOf('base64,') + 7);
+    if (!result || typeof result !== 'string') return;
+    const base64data = result.substring(result.indexOf('base64,') + 7);
     // Kotlin側の関数を呼び出す
     try {
-      window.android.saveMediaToGallery(base64data, fileName, mimeType, type);
+      if (window.android) {
+        window.android.saveMediaToGallery(base64data, fileName, mimeType, type);
+      }
       console.log(`Saved ${type}:`, fileName);
     } catch (error) {
       console.assert(false);
       console.error('android インタフェース呼び出しエラー:', error);
-      saveMedia(blob, fileName);
+      saveMedia(blob, fileName, mimeType, type);
     }
   };
   reader.readAsDataURL(blob); // BlobをBase64に変換
@@ -252,7 +257,7 @@ export const isPointInPolygon = (point: {x: number, y: number}, polygon: {x: num
 };
 
 // タッチ距離を計算
-export const getDistance = (touches: React.TouchList | TouchList) => {
+export const getDistance = (touches: TouchList) => {
   const dx = touches[0].clientX - touches[1].clientX;
   const dy = touches[0].clientY - touches[1].clientY;
   return Math.sqrt(dx * dx + dy * dy);

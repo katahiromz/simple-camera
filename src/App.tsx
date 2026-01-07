@@ -3,7 +3,7 @@
 // License: MIT
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import CanvasWithWebcam03 from './components/CanvasWithWebcam03';
-import { isAndroidApp, emulateInsets, saveMedia, saveMediaEx, polyfillGetUserMedia } from './libs/utils.ts';
+import { isAndroidApp, emulateInsets, saveMedia, saveMediaEx, polyfillGetUserMedia } from './libs/utils';
 import './App.css';
 
 const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
@@ -11,7 +11,7 @@ const SHOW_CONFIG = true; // 設定ボタンを表示するか？
 const ENABLE_CONFIG = true; // 設定を有効にするか？
 
 // 国際化(i18n)
-import './libs/i18n.ts';
+import './libs/i18n';
 import { useTranslation } from 'react-i18next';
 
 // アプリケーションのベースパスを取得
@@ -40,7 +40,7 @@ polyfillGetUserMedia();
 // アプリ
 function App() {
   const { t } = useTranslation(); // 翻訳用
-  const canvasWithCamera = useRef<CanvasWithWebcam03>(null);
+  const canvasWithCamera = useRef<React.ElementRef<typeof CanvasWithWebcam03>>(null);
 
   // 設定をする
   const doConfig = () => {
@@ -153,7 +153,7 @@ function App() {
 
   // メッセージを処理する
   useEffect(() => {
-    const onMessage = (e) => {
+    const onMessage = (e: MessageEvent) => {
       switch (e.data) {
       case 'go_back': // Android標準の「戻る」ボタンをサポートする。
         if (window.android) {

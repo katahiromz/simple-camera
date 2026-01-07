@@ -8,7 +8,7 @@ import React, { useRef, useState, useCallback } from 'react';
 import { Camera, Video, Square, AlertCircle, SwitchCamera, Settings, QrCode  } from 'lucide-react';
 
 // 国際化(i18n)
-import '../libs/i18n.ts';
+import '../libs/i18n';
 import { useTranslation } from 'react-i18next';
 
 const SHOW_TAKE_PHOTO = true; // 写真撮影ボタンを表示するか？
