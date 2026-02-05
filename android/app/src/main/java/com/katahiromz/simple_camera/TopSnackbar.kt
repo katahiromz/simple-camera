@@ -281,12 +281,13 @@ object TopSnackbar {
         })
 
         view.setOnTouchListener { v, event ->
-            // ボタンなどの子要素がタッチを処理した場合はスワイプ処理をしない
-            if (v.onGenericMotionEvent(event)) {
-                return@setOnTouchListener false
+            // ボタンなどのクリック可能な子ビューへのタッチかチェック
+            if (v is ViewGroup && isTouchOnClickableChild(v, event)) {
+                return@setOnTouchListener false  // 子ビューに処理を委譲
             }
-            // Otherwise, pass to gesture detector for swipe-to-dismiss
-            gestureDetector.onTouchEvent(event)
+            // スワイプジェスチャーの処理
+            val handled = gestureDetector.onTouchEvent(event)
+            handled  // 戻り値を明示的に返す
         }
     }
 

@@ -19,3 +19,7 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# TopSnackbarのアクションボタンが動作しないので対策
+-keep class com.katahiromz.simple_camera.TopSnackbar { *; }
+-keepclassmembers class com.katahiromz.simple_camera.TopSnackbar$** { *; }
