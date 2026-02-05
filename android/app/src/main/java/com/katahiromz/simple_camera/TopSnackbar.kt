@@ -9,6 +9,7 @@ import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Context
 import android.graphics.Color
 import android.view.GestureDetector
 import android.view.Gravity
@@ -57,6 +58,90 @@ object TopSnackbar {
     private var currentActivity: Activity? = null
 
     /**
+     * Custom FrameLayout that handles swipe gestures while allowing child views
+     * (like buttons) to receive touch events properly.
+     */
+    private class SwipeableFrameLayout(context: Context) : FrameLayout(context) {
+        private var gestureDetector: GestureDetector? = null
+        private var onSwipeListener: ((SwipeDirection) -> Unit)? = null
+        
+        // スワイプ検出の初期位置
+        private var initialX = 0f
+        private var initialY = 0f
+        private var isSwiping = false
+        
+        /**
+         * Set the gesture detector for swipe detection.
+         */
+        fun setGestureDetector(detector: GestureDetector) {
+            this.gestureDetector = detector
+        }
+        
+        /**
+         * Set the swipe callback listener.
+         */
+        fun setOnSwipeListener(listener: (SwipeDirection) -> Unit) {
+            this.onSwipeListener = listener
+        }
+        
+        /**
+         * Intercept touch events to determine if we should handle swipe gestures
+         * or let child views (buttons) handle clicks.
+         */
+        override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+            when (ev.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    // タッチ開始位置を記録
+                    initialX = ev.x
+                    initialY = ev.y
+                    isSwiping = false
+                    
+                    // GestureDetectorに通知（onDownを呼ぶため）
+                    gestureDetector?.onTouchEvent(ev)
+                    
+                    // まだインターセプトしない（子ビューにチャンスを与える）
+                    return false
+                }
+                
+                MotionEvent.ACTION_MOVE -> {
+                    // 移動距離を計算
+                    val deltaX = ev.x - initialX
+                    val deltaY = ev.y - initialY
+                    val distance = Math.sqrt((deltaX * deltaX + deltaY * deltaY).toDouble())
+                    
+                    // 一定距離以上移動したらスワイプと判定
+                    if (distance > SWIPE_THRESHOLD && !isSwiping) {
+                        isSwiping = true
+                        Timber.d("SwipeableFrameLayout: Swipe detected, intercepting")
+                        // この時点でタッチイベントをインターセプト
+                        return true
+                    }
+                    
+                    return isSwiping
+                }
+                
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    isSwiping = false
+                    return false
+                }
+            }
+            
+            return false
+        }
+        
+        /**
+         * Handle touch events that we've intercepted (swipe gestures).
+         */
+        override fun onTouchEvent(event: MotionEvent): Boolean {
+            // GestureDetectorに処理を委譲
+            val handled = gestureDetector?.onTouchEvent(event) ?: false
+            
+            // スワイプ中またはGestureDetectorが処理した場合はtrue
+            return isSwiping || handled
+        }
+    }
+
+    /**
      * Show a TopSnackbar notification.
      *
      * @param activity The activity to display the snackbar in
@@ -92,9 +177,6 @@ object TopSnackbar {
             // Set initial position (hidden above screen)
             snackbarView.translationY = SLIDE_DISTANCE
             snackbarView.alpha = 0f
-
-            // Add swipe gesture support
-            setupSwipeGesture(snackbarView)
 
             // Add to root view
             rootView.addView(snackbarView)
@@ -226,12 +308,116 @@ object TopSnackbar {
     }
 
     /**
-     * Setup swipe gesture detection for dismiss.
+     * Swipe direction enum.
      */
-    private fun setupSwipeGesture(view: View) {
-        var hasMoved = false
-        var downX = 0f
-        var downY = 0f
+    private enum class SwipeDirection {
+        UP, LEFT, RIGHT
+    }
+
+    /**
+     * Create the snackbar view layout programmatically.
+     */
+    private fun createSnackbarView(
+        activity: Activity,
+        message: String,
+        actionLabel: String?,
+        action: (() -> Unit)?
+    ): View {
+        // カスタムViewGroupを使用（通常のFrameLayoutの代わり）
+        val swipeableContainer = SwipeableFrameLayout(activity).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.TOP
+            }
+        }
+        
+        // 内部コンテナ（メッセージとボタンを含む）
+        val container = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.parseColor(SNACKBAR_BACKGROUND_COLOR))
+            elevation = 8f
+            setPadding(
+                dpToPx(activity, 16),
+                dpToPx(activity, 12),
+                dpToPx(activity, 8),
+                dpToPx(activity, 12)
+            )
+            
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        // Message text
+        val messageText = TextView(activity).apply {
+            text = message
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            ).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            contentDescription = message
+        }
+
+        container.addView(messageText)
+
+        // Optional action button
+        if (actionLabel != null && action != null) {
+            val actionButton = Button(activity).apply {
+                text = actionLabel
+                setTextColor(Color.parseColor(ACTION_BUTTON_COLOR))
+                background = null
+                textSize = 14f
+                isAllCaps = true
+                setPadding(
+                    dpToPx(activity, 16),
+                    dpToPx(activity, 8),
+                    dpToPx(activity, 16),
+                    dpToPx(activity, 8)
+                )
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                contentDescription = actionLabel
+                
+                // クリックリスナー
+                setOnClickListener {
+                    Timber.d("TopSnackbar: Action button clicked")
+                    try {
+                        action.invoke()
+                        dismissWithAnimation()
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error executing TopSnackbar action")
+                    }
+                }
+            }
+
+            container.addView(actionButton)
+        }
+        
+        // コンテナをSwipeableFrameLayoutに追加
+        swipeableContainer.addView(container)
+        
+        // スワイプジェスチャーのセットアップ
+        setupSwipeGestureForCustomView(swipeableContainer)
+
+        return swipeableContainer
+    }
+
+    /**
+     * Setup swipe gesture detection for the custom SwipeableFrameLayout.
+     */
+    private fun setupSwipeGestureForCustomView(view: SwipeableFrameLayout) {
         val gestureDetector = GestureDetector(view.context, object : GestureDetector.SimpleOnGestureListener() {
             override fun onFling(
                 e1: MotionEvent?,
@@ -244,7 +430,8 @@ object TopSnackbar {
                 val diffX = e2.x - startEvent.x
                 val diffY = e2.y - startEvent.y
 
-                Timber.d("TopSnackbar onFling diffX=%.1f diffY=%.1f vX=%.1f vY=%.1f", diffX, diffY, velocityX, velocityY)
+                Timber.d("TopSnackbar onFling diffX=%.1f diffY=%.1f vX=%.1f vY=%.1f", 
+                    diffX, diffY, velocityX, velocityY)
 
                 // Check if swipe distance exceeds threshold
                 if (abs(diffX) > SWIPE_THRESHOLD || abs(diffY) > SWIPE_THRESHOLD) {
@@ -274,160 +461,18 @@ object TopSnackbar {
                 return false
             }
 
-            // onDownを追加: ACTION_DOWNで必ずtrueを返し、ジェスチャー検知の初期化と後続イベントの処理を保証する
             override fun onDown(e: MotionEvent): Boolean {
                 return true
             }
         })
-
-        view.setOnTouchListener { v, event ->
-            // ボタンなどのクリック可能な子ビューへのタッチかチェック
-            if (v is ViewGroup && isTouchOnClickableChild(v, event)) {
-                return@setOnTouchListener false  // 子ビューに処理を委譲
-            }
-            // スワイプジェスチャーの処理
-            val handled = gestureDetector.onTouchEvent(event)
-            handled  // 戻り値を明示的に返す
+        
+        // GestureDetectorをカスタムビューに設定
+        view.setGestureDetector(gestureDetector)
+        
+        // スワイプリスナーを設定（オプション）
+        view.setOnSwipeListener { direction ->
+            dismissWithSwipe(view, direction)
         }
-    }
-
-    /**
-     * Check if a touch event is within the bounds of any clickable child view.
-     *
-     * @param viewGroup The parent ViewGroup to check for clickable children
-     * @param event The touch event containing coordinates
-     * @return true if the touch is within a clickable child's bounds, false otherwise
-     */
-    private fun isTouchOnClickableChild(viewGroup: ViewGroup, event: MotionEvent): Boolean {
-        val x = event.x
-        val y = event.y
-
-        for (i in 0 until viewGroup.childCount) {
-            val child = viewGroup.getChildAt(i)
-            
-            // Check if child is clickable (e.g., Button)
-            if (child.isClickable) {
-                // Use child.left/top for efficient relative position calculation
-                val childLeft = child.left.toFloat()
-                val childTop = child.top.toFloat()
-                val childRight = childLeft + child.width
-                val childBottom = childTop + child.height
-
-                // Check if touch is within child bounds
-                if (x >= childLeft && x < childRight &&
-                    y >= childTop && y < childBottom) {
-                    return true
-                }
-            }
-
-            // Recursively check if the child is a ViewGroup with clickable children
-            if (child is ViewGroup) {
-                // Adjust event coordinates relative to the child ViewGroup
-                val childX = x - child.left
-                val childY = y - child.top
-                val childEvent = MotionEvent.obtain(event)
-                childEvent.setLocation(childX, childY)
-                
-                if (isTouchOnClickableChild(child, childEvent)) {
-                    childEvent.recycle()
-                    return true
-                }
-                childEvent.recycle()
-            }
-        }
-
-        return false
-    }
-
-    /**
-     * Swipe direction enum.
-     */
-    private enum class SwipeDirection {
-        UP, LEFT, RIGHT
-    }
-
-    /**
-     * Create the snackbar view layout programmatically.
-     */
-    private fun createSnackbarView(
-        activity: Activity,
-        message: String,
-        actionLabel: String?,
-        action: (() -> Unit)?
-    ): View {
-        // Container with dark background (similar to Snackbar)
-        val container = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.parseColor(SNACKBAR_BACKGROUND_COLOR))
-            elevation = 8f
-            setPadding(
-                dpToPx(activity, 16),
-                dpToPx(activity, 12),
-                dpToPx(activity, 8),
-                dpToPx(activity, 12)
-            )
-
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.TOP
-            }
-        }
-
-        // Message text
-        val messageText = TextView(activity).apply {
-            text = message
-            setTextColor(Color.WHITE)
-            textSize = 14f
-            layoutParams = LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f
-            ).apply {
-                gravity = Gravity.CENTER_VERTICAL
-            }
-            contentDescription = message // Accessibility support
-        }
-
-        container.addView(messageText)
-
-        // Optional action button
-        if (actionLabel != null && action != null) {
-            val actionButton = Button(activity).apply {
-                text = actionLabel
-                setTextColor(Color.parseColor(ACTION_BUTTON_COLOR)) // Light blue
-                background = null // Borderless button
-                textSize = 14f
-                isAllCaps = true
-                setPadding(
-                    dpToPx(activity, 16),
-                    dpToPx(activity, 8),
-                    dpToPx(activity, 16),
-                    dpToPx(activity, 8)
-                )
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    gravity = Gravity.CENTER_VERTICAL
-                }
-                contentDescription = actionLabel // Accessibility support
-
-                setOnClickListener {
-                    try {
-                        action.invoke()
-                        dismissWithAnimation()
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error executing TopSnackbar action")
-                    }
-                }
-            }
-
-            container.addView(actionButton)
-        }
-
-        return container
     }
 
     /**
