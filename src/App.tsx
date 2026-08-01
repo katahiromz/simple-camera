@@ -4,7 +4,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import CanvasWithWebcam03 from './components/CanvasWithWebcam03';
 import TopSnackbarWeb from './components/TopSnackbarWeb';
-import { canAccessOpenUrl, getDownloadCompleteEventName, isAndroidApp, emulateInsets, saveMedia, saveMediaEx, polyfillGetUserMedia } from './libs/utils';
+import { getDownloadCompleteEventName, isAndroidApp, emulateInsets, saveMedia, saveMediaEx, polyfillGetUserMedia } from './libs/utils';
 import './App.css';
 
 const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
@@ -42,7 +42,7 @@ polyfillGetUserMedia();
 function App() {
   const { t } = useTranslation(); // 翻訳用
   const canvasWithCamera = useRef<React.ElementRef<typeof CanvasWithWebcam03>>(null);
-  const [downloadNotice, setDownloadNotice] = useState<{ message: string; openUrl?: string | null } | null>(null);
+  const [downloadNotice, setDownloadNotice] = useState<{ message: string } | null>(null);
 
   // 設定をする
   const doConfig = () => {
@@ -206,8 +206,8 @@ function App() {
 
   useEffect(() => {
     const eventName = getDownloadCompleteEventName();
-    const handleDownloadComplete = async (event: Event) => {
-      const detail = (event as CustomEvent<{ type: 'video' | 'photo' | 'audio'; openUrl?: string | null }>).detail;
+    const handleDownloadComplete = (event: Event) => {
+      const detail = (event as CustomEvent<{ type: 'video' | 'photo' | 'audio' }>).detail;
       if (!detail?.type)
         return;
 
@@ -220,8 +220,7 @@ function App() {
         message = t('camera_audio_saved');
       }
 
-      const openUrl = (await canAccessOpenUrl(detail.openUrl)) ? detail.openUrl : null;
-      setDownloadNotice({ message, openUrl });
+      setDownloadNotice({ message });
     };
 
     window.addEventListener(eventName, handleDownloadComplete);
@@ -229,32 +228,16 @@ function App() {
   }, [t]);
 
   const closeDownloadNotice = useCallback(() => {
-    setDownloadNotice((prev) => {
-      if (prev?.openUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(prev.openUrl);
-      }
-      return null;
-    });
+    setDownloadNotice(null);
   }, []);
-
-  const openDownloadedFile = useCallback(() => {
-    if (!downloadNotice?.openUrl)
-      return;
-    if (window.android && typeof window.android.openURL === 'function') {
-      window.android.openURL(downloadNotice.openUrl);
-    } else {
-      window.open(downloadNotice.openUrl, '_blank', 'noopener,noreferrer');
-    }
-    closeDownloadNotice();
-  }, [closeDownloadNotice, downloadNotice]);
 
   return (
     <>
       {downloadNotice ? (
         <TopSnackbarWeb
           message={downloadNotice.message}
-          actionLabel={downloadNotice.openUrl ? t('camera_open_file') : null}
-          onAction={downloadNotice.openUrl ? openDownloadedFile : null}
+          actionLabel={null}
+          onAction={null}
           onClose={closeDownloadNotice}
         />
       ) : null}
