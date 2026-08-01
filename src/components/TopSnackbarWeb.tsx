@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 interface TopSnackbarWebProps {
   message: string;
@@ -10,15 +10,22 @@ interface TopSnackbarWebProps {
 const SWIPE_DISTANCE_THRESHOLD = 60;
 const SWIPE_DIRECTION_RATIO = 1.2;
 const AUTO_DISMISS_MILLIS = 3000;
+const DISMISS_ANIMATION_MILLIS = 250;
 
 const TopSnackbarWeb: React.FC<TopSnackbarWebProps> = ({ message, actionLabel = null, onAction = null, onClose }) => {
   const startXRef = useRef(0);
   const startYRef = useRef(0);
+  const [dismissing, setDismissing] = useState(false);
+
+  const dismiss = useCallback(() => {
+    setDismissing(true);
+    window.setTimeout(onClose, DISMISS_ANIMATION_MILLIS);
+  }, [onClose]);
 
   useEffect(() => {
-    const timer = window.setTimeout(onClose, AUTO_DISMISS_MILLIS);
+    const timer = window.setTimeout(dismiss, AUTO_DISMISS_MILLIS);
     return () => window.clearTimeout(timer);
-  }, [onClose]);
+  }, [dismiss]);
 
   const onTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     const touch = event.touches[0];
@@ -34,17 +41,17 @@ const TopSnackbarWeb: React.FC<TopSnackbarWebProps> = ({ message, actionLabel = 
     const absY = Math.abs(diffY);
 
     if (absY >= SWIPE_DISTANCE_THRESHOLD && absY > absX * SWIPE_DIRECTION_RATIO && diffY < 0) {
-      onClose();
+      dismiss();
       return;
     }
     if (absX >= SWIPE_DISTANCE_THRESHOLD && absX > absY * SWIPE_DIRECTION_RATIO) {
-      onClose();
+      dismiss();
     }
   };
 
   return (
     <div
-      className="top-snackbar-web"
+      className={`top-snackbar-web${dismissing ? ' top-snackbar-web--dismissing' : ''}`}
       role="status"
       aria-live="polite"
       onTouchStart={onTouchStart}
@@ -57,7 +64,7 @@ const TopSnackbarWeb: React.FC<TopSnackbarWebProps> = ({ message, actionLabel = 
             {actionLabel}
           </button>
         ) : null}
-        <button className="top-snackbar-web__close" onClick={onClose} aria-label="Close">
+        <button className="top-snackbar-web__close" onClick={dismiss} aria-label="Close">
           ×
         </button>
       </div>
