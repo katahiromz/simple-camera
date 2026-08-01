@@ -3,7 +3,8 @@
 // License: MIT
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import CanvasWithWebcam03 from './components/CanvasWithWebcam03';
-import { isAndroidApp, emulateInsets, saveMedia, saveMediaEx, polyfillGetUserMedia } from './libs/utils';
+import TopSnackbarWeb from './components/TopSnackbarWeb';
+import { getDownloadCompleteEventName, isAndroidApp, emulateInsets, saveMedia, saveMediaEx, polyfillGetUserMedia } from './libs/utils';
 import './App.css';
 
 const IS_PRODUCTION = import.meta.env.MODE === 'production'; // 製品版か？
@@ -41,6 +42,7 @@ polyfillGetUserMedia();
 function App() {
   const { t } = useTranslation(); // 翻訳用
   const canvasWithCamera = useRef<React.ElementRef<typeof CanvasWithWebcam03>>(null);
+  const [downloadNotice, setDownloadNotice] = useState<{ message: string } | null>(null);
 
   // 設定をする
   const doConfig = () => {
@@ -202,22 +204,59 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    const eventName = getDownloadCompleteEventName();
+    const handleDownloadComplete = (event: Event) => {
+      const detail = (event as CustomEvent<{ type: 'video' | 'photo' | 'audio' }>).detail;
+      if (!detail?.type)
+        return;
+
+      let message = '';
+      if (detail.type === 'video') {
+        message = t('camera_video_saved');
+      } else if (detail.type === 'photo') {
+        message = t('camera_photo_saved');
+      } else if (detail.type === 'audio') {
+        message = t('camera_audio_saved');
+      }
+
+      setDownloadNotice({ message });
+    };
+
+    window.addEventListener(eventName, handleDownloadComplete);
+    return () => window.removeEventListener(eventName, handleDownloadComplete);
+  }, [t]);
+
+  const closeDownloadNotice = useCallback(() => {
+    setDownloadNotice(null);
+  }, []);
+
   return (
-    <CanvasWithWebcam03
-      ref={canvasWithCamera}
-      width="100%"
-      height="100%"
-      shutterSoundUrl={shutterSoundUrl}
-      videoStartSoundUrl={videoStartSoundUrl}
-      videoCompleteSoundUrl={videoCompleteSoundUrl}
-      downloadFile={isAndroidApp ? saveMediaEx : saveMedia}
-      eventTarget={document.body}
-      autoMirror={false}
-      dummyImageSrc={ USE_DUMMY_IMAGE ? dummyImageUrl : null }
-      showConfig={SHOW_CONFIG}
-      doConfig={doConfig}
-      aria-label={t('camera_app')}
-    />
+    <>
+      {downloadNotice ? (
+        <TopSnackbarWeb
+          message={downloadNotice.message}
+          actionLabel={null}
+          onAction={null}
+          onClose={closeDownloadNotice}
+        />
+      ) : null}
+      <CanvasWithWebcam03
+        ref={canvasWithCamera}
+        width="100%"
+        height="100%"
+        shutterSoundUrl={shutterSoundUrl}
+        videoStartSoundUrl={videoStartSoundUrl}
+        videoCompleteSoundUrl={videoCompleteSoundUrl}
+        downloadFile={isAndroidApp ? saveMediaEx : saveMedia}
+        eventTarget={document.body}
+        autoMirror={false}
+        dummyImageSrc={ USE_DUMMY_IMAGE ? dummyImageUrl : null }
+        showConfig={SHOW_CONFIG}
+        doConfig={doConfig}
+        aria-label={t('camera_app')}
+      />
+    </>
   );
 }
 
