@@ -5,7 +5,6 @@
 
 package com.katahiromz.simple_camera
 
-import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.text.InputType
@@ -23,7 +22,6 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import timber.log.Timber
 import java.util.Locale
@@ -211,41 +209,6 @@ class CustomWebChromeClient(
         }
     }
 
-    // TopSnackbarを表示してファイルを開くアクションを提供するヘルパーメソッド
-    private fun showFileOpenSnackbar(currentActivity: MainActivity, uri: Uri, messageResId: Int, mimeType: String) {
-        Timber.i("showFileOpenSnackbar")
-        currentActivity.runOnUiThread {
-            try {
-                val message = currentActivity.getString(messageResId)
-                val actionLabel = currentActivity.getString(R.string.open_file)
-                TopSnackbar.show(
-                    currentActivity,
-                    message,
-                    actionLabel,
-                    {
-                        try {
-                            val openIntent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(uri, mimeType)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            // アプリが利用可能かチェック
-                            if (openIntent.resolveActivity(currentActivity.packageManager) != null) {
-                                currentActivity.startActivity(openIntent)
-                            } else {
-                                Timber.w("No app available to open file of type: $mimeType")
-                            }
-                        } catch (e: Exception) {
-                            Timber.e(e, "Failed to open file")
-                        }
-                    }
-                )
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to show TopSnackbar")
-            }
-        }
-    }
-
     // 画像または動画をギャラリーに保存する
     @JavascriptInterface
     fun saveMediaToGallery(
@@ -338,22 +301,6 @@ class CustomWebChromeClient(
                 outputStream.write(mediaBytes)
             }
 
-            // Snackbarを表示
-            when (type) {
-                "video" -> {
-                    showFileOpenSnackbar(currentActivity, uri!!, R.string.video_saved, "video/*")
-                }
-                "photo" -> {
-                    showFileOpenSnackbar(currentActivity, uri!!, R.string.image_saved, "image/*")
-                }
-                "audio" -> {
-                    showFileOpenSnackbar(currentActivity, uri!!, R.string.audio_saved, "audio/*")
-                }
-                else -> {
-                    assert(false)
-                }
-            }
-
             return true
         } else {
             // Android 9以前: 従来の方法
@@ -384,15 +331,6 @@ class CustomWebChromeClient(
                 arrayOf(mimeType),
                 null
             )
-
-            // Snackbarを表示
-            val uri = android.net.Uri.fromFile(file)
-            when (type) {
-                "video" -> showFileOpenSnackbar(currentActivity, uri, R.string.video_saved, "video/*")
-                "photo" -> showFileOpenSnackbar(currentActivity, uri, R.string.image_saved, "image/*")
-                "audio" -> showFileOpenSnackbar(currentActivity, uri, R.string.audio_saved, "audio/*")
-                else -> assert(false)
-            }
 
             return true
         }

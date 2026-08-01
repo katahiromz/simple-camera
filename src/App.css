@@ -43,3 +43,57 @@ body {
   right: var(--safe-inset-right, 0px);
   bottom: var(--safe-inset-bottom, 0px);
 }
+
+.top-snackbar-web {
+  position: fixed;
+  top: var(--safe-inset-top, 0px);
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  min-height: 48px;
+  background: rgba(50, 50, 50, 0.96);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  animation: top-snackbar-web-in 0.2s ease-out;
+}
+
+.top-snackbar-web__message {
+  font-size: 14px;
+}
+
+.top-snackbar-web__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.top-snackbar-web__button,
+.top-snackbar-web__close {
+  font-size: 14px;
+  color: #64b5f6;
+  background: transparent;
+  border: none;
+  padding: 6px 10px;
+}
+
+.top-snackbar-web__close {
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+}
+
+@keyframes top-snackbar-web-in {
+  from {
+    transform: translateY(-24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

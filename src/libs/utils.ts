@@ -5,6 +5,36 @@
 // Android WebViewか？
 export const isAndroidApp = typeof window.android !== 'undefined';
 
+export type DownloadedMediaType = 'video' | 'photo' | 'audio';
+
+export interface DownloadCompleteDetail {
+  type: DownloadedMediaType;
+  openUrl?: string | null;
+}
+
+const DOWNLOAD_COMPLETE_EVENT_NAME = 'SimpleCameraDownloadComplete';
+
+export const dispatchDownloadComplete = (detail: DownloadCompleteDetail) => {
+  window.dispatchEvent(new CustomEvent<DownloadCompleteDetail>(DOWNLOAD_COMPLETE_EVENT_NAME, { detail }));
+};
+
+export const getDownloadCompleteEventName = () => DOWNLOAD_COMPLETE_EVENT_NAME;
+
+export const canAccessOpenUrl = async (url?: string | null) => {
+  if (!url)
+    return false;
+  try {
+    const parsed = new URL(url, window.location.href);
+    if (parsed.protocol === 'blob:') {
+      const response = await fetch(url);
+      return response.ok;
+    }
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+};
+
 // insetsをエミュレートする
 export const emulateInsets = () => {
   let custom = { top: 30, bottom: 30, left: 30, right: 30 };
@@ -137,17 +167,18 @@ export const clamp = (minValue: number, value: number, maxValue: number) => {
 };
 
 // ファイルを保存する
-export const saveMedia = (blob: Blob, fileName: string, mimeType: string, type: 'video' | 'photo' | 'audio') => {
+export const saveMedia = (blob: Blob, fileName: string, mimeType: string, type: DownloadedMediaType) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.download = fileName;
   link.href = url;
   link.click();
-  URL.revokeObjectURL(url);
+  dispatchDownloadComplete({ type, openUrl: url });
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 };
 
 // ファイルを保存する(拡張版)
-export const saveMediaEx = (blob: Blob, fileName: string, mimeType: string, type: 'video' | 'photo' | 'audio') => {
+export const saveMediaEx = (blob: Blob, fileName: string, mimeType: string, type: DownloadedMediaType) => {
   if (!isAndroidApp)
     return saveMedia(blob, fileName, mimeType, type);
   const reader = new FileReader();
@@ -161,6 +192,7 @@ export const saveMediaEx = (blob: Blob, fileName: string, mimeType: string, type
       if (window.android) {
         window.android.saveMediaToGallery(base64data, fileName, mimeType, type);
       }
+      dispatchDownloadComplete({ type });
       console.log(`Saved ${type}:`, fileName);
     } catch (error) {
       console.assert(false);
