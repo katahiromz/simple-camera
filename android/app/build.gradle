@@ -9,9 +9,9 @@ android {
     defaultConfig {
         applicationId "com.katahiromz.simple_camera"
         minSdkVersion 28
-        targetSdkVersion 35
-        versionCode 110
-        versionName "1.1.0"
+        targetSdkVersion 36
+        versionCode 111
+        versionName "1.1.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
